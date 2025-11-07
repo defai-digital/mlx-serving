@@ -34,3 +34,16 @@ export * from './types/index.js';
 
 // Phase 1: Zod Validation Schemas
 export * from './types/schemas/index.js';
+
+// MLX Model Downloader
+export {
+  MLXModelDownloader,
+  ModelDownloadError,
+  downloadModel,
+  listMLXModels,
+  type ModelInfo,
+  type MLXModelEntry,
+  type DownloadOptions,
+  type ListOptions,
+  type CacheOptions,
+} from './utils/model-downloader.js';

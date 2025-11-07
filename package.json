@@ -14,7 +14,8 @@
     }
   },
   "bin": {
-    "mlx-serving": "./dist/cli.js"
+    "mlx-serving": "./dist/cli.js",
+    "mlx-download": "./dist/cli/mlx-download.js"
   },
   "files": [
     "dist",
