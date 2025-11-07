@@ -1,5 +1,6 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
-import { Engine, createEngine } from '../../src/api/engine.js';
+import type { Engine } from '../../src/api/engine.js';
+import type { createEngine } from '../../src/api/engine.js';
 import {
   ENGINE_API_SNAPSHOT_VERSION,
   type EnginePublicAPI,
