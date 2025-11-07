@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { Engine } from '../../../src/types/index.js';
 import { hasVisionSupport } from '../../helpers/vision-support.js';
 import { getMlxSkipReason } from '../../helpers/model-availability.js';
+import { tagEngineTop20 } from '../../helpers/tags.js';
 
 describe('Vision Generation', () => {
   let engine: Engine;
@@ -47,7 +48,7 @@ describe('Vision Generation', () => {
     }
   });
 
-  it('should generate from image file path', async () => {
+  it(tagEngineTop20('should generate from image file path'), async () => {
     if (skipTests) {
       // eslint-disable-next-line no-console
       console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);
@@ -121,7 +122,7 @@ describe('Vision Generation', () => {
     expect(statsReceived).toBe(true);
   }, 180000);
 
-  it('should use snake_case alias', async () => {
+  it(tagEngineTop20('should use snake_case alias'), async () => {
     if (skipTests) {
       // eslint-disable-next-line no-console
       console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);

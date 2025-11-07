@@ -12,14 +12,34 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { PythonRunner } from '../../src/bridge/python-runner.js';
 import type { JsonRpcTransport } from '../../src/bridge/jsonrpc-transport.js';
 import { pino } from 'pino';
+import { getPythonRuntimeSkipReason } from '../helpers/python-runtime.js';
 
 describe('Security: Path Traversal Prevention', () => {
   let runner: PythonRunner;
   let runnerStarted = false;
   let transport: JsonRpcTransport;
   const logger = pino({ level: 'error' }); // Suppress logs for security tests
+  let skipTests = false;
+  let skipReason: string | null = null;
+
+  const shouldSkip = (): boolean => {
+    if (skipTests) {
+      // eslint-disable-next-line no-console
+      console.log(`Skipped: ${skipReason ?? 'Python runtime unavailable'}`);
+    }
+    return skipTests;
+  };
 
   beforeAll(async () => {
+    const pythonSkipReason = getPythonRuntimeSkipReason();
+    if (pythonSkipReason) {
+      skipTests = true;
+      skipReason = pythonSkipReason;
+      // eslint-disable-next-line no-console
+      console.warn(`\n⚠️  Skipping path traversal tests: ${pythonSkipReason}`);
+      return;
+    }
+
     runner = new PythonRunner({
       logger,
       verbose: false,
@@ -42,11 +62,17 @@ describe('Security: Path Traversal Prevention', () => {
       return;
     }
 
-    await runner.stop();
+    if (!skipTests) {
+      await runner.stop();
+    }
   });
 
   describe('CVE-2025-KRMLM-001: Path Traversal in model_id', () => {
     test('should block ../ in model_id', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: '../../etc/passwd',
@@ -55,6 +81,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block .. in model_id', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: 'models/../../../etc/passwd',
@@ -63,6 +93,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block special characters in model_id', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: 'model;rm -rf /',
@@ -71,6 +105,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block null bytes in model_id', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: 'model\x00/../../etc/passwd',
@@ -79,6 +117,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should allow valid model_id with slashes', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // This should fail with "model not found" rather than validation error
       await expect(
         transport.request('load_model', {
@@ -88,6 +130,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should allow valid model_id with hyphens and underscores', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: 'valid-model_123',
@@ -98,6 +144,10 @@ describe('Security: Path Traversal Prevention', () => {
 
   describe('CVE-2025-KRMLM-002: Path Traversal in local_path', () => {
     test('should block absolute paths in local_path', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: 'test-model',
@@ -109,6 +159,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block ../ in local_path', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: 'test-model',
@@ -118,6 +172,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block relative path escapes', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: 'test-model',
@@ -127,6 +185,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should allow valid relative paths within models directory', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // This should fail with "model not found" rather than security error
       await expect(
         transport.request('load_model', {
@@ -139,6 +201,10 @@ describe('Security: Path Traversal Prevention', () => {
 
   describe('CVE-2025-KRMLM-001 & CVE-2025-KRMLM-002: Combined Attack Vectors', () => {
     test('should block combined path traversal in both fields', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: '../sensitive',
@@ -148,6 +214,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block URL-encoded path traversal', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: '%2e%2e%2f%2e%2e%2fetc%2fpasswd',
@@ -156,6 +226,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block double-encoded path traversal', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: '%252e%252e%252f%252e%252e%252fetc%252fpasswd',
@@ -166,6 +240,10 @@ describe('Security: Path Traversal Prevention', () => {
 
   describe('Security: Input Validation Edge Cases', () => {
     test('should block empty model_id', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: '',
@@ -174,6 +252,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block null model_id', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: null as unknown as string,
@@ -182,6 +264,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block undefined model_id', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: undefined as unknown as string,
@@ -190,6 +276,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block very long model_id (DoS protection)', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       const longId = 'a'.repeat(10000);
       await expect(
         transport.request('load_model', {
@@ -201,6 +291,10 @@ describe('Security: Path Traversal Prevention', () => {
 
   describe('Regression: Known Attack Patterns', () => {
     test('should block Windows-style path traversal', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: '..\\..\\windows\\system32',
@@ -209,6 +303,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block Unicode path traversal', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: '\u002e\u002e\u002f\u002e\u002e\u002f',
@@ -217,6 +315,10 @@ describe('Security: Path Traversal Prevention', () => {
     });
 
     test('should block mixed case path traversal', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       await expect(
         transport.request('load_model', {
           model_id: '../EtC/../PaSsWd',

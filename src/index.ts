@@ -5,6 +5,10 @@ export { EngineClientError, type EngineErrorCode } from './api/errors.js';
 export * from './api/helpers.js';
 export * from './api/module-helpers.js';
 export * from './api/validators.js';
+export {
+  ENGINE_API_SNAPSHOT_VERSION,
+} from './api/contracts/engine-public-api.js';
+export type { EnginePublicAPI } from './api/contracts/engine-public-api.js';
 export type * from './api/events.js';
 
 // Phase 4: Telemetry & Monitoring

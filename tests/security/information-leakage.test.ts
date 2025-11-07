@@ -12,14 +12,34 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { PythonRunner } from '../../src/bridge/python-runner.js';
 import type { JsonRpcTransport } from '../../src/bridge/jsonrpc-transport.js';
 import { pino } from 'pino';
+import { getPythonRuntimeSkipReason } from '../helpers/python-runtime.js';
 
 describe('Security: Information Leakage Prevention', () => {
   let runner: PythonRunner;
   let runnerStarted = false;
   let transport: JsonRpcTransport;
   const logger = pino({ level: 'error' });
+  let skipTests = false;
+  let skipReason: string | null = null;
+
+  const shouldSkip = (): boolean => {
+    if (skipTests) {
+      // eslint-disable-next-line no-console
+      console.log(`Skipped: ${skipReason ?? 'Python runtime unavailable'}`);
+    }
+    return skipTests;
+  };
 
   beforeAll(async () => {
+    const pythonSkipReason = getPythonRuntimeSkipReason();
+    if (pythonSkipReason) {
+      skipTests = true;
+      skipReason = pythonSkipReason;
+      // eslint-disable-next-line no-console
+      console.warn(`\n⚠️  Skipping information leakage tests: ${pythonSkipReason}`);
+      return;
+    }
+
     runner = new PythonRunner({
       logger,
       verbose: false,
@@ -42,11 +62,17 @@ describe('Security: Information Leakage Prevention', () => {
       return;
     }
 
-    await runner.stop();
+    if (!skipTests) {
+      await runner.stop();
+    }
   });
 
   describe('Generic Error Messages for Unexpected Exceptions', () => {
     test('should return generic error on unknown method', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       try {
         await transport.request('non_existent_method_xyz', {});
         expect.fail('Should have thrown an error');
@@ -73,6 +99,10 @@ describe('Security: Information Leakage Prevention', () => {
     });
 
     test('should not leak file paths on validation errors', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       try {
         await transport.request('load_model', {
           model_id: '../../../etc/passwd',
@@ -98,6 +128,10 @@ describe('Security: Information Leakage Prevention', () => {
     });
 
     test('should not leak internal state on invalid params', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       try {
         await transport.request('load_model', {
           // Missing required model_id
@@ -124,6 +158,10 @@ describe('Security: Information Leakage Prevention', () => {
 
   describe('Error Message Sanitization', () => {
     test('should sanitize error messages from model loading failures', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       try {
         await transport.request('load_model', {
           model_id: 'non-existent-model-xyz123',
@@ -159,6 +197,10 @@ describe('Security: Information Leakage Prevention', () => {
     });
 
     test('should not expose internal configuration in errors', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       try {
         // Try to trigger an error that might expose config
         await transport.request('generate', {
@@ -189,6 +231,10 @@ describe('Security: Information Leakage Prevention', () => {
 
   describe('Stack Trace Sanitization', () => {
     test('should not leak Python stack traces to client', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       try {
         // Trigger an error that would generate a Python stack trace
         await transport.request('load_model', {
@@ -208,6 +254,10 @@ describe('Security: Information Leakage Prevention', () => {
     });
 
     test('should not leak function names or code structure', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       try {
         await transport.request('unknown_internal_method', {});
         expect.fail('Should have thrown an error');
@@ -227,6 +277,10 @@ describe('Security: Information Leakage Prevention', () => {
 
   describe('System Information Protection', () => {
     test('should not leak system paths in any error', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       const testCases = [
         { model_id: '../system' },
         { model_id: 'test', local_path: '/etc/passwd' },
@@ -252,6 +306,10 @@ describe('Security: Information Leakage Prevention', () => {
     });
 
     test('should not leak Python version or system info', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       try {
         await transport.request('invalid_method', {});
         expect.fail('Should have thrown an error');
@@ -271,6 +329,10 @@ describe('Security: Information Leakage Prevention', () => {
     });
 
     test('should not leak username or home directory', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       try {
         await transport.request('load_model', {
           model_id: 'trigger/../error',
@@ -297,6 +359,10 @@ describe('Security: Information Leakage Prevention', () => {
 
   describe('Regression: Known Information Leakage Patterns', () => {
     test('should use generic error codes, not internal codes', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       try {
         await transport.request('load_model', {
           model_id: 'test/../invalid',
@@ -315,6 +381,10 @@ describe('Security: Information Leakage Prevention', () => {
     });
 
     test('should not leak database or file structure', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       try {
         // Try various paths that might reveal structure
         await transport.request('load_model', {
@@ -335,6 +405,10 @@ describe('Security: Information Leakage Prevention', () => {
     });
 
     test('should provide same error type for different invalid inputs', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       const invalidInputs = [
         '../etc/passwd',
         '../../var/log',

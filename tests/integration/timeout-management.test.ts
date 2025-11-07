@@ -19,6 +19,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { createEngine } from '../../src/index.js';
 import type { Engine } from '../../src/types/index.js';
 import { TimeoutError, createTimeoutError } from '../../src/api/errors.js';
+import { tagEngineTop20 } from '../helpers/tags.js';
 
 // Bug Fix #75: Mock Python runtime to avoid GPU execution in timeout tests
 vi.mock('../../src/bridge/python-runner.js', async () => {
@@ -257,7 +258,7 @@ describe('Timeout Management Tests', () => {
   });
 
   describe('Timeout Configuration', () => {
-    it('should accept timeoutMs parameter in generator options', async () => {
+    it(tagEngineTop20('should accept timeoutMs parameter in generator options'), async () => {
       // Create a generator with explicit timeout (should complete successfully)
       const generator = engine.createGenerator(
         {
@@ -388,7 +389,7 @@ describe('Timeout Management Tests', () => {
     // Note: Timeout handle cleanup is implicitly tested by all timeout tests above
     // and by the absence of memory leaks in long-running integration tests
 
-    it('should maintain runtime health across multiple operations', async () => {
+    it(tagEngineTop20('should maintain runtime health across multiple operations'), async () => {
       // Get initial runtime state
       const initialInfo = await engine.getRuntimeInfo();
       const initialCaps = initialInfo.capabilities.length;

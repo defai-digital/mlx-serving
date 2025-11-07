@@ -4,6 +4,7 @@ import { createTelemetryBridge } from '../../../src/telemetry/bridge.js';
 import type { TelemetryConfig } from '../../../src/telemetry/otel.js';
 import type { TelemetryHooks } from '../../../src/types/engine.js';
 import { pino } from 'pino';
+import { tagEngineTop20 } from '../../helpers/tags.js';
 
 // Mock PythonRunner to avoid starting real Python process
 vi.mock('../../../src/bridge/python-runner.js', () => {
@@ -94,7 +95,7 @@ describe('Engine Telemetry Integration', () => {
       }
     });
 
-    it('should call onModelLoaded hook when loading a model', async () => {
+    it(tagEngineTop20('should call onModelLoaded hook when loading a model'), async () => {
       // Mock the transport to return a valid model response
       const mockTransport = (engine as any).runner.getTransport();
       mockTransport.request.mockResolvedValueOnce({
@@ -125,7 +126,7 @@ describe('Engine Telemetry Integration', () => {
       );
     });
 
-    it('should call onError hook when model load fails', async () => {
+    it(tagEngineTop20('should call onError hook when model load fails'), async () => {
       // Mock the transport to reject before the loadModel call
       const mockTransport = (engine as any).runner.getTransport();
 
@@ -234,7 +235,7 @@ describe('Engine Telemetry Integration', () => {
       await engine.shutdown();
     });
 
-    it('should not crash engine when hook throws error', async () => {
+    it(tagEngineTop20('should not crash engine when hook throws error'), async () => {
       // Mock the transport
       const mockTransport = (engine as any).runner.getTransport();
       // Don't use mockReset() as it clears the implementation

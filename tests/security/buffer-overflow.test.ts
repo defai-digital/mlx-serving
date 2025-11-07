@@ -12,14 +12,34 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { PythonRunner } from '../../src/bridge/python-runner.js';
 import type { JsonRpcTransport } from '../../src/bridge/jsonrpc-transport.js';
 import { pino } from 'pino';
+import { getPythonRuntimeSkipReason } from '../helpers/python-runtime.js';
 
 describe('Security: Buffer Overflow DoS Prevention', () => {
   let runner: PythonRunner;
   let runnerStarted = false;
   let transport: JsonRpcTransport;
   const logger = pino({ level: 'error' });
+  let skipTests = false;
+  let skipReason: string | null = null;
+
+  const shouldSkip = (): boolean => {
+    if (skipTests) {
+      // eslint-disable-next-line no-console
+      console.log(`Skipped: ${skipReason ?? 'Python runtime unavailable'}`);
+    }
+    return skipTests;
+  };
 
   beforeAll(async () => {
+    const pythonSkipReason = getPythonRuntimeSkipReason();
+    if (pythonSkipReason) {
+      skipTests = true;
+      skipReason = pythonSkipReason;
+      // eslint-disable-next-line no-console
+      console.warn(`\n⚠️  Skipping buffer overflow tests: ${pythonSkipReason}`);
+      return;
+    }
+
     runner = new PythonRunner({
       logger,
       verbose: false,
@@ -45,11 +65,17 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
       return;
     }
 
-    await runner.stop();
+    if (!skipTests) {
+      await runner.stop();
+    }
   });
 
   describe('UTF-8 Multibyte Character Buffer Overflow', () => {
     test('should block buffer overflow with 4-byte emoji characters', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // Max buffer: 1MB (1048576 bytes)
       // Create payload: 300K emojis = 1.2MB in UTF-8 (exceeds limit)
       const payload = '😀'.repeat(300000);
@@ -68,6 +94,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
     }, 30000);
 
     test('should block buffer overflow with 3-byte CJK characters', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // Chinese characters are typically 3 bytes in UTF-8
       // 400K characters = ~1.2MB
       const payload = '中'.repeat(400000);
@@ -85,6 +115,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
     }, 30000);
 
     test('should block buffer overflow with 2-byte characters', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // Characters like © are 2 bytes in UTF-8
       // 600K characters = ~1.2MB
       const payload = '©'.repeat(600000);
@@ -102,6 +136,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
     }, 30000);
 
     test('should allow buffer within limit (ASCII)', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // 500K ASCII characters = 500KB (well within 1MB limit)
       const payload = 'a'.repeat(500000);
       const bytes = Buffer.from(payload, 'utf-8').length;
@@ -126,6 +164,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
     }, 30000);
 
     test('should allow buffer within limit (emojis)', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // 200K emojis = 800KB (within 1MB limit)
       const payload = '😀'.repeat(200000);
       const bytes = Buffer.from(payload, 'utf-8').length;
@@ -151,6 +193,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
 
   describe('Mixed ASCII and UTF-8 Buffer Handling', () => {
     test('should correctly count bytes in mixed content', () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       const text = 'Hello 世界 😀';
       const bytes = Buffer.from(text, 'utf-8').length;
 
@@ -159,6 +205,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
     });
 
     test('should handle mixed content near buffer limit', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // Create payload with mix of ASCII and multibyte characters
       // Just under 1MB limit
       const asciiPart = 'a'.repeat(500000); // 500KB
@@ -184,6 +234,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
     }, 30000);
 
     test('should block mixed content exceeding buffer limit', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // Create payload with mix that exceeds 1MB
       const asciiPart = 'a'.repeat(600000); // 600KB
       const emojiPart = '😀'.repeat(150000); // ~600KB = 1.2MB total
@@ -203,6 +257,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
 
   describe('Edge Cases and Boundary Conditions', () => {
     test('should handle exactly 1MB payload', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // Create payload exactly at 1MB limit
       const payload = 'a'.repeat(1048576);
       const bytes = Buffer.from(payload, 'utf-8').length;
@@ -224,6 +282,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
     }, 30000);
 
     test('should handle zero-width characters correctly', () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // Zero-width joiner is 3 bytes in UTF-8 but invisible
       const text = 'a\u200Db\u200Dc';
       const bytes = Buffer.from(text, 'utf-8').length;
@@ -233,6 +295,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
     });
 
     test('should handle emoji with skin tone modifiers', () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // Emoji with skin tone modifier is ~8 bytes
       const text = '👋🏽'; // Waving hand with medium skin tone
       const bytes = Buffer.from(text, 'utf-8').length;
@@ -243,6 +309,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
 
   describe('Regression: Known Attack Patterns', () => {
     test('should block repeated emoji sequence attack', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // Attacker tries to bypass check by using various emojis
       const attack = '😀😁😂🤣😃😄😅😆'.repeat(50000);
       const bytes = Buffer.from(attack, 'utf-8').length;
@@ -259,6 +329,10 @@ describe('Security: Buffer Overflow DoS Prevention', () => {
     }, 30000);
 
     test('should block combining character attack', async () => {
+      if (shouldSkip()) {
+        return;
+      }
+
       // Combining diacritical marks can create very long sequences
       const base = 'e';
       const combining = '\u0301\u0302\u0303'; // Combining marks

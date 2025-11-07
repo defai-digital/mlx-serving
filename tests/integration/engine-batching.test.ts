@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createEngine } from '../../src/index.js';
 import type { Engine } from '../../src/types/index.js';
 import { hasTestModel, getMlxSkipReason } from '../helpers/model-availability.js';
+import { tagEngineTop20 } from '../helpers/tags.js';
 
 describe('Engine Batch Integration', () => {
   let engine: Engine;
@@ -48,7 +49,7 @@ describe('Engine Batch Integration', () => {
     }
   });
 
-  it('should automatically use batching for tokenize requests', async () => {
+  it(tagEngineTop20('should automatically use batching for tokenize requests'), async () => {
     if (skipTests) {
       // eslint-disable-next-line no-console
       console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);
@@ -82,7 +83,7 @@ describe('Engine Batch Integration', () => {
     await engine.unload_model('test-model');
   }, 30000);
 
-  it('should handle snake_case API with batching', async () => {
+  it(tagEngineTop20('should handle snake_case API with batching'), async () => {
     if (skipTests) {
       // eslint-disable-next-line no-console
       console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);
@@ -107,7 +108,7 @@ describe('Engine Batch Integration', () => {
     await engine.unload_model('test-model-2');
   }, 30000);
 
-  it('should report runtime capabilities including batching', async () => {
+  it(tagEngineTop20('should report runtime capabilities including batching'), async () => {
     if (skipTests) {
       // eslint-disable-next-line no-console
       console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);

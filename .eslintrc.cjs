@@ -48,6 +48,18 @@ module.exports = {
         ],
       },
     },
+    {
+      files: ['src/api/engine.ts'],
+      rules: {
+        'import/max-dependencies': [
+          'error',
+          {
+            max: 18,
+            ignoreTypeImports: false,
+          },
+        ],
+      },
+    },
   ],
   ignorePatterns: ['dist', 'node_modules', '.kr-mlx-venv', 'python/.venv'],
 };

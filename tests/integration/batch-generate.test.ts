@@ -13,9 +13,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createEngine } from '../../src/api/engine.js';
 import type { Engine } from '../../src/types/engine.js';
 import type { GeneratorChunk } from '../../src/types/generators.js';
-import { getMlxSkipReason } from '../helpers/model-availability.js';
-
-const _mlxSkipReason = getMlxSkipReason();
+import { getMlxSkipReason, hasTestModel } from '../helpers/model-availability.js';
+import { getPythonRuntimeSkipReason } from '../helpers/python-runtime.js';
+import { tagEngineTop20 } from '../helpers/tags.js';
 
 // KNOWN ISSUE RESOLVED: MLX library had concurrent GPU access limitations when used through
 // stdio-based JSON-RPC. The library works fine with concurrent requests in pure Python
@@ -30,8 +30,38 @@ const _mlxSkipReason = getMlxSkipReason();
 describe('GenerateBatcher Integration (GPU Scheduler validation)', () => {
   let engine: Engine;
   let originalSchedulerEnv: string | undefined;
+  let skipTests = false;
+  let skipReason: string | null = null;
 
   beforeAll(async () => {
+    const mlxSkipReason = getMlxSkipReason();
+    if (mlxSkipReason) {
+      skipTests = true;
+      skipReason = mlxSkipReason;
+      // eslint-disable-next-line no-console
+      console.warn(`\n⚠️  Skipping generate batch tests: ${mlxSkipReason}`);
+      return;
+    }
+
+    const pythonSkipReason = getPythonRuntimeSkipReason();
+    if (pythonSkipReason) {
+      skipTests = true;
+      skipReason = pythonSkipReason;
+      // eslint-disable-next-line no-console
+      console.warn(`\n⚠️  Skipping generate batch tests: ${pythonSkipReason}`);
+      return;
+    }
+
+    if (!hasTestModel()) {
+      skipTests = true;
+      skipReason = 'test model not available';
+      // eslint-disable-next-line no-console
+      console.warn('\n⚠️  Skipping generate batch tests: test model not found');
+      // eslint-disable-next-line no-console
+      console.warn('   Required: ./models/llama-3.2-3b-instruct\n');
+      return;
+    }
+
     // Enable GPU scheduler for these tests to prevent SIGSEGV
     originalSchedulerEnv = process.env.MLX_GPU_SCHEDULER;
     process.env.MLX_GPU_SCHEDULER = 'on';
@@ -65,7 +95,7 @@ describe('GenerateBatcher Integration (GPU Scheduler validation)', () => {
   }, 60_000); // 60 second timeout for model loading
 
   afterAll(async () => {
-    if (engine) {
+    if (!skipTests && engine) {
       await engine.dispose();
     }
     // Restore original scheduler setting
@@ -76,7 +106,12 @@ describe('GenerateBatcher Integration (GPU Scheduler validation)', () => {
     }
   });
 
-  it('batches concurrent generate requests', async () => {
+  it(tagEngineTop20('batches concurrent generate requests'), async () => {
+    if (skipTests) {
+      // eslint-disable-next-line no-console
+      console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);
+      return;
+    }
     // Create multiple concurrent generate requests
     // They should be batched into a single batch_generate RPC call
 
@@ -98,7 +133,12 @@ describe('GenerateBatcher Integration (GPU Scheduler validation)', () => {
     expect(results[1]).not.toEqual(results[2]);
   }, 30_000);
 
-  it('handles errors in batch items independently', async () => {
+  it(tagEngineTop20('handles errors in batch items independently'), async () => {
+    if (skipTests) {
+      // eslint-disable-next-line no-console
+      console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);
+      return;
+    }
     // Create batch with one invalid request
     const validPromise = collectTokens(engine, 'Say hello', 5);
 
@@ -137,7 +177,12 @@ describe('GenerateBatcher Integration (GPU Scheduler validation)', () => {
     expect(tokens.length).toBeGreaterThan(0);
   }, 30_000);
 
-  it('supports abort during batching', async () => {
+  it(tagEngineTop20('supports abort during batching'), async () => {
+    if (skipTests) {
+      // eslint-disable-next-line no-console
+      console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);
+      return;
+    }
     const controller = new AbortController();
 
     const generator = engine.createGenerator({

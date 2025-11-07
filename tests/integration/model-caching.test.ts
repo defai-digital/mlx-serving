@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createEngine } from '../../src/index.js';
 import type { Engine } from '../../src/types/index.js';
 import { hasTestModel, getMlxSkipReason } from '../helpers/model-availability.js';
+import { tagEngineTop20 } from '../helpers/tags.js';
 
 // Path to the test model
 const TEST_MODEL_PATH = './models/llama-3.2-3b-instruct';
@@ -47,7 +48,7 @@ describe('Model Caching Integration', () => {
     }
   });
 
-  it('should support warmupModel API', async () => {
+  it(tagEngineTop20('should support warmupModel API'), async () => {
     if (skipTests) {
       // eslint-disable-next-line no-console
       console.log(`⏭️  Skipped: ${skipReason}`);
@@ -71,7 +72,7 @@ describe('Model Caching Integration', () => {
     expect(cachedModel?.lastAccess).toBeGreaterThan(0);
   });
 
-  it('should support snake_case warmup_model alias', async () => {
+  it(tagEngineTop20('should support snake_case warmup_model alias'), async () => {
     if (skipTests) {
       // eslint-disable-next-line no-console
       console.log(`⏭️  Skipped: ${skipReason}`);

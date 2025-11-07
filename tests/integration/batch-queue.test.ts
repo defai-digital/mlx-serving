@@ -10,6 +10,7 @@ import { PythonRunner } from '../../src/bridge/python-runner.js';
 import type { JsonRpcTransport } from '../../src/bridge/jsonrpc-transport.js';
 import { BatchQueue } from '../../src/core/batch-queue.js';
 import { hasTestModel, getMlxSkipReason } from '../helpers/model-availability.js';
+import { tagEngineTop20 } from '../helpers/tags.js';
 
 describe('BatchQueue Integration Tests', () => {
   let runner: PythonRunner;
@@ -82,7 +83,7 @@ describe('BatchQueue Integration Tests', () => {
       expect(info.capabilities).toContain('batch_tokenize');
     });
 
-    it('should batch multiple tokenize requests through Python', async () => {
+    it(tagEngineTop20('should batch multiple tokenize requests through Python'), async () => {
       if (skipTests) {
         // eslint-disable-next-line no-console
         console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);
@@ -124,7 +125,7 @@ describe('BatchQueue Integration Tests', () => {
       await transport.request('unload_model', { model_id: 'test-model' });
     }, 15000);
 
-    it('should isolate errors in batch_tokenize', async () => {
+    it(tagEngineTop20('should isolate errors in batch_tokenize'), async () => {
       if (skipTests) {
         // eslint-disable-next-line no-console
         console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);
@@ -181,7 +182,7 @@ describe('BatchQueue Integration Tests', () => {
       expect(info.capabilities).toContain('batch_check_draft');
     });
 
-    it('should batch multiple check_draft requests through Python', async () => {
+    it(tagEngineTop20('should batch multiple check_draft requests through Python'), async () => {
       if (skipTests) {
         // eslint-disable-next-line no-console
         console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);

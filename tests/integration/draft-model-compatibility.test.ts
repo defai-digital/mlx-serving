@@ -13,6 +13,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createEngine } from '../../src/index.js';
 import type { Engine } from '../../src/types/index.js';
 import { hasDraftModelPair, getMlxSkipReason } from '../helpers/model-availability.js';
+import { tagEngineTop20 } from '../helpers/tags.js';
 
 describe('Draft Model Compatibility Tests', () => {
   let engine: Engine;
@@ -71,7 +72,7 @@ describe('Draft Model Compatibility Tests', () => {
   });
 
   describe('Enhanced Compatibility Report', () => {
-    it('should return comprehensive compatibility report with all fields', async () => {
+    it(tagEngineTop20('should return comprehensive compatibility report with all fields'), async () => {
       if (skipTests) {
         // eslint-disable-next-line no-console
         console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);
@@ -153,7 +154,7 @@ describe('Draft Model Compatibility Tests', () => {
       });
     }, 30000);
 
-    it('should provide performance estimation', async () => {
+    it(tagEngineTop20('should provide performance estimation'), async () => {
       if (skipTests) {
         // eslint-disable-next-line no-console
         console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);

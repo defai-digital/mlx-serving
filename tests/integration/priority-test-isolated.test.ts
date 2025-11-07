@@ -7,17 +7,38 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createEngine } from '../../src/api/engine.js';
 import type { Engine } from '../../src/types/engine.js';
 import { getMlxSkipReason } from '../helpers/model-availability.js';
+import { getPythonRuntimeSkipReason } from '../helpers/python-runtime.js';
 
 const _mlxSkipReason = getMlxSkipReason();
 
 describe('Priority Parameter Isolated Test', () => {
   let engine: Engine;
   let originalSchedulerEnv: string | undefined;
+  let skipTests = false;
+  let skipReason: string | null = null;
 
   beforeAll(async () => {
     // Enable GPU scheduler for these tests to prevent SIGSEGV
     originalSchedulerEnv = process.env.MLX_GPU_SCHEDULER;
     process.env.MLX_GPU_SCHEDULER = 'on';
+
+    const mlxSkipReason = getMlxSkipReason();
+    if (mlxSkipReason) {
+      skipTests = true;
+      skipReason = mlxSkipReason;
+      // eslint-disable-next-line no-console
+      console.warn(`\n⚠️  Skipping priority tests: ${mlxSkipReason}`);
+      return;
+    }
+
+    const pythonSkipReason = getPythonRuntimeSkipReason();
+    if (pythonSkipReason) {
+      skipTests = true;
+      skipReason = pythonSkipReason;
+      // eslint-disable-next-line no-console
+      console.warn(`\n⚠️  Skipping priority tests: ${pythonSkipReason}`);
+      return;
+    }
 
     engine = await createEngine();
 
@@ -58,6 +79,12 @@ describe('Priority Parameter Isolated Test', () => {
   });
 
   it('should generate tokens with priority parameter', async () => {
+    if (skipTests) {
+      // eslint-disable-next-line no-console
+      console.log(`Skipped: ${skipReason ?? 'MLX runtime unavailable'}`);
+      return;
+    }
+
     const generator = engine.createGenerator({
       model: 'mlx-community/Llama-3.2-1B-Instruct-4bit',
       prompt: 'Say hello',
@@ -75,4 +102,3 @@ describe('Priority Parameter Isolated Test', () => {
     expect(tokens.length).toBeGreaterThan(0);
   }, 30_000);
 });
-
