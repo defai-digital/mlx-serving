@@ -196,6 +196,14 @@ export function createTimeoutError(
  * ```
  */
 export function zodErrorToEngineError(error: ZodError): EngineClientError {
+  // Defensive: ZodError should always have issues, but check for safety
+  if (error.issues.length === 0) {
+    return new EngineClientError('InvalidParams', 'Validation error: no issues reported', {
+      field: 'unknown',
+      issues: [],
+    });
+  }
+
   const firstIssue = error.issues[0];
   const field = firstIssue.path.length > 0 ? firstIssue.path.join('.') : 'root';
   const message = `Validation error on field '${field}': ${firstIssue.message}`;

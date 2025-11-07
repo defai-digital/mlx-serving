@@ -440,6 +440,11 @@ export class OpsMultiplexer {
     this.stats.averageBatchSize =
       ((totalBatches - 1) * this.stats.averageBatchSize + batchSize) / totalBatches;
 
+    // Defensive: Guard against empty queueLatencies array
+    if (queueLatencies.length === 0) {
+      return;
+    }
+
     const queueDelay =
       queueLatencies.reduce((acc, latency) => acc + Math.max(latency, 0), 0) /
       queueLatencies.length;
