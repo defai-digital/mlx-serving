@@ -17,6 +17,9 @@ __pycache__/
 .kr-mlx-venv/
 .pytest_cache/
 
+# Downloaded models (large files)
+models/
+
 # Native C++ build artifacts
 native/build/
 native/*.so
