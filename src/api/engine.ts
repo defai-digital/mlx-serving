@@ -546,6 +546,20 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
     for await (const chunk of this.createGenerator(params, options)) {
       if (chunk.type === 'token') {
         fullText += chunk.token;
+        continue;
+      }
+
+      if (chunk.type === 'error') {
+        const code = (chunk.error?.code as EngineErrorCode | undefined) ?? 'GenerationError';
+        const message = chunk.error?.message ?? 'Generation failed';
+        const details: Record<string, unknown> | undefined = chunk.error
+          ? {
+              ...(chunk.error.details ?? {}),
+              engineError: chunk.error,
+            }
+          : undefined;
+
+        throw new EngineClientError(code, message, details);
       }
     }
 
@@ -725,6 +739,39 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
                 };
                 yield visionChunk;
               }
+            }
+          }
+
+          // Bug fix: Final drain of buffered chunks after completion/error
+          // The completion event may fire while chunks are still buffered,
+          // causing the loop above to exit early. Drain remaining chunks to
+          // prevent losing final tokens or metadata.
+          while (chunks.length > 0) {
+            const item = chunks.shift()!;
+
+            if (item.type === 'token') {
+              const chunk = item.data as { token: string; logprob?: number };
+              const visionChunk: VisionGeneratorChunk = {
+                type: 'token',
+                token: chunk.token,
+                logprob: chunk.logprob,
+              };
+              yield visionChunk;
+              if (streamRegistry?.acknowledgeChunk) {
+                streamRegistry.acknowledgeChunk(streamId);
+              }
+            } else if (item.type === 'stats') {
+              const stats = item.data as { tokensGenerated: number; tokensPerSecond: number; timeToFirstToken: number; totalTime: number };
+              const visionChunk: VisionGeneratorChunk = {
+                type: 'metadata',
+                stats: {
+                  tokensGenerated: stats.tokensGenerated,
+                  tokensPerSecond: stats.tokensPerSecond,
+                  timeToFirstToken: stats.timeToFirstToken,
+                  totalTime: stats.totalTime,
+                },
+              };
+              yield visionChunk;
             }
           }
 

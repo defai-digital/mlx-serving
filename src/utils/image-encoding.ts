@@ -17,6 +17,7 @@ export const IMAGE_ENCODING_ERRORS = {
   UNSUPPORTED_FORMAT: 'UNSUPPORTED_IMAGE_FORMAT',
   ENCODING_FAILED: 'IMAGE_ENCODING_FAILED',
   FETCH_FAILED: 'IMAGE_FETCH_FAILED',
+  UNSAFE_PATH: 'UNSAFE_IMAGE_PATH',
 } as const;
 
 /**
@@ -87,16 +88,17 @@ export async function encodeImageToBase64(imageInput: ImageInput): Promise<strin
       return await encodeImageFromURL(source, format);
     }
 
-    // Case 4: File path
-    if (typeof source === 'string') {
-      return await encodeImageFromFile(source, format);
-    }
-
-    // Case 5: Plain base64 string (no data URI)
+    // Case 4: Plain base64 string (no data URI) - Check BEFORE file path!
+    // Bug fix: Moved before file path check so base64 strings aren't treated as paths
     if (typeof source === 'string' && isBase64(source)) {
       const detectedFormat = format || 'png';
       validateImageFormat(detectedFormat);
       return `data:image/${detectedFormat};base64,${source}`;
+    }
+
+    // Case 5: File path (fallback for remaining strings)
+    if (typeof source === 'string') {
+      return await encodeImageFromFile(source, format);
     }
 
     throw new ImageEncodingError(
@@ -118,8 +120,12 @@ export async function encodeImageToBase64(imageInput: ImageInput): Promise<strin
 
 /**
  * Encode image from file path
+ * Security: Validates path to prevent traversal attacks and unauthorized file access
  */
 async function encodeImageFromFile(filePath: string, format?: string): Promise<string> {
+  // Security fix: Validate path before resolving to prevent path traversal
+  validateImagePath(filePath);
+
   const resolvedPath = resolve(filePath);
 
   if (!existsSync(resolvedPath)) {
@@ -208,6 +214,55 @@ function validateImageFormat(format: string): asserts format is typeof SUPPORTED
       `Unsupported image format: ${format}`,
       { format, supported: SUPPORTED_IMAGE_FORMATS },
     );
+  }
+}
+
+/**
+ * Validate image path for security
+ * Security fix: Prevent path traversal attacks and unauthorized file access
+ */
+function validateImagePath(filePath: string): void {
+  // Resolve to absolute path for checking
+  const absolutePath = resolve(filePath);
+
+  // Block access to sensitive system directories
+  const dangerousPatterns = [
+    '/etc/',
+    '/root/',
+    '/usr/bin/',
+    '/usr/sbin/',
+    '/bin/',
+    '/sbin/',
+    '/var/log/',
+    '/var/run/',
+    '/sys/',
+    '/proc/',
+    '/.ssh/',
+  ];
+
+  for (const pattern of dangerousPatterns) {
+    if (absolutePath.startsWith(pattern)) {
+      throw new ImageEncodingError(
+        IMAGE_ENCODING_ERRORS.UNSAFE_PATH,
+        `Access to system directories is not allowed: ${pattern}`,
+        { filePath, resolvedPath: absolutePath },
+      );
+    }
+  }
+
+  // Reject paths with traversal sequences (but allow if they resolve within safe areas)
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  if (normalizedPath.includes('../') || normalizedPath.includes('/..')) {
+    // Additional check: even with .., does it try to escape to dangerous areas?
+    for (const pattern of dangerousPatterns) {
+      if (absolutePath.startsWith(pattern)) {
+        throw new ImageEncodingError(
+          IMAGE_ENCODING_ERRORS.UNSAFE_PATH,
+          'Path traversal to system directories is not allowed',
+          { filePath, resolvedPath: absolutePath },
+        );
+      }
+    }
   }
 }
 

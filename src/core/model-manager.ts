@@ -664,12 +664,14 @@ export class ModelManager {
 
   /**
    * Update access time for LRU tracking.
+   * Bug fix: Always update access time for eviction, regardless of trackStats setting.
+   * LRU eviction must work even when statistics collection is disabled.
    * @param modelId - Model identifier
    */
   private updateAccessTime(modelId: ModelIdentifier): void {
-    if (this.trackStats) {
-      this.accessTimes.set(modelId, Date.now());
-    }
+    // Bug fix: Removed trackStats guard - access time is needed for eviction
+    // even when statistics collection is disabled
+    this.accessTimes.set(modelId, Date.now());
   }
 
   /**

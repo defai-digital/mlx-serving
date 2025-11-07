@@ -150,10 +150,12 @@ export class JsonRpcTransport extends EventEmitter<JsonRpcTransportEvents> {
     });
 
     // Idempotent RPC methods that can be safely retried without side effects.
+    // Bug fix: Add 'runtime/info' (slash form) to match actual caller usage
     this.idempotentMethods = new Set([
       'tokenize',
       'check_draft',
       'runtime_info',
+      'runtime/info',  // Slash form used by Engine.ensureRuntime() and health checks
     ]);
 
     // Mutating or stateful methods that must never be retried automatically.
