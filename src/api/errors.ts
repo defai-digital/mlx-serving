@@ -9,6 +9,7 @@
 import { JsonRpcError } from '../bridge/jsonrpc-transport.js';
 import { JsonRpcErrorCode } from '../bridge/serializers.js';
 import type { EngineError as EngineErrorShape } from '../types/index.js';
+import type { ZodError } from 'zod';
 
 /**
  * Engine error codes surfaced to API consumers.
@@ -194,7 +195,7 @@ export function createTimeoutError(
  * // Throws: "Validation error on field 'model': Cannot be empty"
  * ```
  */
-export function zodErrorToEngineError(error: import('zod').ZodError): EngineClientError {
+export function zodErrorToEngineError(error: ZodError): EngineClientError {
   const firstIssue = error.issues[0];
   const field = firstIssue.path.length > 0 ? firstIssue.path.join('.') : 'root';
   const message = `Validation error on field '${field}': ${firstIssue.message}`;

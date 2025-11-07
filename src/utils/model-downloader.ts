@@ -124,7 +124,7 @@ export class MLXModelDownloader extends EventEmitter {
     if (options.token) args.push('--token', options.token);
 
     try {
-      const { stdout, stderr } = await this._runPython(args, options.onProgress);
+      await this._runPython(args, options.onProgress);
 
       // Parse model info from output
       // The Python script outputs the model info, we need to extract it

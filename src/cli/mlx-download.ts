@@ -11,7 +11,10 @@
  *   mlx-download cache [options]                  # Manage cache
  */
 
-import { MLXModelDownloader, ModelDownloadError } from '../utils/model-downloader.js';
+/* eslint-disable no-console */
+
+import type { ModelDownloadError } from '../utils/model-downloader.js';
+import { MLXModelDownloader } from '../utils/model-downloader.js';
 
 interface CLIArgs {
   _: string[];
@@ -54,7 +57,7 @@ function parseArgs(args: string[]): CLIArgs {
   return result;
 }
 
-function printHelp() {
+function printHelp(): void {
   console.log(`
 MLX Model Downloader - Download and manage MLX models from Hugging Face
 
@@ -122,7 +125,7 @@ function formatSize(bytes: number): string {
   return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
 
-async function main() {
+async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   if (args.help) {

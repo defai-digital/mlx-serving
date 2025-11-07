@@ -10,7 +10,6 @@ import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 import type { CacheConfig } from '../types/cache.js';
 import { RuntimeConfigSchema } from '../types/schemas/config.js';
-import { zodErrorToEngineError } from '../api/errors.js';
 
 /**
  * Configuration Schema (matches runtime.yaml structure)

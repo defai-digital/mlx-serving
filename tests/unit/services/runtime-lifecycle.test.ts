@@ -49,7 +49,12 @@ function createRunner(overrides: RunnerOverrides = {}): PythonRunner {
   return runner as unknown as PythonRunner;
 }
 
-function createService(runnerOverrides: RunnerOverrides = {}) {
+function createService(runnerOverrides: RunnerOverrides = {}): {
+  service: RuntimeLifecycleService;
+  runner: PythonRunner & Record<string, any>;
+  emit: any;
+  logger: any;
+} {
   const runner = createRunner(runnerOverrides);
   const emit = vi.fn();
   const logger = createMockLogger();

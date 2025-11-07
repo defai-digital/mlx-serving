@@ -263,9 +263,9 @@ export const RuntimeConfigSchema: z.ZodType<{
   telemetry: z.infer<typeof TelemetryConfigSchema>;
   development: z.infer<typeof DevelopmentConfigSchema>;
   environments?: {
-    production?: any;
-    development?: any;
-    test?: any;
+    production?: Partial<z.infer<typeof RuntimeConfigSchemaBase>>;
+    development?: Partial<z.infer<typeof RuntimeConfigSchemaBase>>;
+    test?: Partial<z.infer<typeof RuntimeConfigSchemaBase>>;
   };
 }> = RuntimeConfigSchemaBase.extend({
   environments: z.object({

@@ -153,6 +153,7 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
       runner: dependencies.runner,
       logger: this.logger,
       emit: <E extends keyof EngineEvents>(event: E, payload: Parameters<EngineEvents[E]>[0]) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         this.emit(event, payload as any);
       },
     });

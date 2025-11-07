@@ -52,6 +52,7 @@ export {
   type JsonRpcMessage,
 } from '../../bridge/serializers.js';
 
+import type { z } from 'zod';
 import type { ZodError } from 'zod';
 import {
   JsonRpcRequestSchema,
@@ -69,7 +70,7 @@ import {
 /**
  * Map of JSON-RPC method names to their parameter schemas
  */
-const METHOD_PARAM_SCHEMAS: Record<string, any> = {
+const METHOD_PARAM_SCHEMAS: Record<string, z.ZodTypeAny> = {
   'load_model': LoadModelParamsSchema,
   'unload_model': UnloadModelParamsSchema,
   'generate': GenerateParamsSchema,
@@ -110,7 +111,7 @@ export interface JsonRpcValidationResult<T> {
 export function validateJsonRpcRequest(
   request: unknown,
   validateParams: boolean = true
-): JsonRpcValidationResult<any> {
+): JsonRpcValidationResult<unknown> {
   // 1. Validate generic JSON-RPC 2.0 structure
   const parseResult = JsonRpcRequestSchema.safeParse(request);
   if (!parseResult.success) {
@@ -161,7 +162,7 @@ export function validateJsonRpcRequest(
  * }
  * ```
  */
-export function validateJsonRpcResponse(response: unknown): JsonRpcValidationResult<any> {
+export function validateJsonRpcResponse(response: unknown): JsonRpcValidationResult<unknown> {
   // Try success schema first
   const successResult = JsonRpcSuccessSchema.safeParse(response);
   if (successResult.success) {
@@ -206,7 +207,7 @@ export function validateJsonRpcResponse(response: unknown): JsonRpcValidationRes
  * }
  * ```
  */
-export function validateJsonRpcNotification(notification: unknown): JsonRpcValidationResult<any> {
+export function validateJsonRpcNotification(notification: unknown): JsonRpcValidationResult<unknown> {
   const parseResult = JsonRpcNotificationSchema.safeParse(notification);
   if (!parseResult.success) {
     return {
@@ -235,7 +236,7 @@ export function validateJsonRpcNotification(notification: unknown): JsonRpcValid
  * }
  * ```
  */
-export function validateJsonRpcMessage(message: unknown): JsonRpcValidationResult<any> {
+export function validateJsonRpcMessage(message: unknown): JsonRpcValidationResult<unknown> {
   const parseResult = JsonRpcMessageSchema.safeParse(message);
   if (!parseResult.success) {
     return {
