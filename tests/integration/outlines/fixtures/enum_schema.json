@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "color": {
+      "type": "string",
+      "enum": ["red", "green", "blue", "yellow"]
+    },
+    "size": {
+      "type": "string",
+      "enum": ["small", "medium", "large", "xlarge"]
+    },
+    "quantity": {
+      "type": "integer",
+      "enum": [1, 2, 5, 10, 20, 50]
+    }
+  },
+  "required": ["color", "size"]
+}

@@ -1,0 +1,10 @@
+# Benchmark results (generated files)
+results/
+
+# Temporary benchmark data
+*.tmp
+*.log
+
+# Large model outputs
+*.safetensors
+*.bin

@@ -1,0 +1,333 @@
+# Kr-MLX-LM Runtime Configuration
+# All configurable parameters in one place
+
+# Request Batching Configuration (Week 1 Feature + Week 2 Day 3 Enhancements + High-Concurrency Optimization 2025-10-27)
+# BUGFIX: Disabled to fix intermittent Python crash after 5 requests
+batch_queue:
+  enabled: false                 # DISABLED: Testing if OpsMultiplexer causes race condition
+  max_batch_size: 20            # Maximum requests per batch (optimized for high concurrency: 10 → 20)
+  flush_interval_ms: 2          # Maximum wait time before flushing (optimized: 5ms → 2ms)
+
+  # Week 2 Day 3: Advanced Features
+  adaptive_sizing: true         # Enable adaptive batch size adjustment
+  target_batch_time_ms: 10      # Target batch processing time for adaptive sizing
+  priority_queue: true          # Enable priority queue (high/normal/low) - ENABLED for API server
+
+# Generate Request Batching (v1.3.0 - IPC Reduction Feature)
+# Batches multiple generate() requests into a single batch_generate() RPC call
+# Target: ≥90% IPC reduction under concurrent load
+# BUGFIX: Disabled to fix intermittent race condition causing stream cancellations
+generate_batcher:
+  enabled: false                       # DISABLED: Race condition in batching logic
+  min_batch_size: 2                    # Minimum requests before dispatch
+  max_batch_size: 16                   # Maximum requests per batch
+  min_hold_ms: 0.75                    # Minimum hold window (ms)
+  max_hold_ms: 3                       # Maximum hold window (ms)
+  background_hold_extension_ms: 2      # Extra hold time for background priority requests
+  target_batch_time_ms: 12             # Target batch processing time for adaptive sizing
+  pause_on_backpressure_ms: 20         # Pause duration when StreamRegistry signals backpressure
+
+# Continuous Batching (Week 2 Feature)
+# Dynamic batch composition - requests join/leave independently
+# No head-of-line blocking, continuous GPU utilization
+# Target: 3-5x throughput improvement over static batching
+continuous_batching:
+  # Maximum requests in a single batch
+  max_batch_size: 8
+
+  # How long to wait for more requests before starting generation (ms)
+  # Lower = better latency, Higher = better throughput
+  batch_window_ms: 10.0
+
+  # Dynamically adjust batch size based on GPU utilization
+  adaptive_sizing: true
+
+  # Target GPU utilization (%) for adaptive sizing
+  target_gpu_utilization: 85
+
+  # Minimum batch size (even if no requests waiting)
+  # Set to 1 to never wait for full batches
+  min_batch_size: 1
+
+# Python Runtime Process Management
+python_runtime:
+  # Path to Python executable (relative to project root)
+  python_path: '.kr-mlx-venv/bin/python'
+
+  # Path to runtime script (relative to project root)
+  runtime_path: 'python/runtime.py'
+
+  # Maximum restart attempts on crash
+  max_restarts: 3
+
+  # Process startup timeout (milliseconds)
+  startup_timeout_ms: 30000  # 30 seconds
+
+  # Graceful shutdown timeout (milliseconds)
+  shutdown_timeout_ms: 5000  # 5 seconds
+
+  # Fallback probe timeout for Python initialization (milliseconds)
+  # Primary trigger is event-driven (Python "ready" signal)
+  # This timeout only fires if Python fails to emit ready signal
+  # OPTIMIZATION: Increased from 500ms to 3000ms as this is now a safety fallback only
+  init_probe_fallback_ms: 3000  # 3 seconds (fallback only)
+
+  # Base delay for restart exponential backoff (milliseconds)
+  restart_delay_base_ms: 1000  # 1 second
+
+# JSON-RPC Transport Configuration
+json_rpc:
+  # Default request timeout (milliseconds)
+  default_timeout_ms: 30000  # 30 seconds
+
+  # Maximum line buffer size for incomplete JSON (bytes)
+  max_line_buffer_size: 65536  # 64KB
+
+  # Maximum pending requests before backpressure
+  max_pending_requests: 100
+
+  # Retry policy for idempotent JSON-RPC calls
+  retry:
+    max_attempts: 3
+    initial_delay_ms: 100
+    max_delay_ms: 5000
+    backoff_multiplier: 2.0
+    jitter: 0.25
+    retryable_errors:
+      - TIMEOUT
+      - ECONNRESET
+
+  # Circuit breaker to guard Python runtime availability
+  circuit_breaker:
+    failure_threshold: 5
+    recovery_timeout_ms: 10000
+    half_open_max_calls: 1
+    half_open_success_threshold: 2
+    failure_window_ms: 60000
+
+# Stream Registry Configuration
+stream_registry:
+  # Default stream timeout (milliseconds)
+  default_timeout_ms: 300000  # 5 minutes
+
+  # Maximum concurrent active streams
+  max_active_streams: 10
+
+  # Cleanup interval for expired streams (milliseconds)
+  cleanup_interval_ms: 60000  # 1 minute
+
+  # Phase 4: Stream Optimization (v0.2.0)
+  # Adaptive stream limits
+  # BUGFIX: Disabled adaptive limits to prevent premature stream rejection
+  # The min_streams: 5 was causing stream registration failures in sequential workloads
+  # where completed streams may not be cleaned up before the next request arrives
+  adaptive_limits:
+    enabled: false  # Disabled until stream cleanup timing is fixed
+    min_streams: 1  # Changed from 5 to 1 to allow single-stream workloads
+    max_streams: 50
+    target_ttft_ms: 1000  # Target time to first token
+    target_latency_ms: 100  # Target queue latency
+    adjustment_interval_ms: 5000  # How often to adjust limits
+    scale_up_threshold: 0.8  # Scale up when utilization > 80%
+    scale_down_threshold: 0.3  # Scale down when utilization < 30%
+
+  # Chunk pooling for memory efficiency
+  chunk_pooling:
+    enabled: true
+    pool_size: 1000  # Max pooled chunk objects
+    pool_cleanup_interval_ms: 30000  # Clean pool every 30s
+
+  # Backpressure control (ACK/credit flow)
+  backpressure:
+    enabled: true
+    max_unacked_chunks: 100  # Max chunks before blocking
+    ack_timeout_ms: 5000  # Timeout waiting for ACK
+    slow_consumer_threshold_ms: 1000  # Warn if consumer is slow
+
+  # Per-stream metrics tracking
+  metrics:
+    enabled: true
+    track_ttft: true  # Time to first token
+    track_throughput: true  # Tokens per second
+    track_cancellations: true  # Cancellation rates
+    export_interval_ms: 10000  # Export metrics every 10s
+
+# Model Configuration
+model:
+  # Default context length when not specified
+  default_context_length: 8192
+
+  # Default max tokens for generation
+  default_max_tokens: 512
+
+  # Maximum number of loaded models (memory management)
+  max_loaded_models: 5
+
+  # Supported model dtypes
+  supported_dtypes:
+    - 'float16'
+    - 'bfloat16'
+    - 'float32'
+
+  # Default quantization mode
+  default_quantization: 'none'  # Options: none, int8, int4
+
+  # Default dtype
+  default_dtype: 'unknown'
+
+  # Security: Trusted model directories (optional)
+  # If specified, local_path must be within one of these directories
+  # If empty/null, all absolute paths are allowed (less secure but more flexible)
+  # Example: ['/Users/username/models', '/opt/mlx-models']
+  trusted_model_directories: null
+
+  # Security: Maximum generation tokens (prevents DoS)
+  max_generation_tokens: 4096
+
+  # Security: Maximum temperature value
+  max_temperature: 2.0
+
+  # Phase 2: In-Memory Model Caching (v0.2.0)
+  # Keep loaded models in RAM for instant reuse
+  # Provides 50-70% load time reduction for warm loads
+  memory_cache:
+    # Enable in-memory model caching
+    enabled: true
+
+    # Maximum models to keep loaded in memory
+    # Uses LRU (Least Recently Used) eviction when limit reached
+    # Each model ~3-4GB RAM (4-bit quantized), adjust based on available memory
+    max_cached_models: 5
+
+    # Eviction strategy: 'lru' (least-recently-used)
+    eviction_strategy: 'lru'
+
+    # Models to warmup on engine startup (optional)
+    # These models will be preloaded into memory during engine.start()
+    # Format: ['model-id', 'org/model-name', ...]
+    warmup_on_start: []
+
+    # Track cache statistics for observability
+    track_stats: true
+
+# Model Artifact Cache Configuration (v0.2.0 Phase 2)
+# Persistent disk cache for model weights, tokenizers, and configs
+# Provides 90%+ load time reduction by caching HuggingFace downloads
+cache:
+  # Enable persistent artifact cache
+  enabled: true
+
+  # Directory to store cached artifacts (relative to project root)
+  cache_dir: '.kr-mlx-cache'
+
+  # Maximum cache size in bytes (default: 100GB)
+  # Models are evicted using LRU policy when this limit is exceeded
+  max_size_bytes: 107374182400  # 100GB
+
+  # Maximum age of cache entries in days
+  # Entries older than this are eligible for eviction
+  max_age_days: 30
+
+  # Eviction policy when cache is full
+  # Options: 'lru' (least-recently-used), 'lfu' (least-frequently-used), 'fifo' (first-in-first-out)
+  eviction_policy: 'lru'
+
+  # Models to preload on startup (optional)
+  # These models will be loaded into cache during engine initialization
+  # Format: ['model-id', 'org/model-name', ...]
+  preload_models: []
+
+  # Enable cache validation on startup
+  # Checks for corrupted entries and removes them from index
+  validate_on_startup: true
+
+  # Enable cache compression (future feature - not yet implemented)
+  enable_compression: false
+
+# Python Bridge IPC Configuration
+python_bridge:
+  # stdin buffer overflow limit (bytes)
+  max_buffer_size: 1048576  # 1MB
+
+  # asyncio.Queue maxsize for token streaming
+  stream_queue_size: 100
+
+  # Maximum retries for queue.put backpressure
+  queue_put_max_retries: 100
+
+  # Backoff delay for queue.put retry (milliseconds)
+  queue_put_backoff_ms: 10  # 10ms
+
+# Outlines Adapter Configuration
+outlines:
+  # Maximum schema size (bytes) - prevents compile overhead
+  max_schema_size_bytes: 32768  # 32KB
+
+# Performance Tuning
+performance:
+  # Enable aggressive garbage collection after model operations
+  aggressive_gc: false
+
+  # Enable IPC message batching (future feature)
+  enable_batching: false
+
+  # Batch size for IPC messages
+  batch_size: 10
+
+  # Batch timeout (milliseconds)
+  batch_timeout_ms: 50
+
+  # Use MessagePack instead of JSON for IPC (future feature)
+  use_messagepack: false
+
+# Telemetry & Monitoring (Phase 4)
+telemetry:
+  # Enable OpenTelemetry metrics collection
+  enabled: false  # Set to true to enable metrics
+
+  # Service name for metrics (appears in Prometheus)
+  service_name: 'kr-serve-mlx'
+
+  # Prometheus exporter port
+  prometheus_port: 9464
+
+  # Metrics export interval (milliseconds)
+  export_interval_ms: 60000  # 60 seconds
+
+# Development & Debugging
+development:
+  # Enable verbose logging
+  verbose: false
+
+  # Enable debug mode
+  debug: false
+
+  # Log all IPC messages
+  log_ipc: false
+
+  # Enable performance profiling
+  enable_profiling: false
+
+# Environment-specific overrides
+# These can be loaded based on NODE_ENV or PYTHON_ENV
+
+environments:
+  production:
+    python_runtime:
+      startup_timeout_ms: 60000  # 60 seconds for large models
+      max_restarts: 5
+    stream_registry:
+      max_active_streams: 50
+
+  development:
+    python_runtime:
+      startup_timeout_ms: 15000  # 15 seconds for faster iteration
+
+  test:
+    python_runtime:
+      startup_timeout_ms: 15000  # 15 seconds for model loading
+      max_restarts: 1
+    json_rpc:
+      default_timeout_ms: 30000  # 30 seconds for model operations
+    stream_registry:
+      default_timeout_ms: 30000  # 30 seconds for streaming tests

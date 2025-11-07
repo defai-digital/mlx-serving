@@ -1,0 +1,41 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "out": "docs/api",
+  "readme": "none",
+  "exclude": [
+    "**/*+(.spec|.test|.test.ts|.spec.ts).ts",
+    "**/tests/**",
+    "**/node_modules/**",
+    "**/*.d.ts"
+  ],
+  "tsconfig": "./tsconfig.build.json",
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "includeVersion": true,
+  "entryPointStrategy": "expand",
+  "categorizeByGroup": true,
+  "defaultCategory": "Other",
+  "categoryOrder": [
+    "API",
+    "Core",
+    "Bridge",
+    "Types",
+    "Utils",
+    "*"
+  ],
+  "sort": ["source-order"],
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "hideGenerator": false,
+  "searchInComments": true,
+  "validation": {
+    "notExported": false,
+    "invalidLink": false,
+    "notDocumented": false
+  }
+}

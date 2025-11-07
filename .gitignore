@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+
+# Test coverage
+coverage/
+
+# Python
+*.pyc
+__pycache__/
+.kr-mlx-venv/
+.pytest_cache/
+
+# Native C++ build artifacts
+native/build/
+native/*.so
+native/*.dylib
+*.node
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# AutomatosX
+.automatosx/memory/
+.automatosx/logs/
+automatosx/tmp/
