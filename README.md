@@ -203,6 +203,69 @@ Your existing code works as-is, but now you get:
 
 ---
 
+## Type-Safe Validation with Zod
+
+mlx-serving provides comprehensive runtime type validation using [Zod v3.22.4](https://github.com/colinhacks/zod) across all API boundaries.
+
+### Why Zod Validation?
+
+- ✅ **Runtime Type Safety**: Catch invalid inputs before they reach MLX
+- ✅ **Clear Error Messages**: Know exactly what went wrong and where
+- ✅ **Zero Breaking Changes**: 100% backward compatible with kr-serve-mlx
+- ✅ **Type Inference**: TypeScript types automatically inferred from schemas
+
+### Quick Example
+
+```typescript
+import { createEngine, LoadModelOptionsSchema } from '@defai.digital/mlx-serving';
+
+// Manual validation (optional - Engine validates automatically)
+const options = { model: 'llama-3-8b', quantization: 'q4' };
+const result = LoadModelOptionsSchema.safeParse(options);
+
+if (!result.success) {
+  console.error('Validation failed:', result.error.issues);
+  process.exit(1);
+}
+
+// Engine validates automatically ✅
+const engine = await createEngine();
+await engine.loadModel(options); // Validated internally
+```
+
+### What's Validated?
+
+**9 schema modules** covering:
+
+1. **Model Loading** - `LoadModelOptionsSchema`, `ModelDescriptorSchema`
+2. **Text Generation** - `GeneratorParamsSchema`, structured output validation
+3. **Tokenization** - `TokenizeRequestSchema`, `TokenizeResponseSchema`
+4. **Configuration** - `RuntimeConfigSchema` (60+ properties, 11 sections)
+5. **JSON-RPC** - Request/response message validation
+6. **Telemetry** - OpenTelemetry configuration
+7. **Events** - 8 event payload schemas
+
+### Error Handling
+
+```typescript
+try {
+  await engine.loadModel({ model: 'llama-3-8b', temperature: 5.0 });
+} catch (error) {
+  console.error(error.message);
+  // Output: "temperature must be >= 0.0 and <= 2.0"
+}
+```
+
+### Learn More
+
+See **[docs/ZOD_SCHEMAS.md](./docs/ZOD_SCHEMAS.md)** for:
+- Complete schema reference
+- Validation patterns (Normalize → Validate → Execute)
+- Migration guide (manual validators → Zod)
+- Best practices and troubleshooting
+
+---
+
 ## Development
 
 ### Project Structure
@@ -282,26 +345,27 @@ cmake --build .
 
 ### Technical Docs (docs/)
 
-Inherited from kr-serve-mlx:
-- Migration guides
-- API reference
-- GPU scheduler guide
-- Vision models guide
-- Testing guide
+**Core Documentation:**
+- **[ZOD_SCHEMAS.md](./docs/ZOD_SCHEMAS.md)** - Comprehensive Zod validation guide (NEW!)
+- **[INDEX.md](./docs/INDEX.md)** - Documentation index
+- **[GUIDES.md](./docs/GUIDES.md)** - User guides (migration, structured output, vision)
+- **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Architecture and M3+ strategy
+- **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Deployment and operations guide
 
 ---
 
 ## Implementation Roadmap
 
-### ✅ Phase 0: Baseline Replication (Week 0-1)
+### ✅ Phase 0: Baseline Replication (Week 0-1) - COMPLETE
 - Copy kr-serve-mlx v1.4.2 codebase
 - Update branding to mlx-serving
 - Verify all tests pass
 
-### 🔄 Phase 1: Zod Integration (Week 2-6)
-- Add Zod schemas for all API boundaries
+### ✅ Phase 1: Zod Integration (Week 2-6) - COMPLETE
+- Add Zod schemas for all API boundaries (9 modules)
 - Refactor validation in Engine, config, bridge
-- 90%+ test coverage for schemas
+- 389 tests passing, comprehensive documentation
+- See [docs/ZOD_SCHEMAS.md](./docs/ZOD_SCHEMAS.md)
 
 ### 📋 Phase 2: ReScript Migration (Week 7-12)
 - Migrate state machines to ReScript

@@ -3,7 +3,7 @@ import { EventEmitter } from 'eventemitter3';
 import type { Logger } from 'pino';
 import { pino } from 'pino';
 import type { EngineEvents } from './events.js';
-import { PythonRunner, type RuntimeInfo as PythonRuntimeInfo } from '../bridge/python-runner.js';
+import type { PythonRunner } from '../bridge/python-runner.js';
 import type { JsonRpcTransport } from '../bridge/jsonrpc-transport.js';
 import { ModelManager } from '../core/model-manager.js';
 import { GeneratorFactory, type CreateGeneratorOptions } from '../core/generator-factory.js';
@@ -42,15 +42,21 @@ import type {
 } from '../types/index.js';
 import {
   EngineClientError,
-  createTransportError,
   toEngineError,
+  zodErrorToEngineError,
   type EngineErrorCode,
 } from './errors.js';
 import { initializeConfig } from '../config/loader.js';
+import {
+  LoadModelOptionsSchema,
+  GeneratorParamsWithStructuredSchema,
+  TokenizeRequestSchema,
+} from '../types/schemas/index.js';
 import type {
   TokenizeParams,
   TokenizeResponse as TransportTokenizeResponse,
 } from '../bridge/serializers.js';
+import { RuntimeLifecycleService } from '../services/runtime-lifecycle.js';
 
 interface EngineDependencies {
   runner?: PythonRunner;
@@ -82,32 +88,21 @@ const DEFAULT_LOG_LEVEL = process.env.KR_MLX_LOG_LEVEL ?? 'info';
  * - 'runtime:status' - Emitted when runtime status changes
  */
 export class Engine extends EventEmitter<EngineEvents> implements EngineContract {
+  private readonly runtimeLifecycle: RuntimeLifecycleService;
   private readonly options: EngineOptions;
   private readonly logger: Logger;
   private readonly telemetry?: TelemetryHooks;
-  private readonly runner: PythonRunner;
 
   private modelManager: ModelManager | null = null;
   private generatorFactory: GeneratorFactory | null = null;
   private batchQueue: BatchQueue | null = null; // Week 1: Request Batching
   private generateBatcher: GenerateBatcher | null = null; // v1.3.0: Generate Request Batching
-  private started = false;
-  private startPromise: Promise<void> | null = null;
   private shutdownPromise: Promise<void> | null = null;
-  private shuttingDown = false;
   private lastTransport: JsonRpcTransport | null = null;
 
   // Bug Fix #61: Atomic state reconciliation protection
   // Prevents concurrent reconcileState() calls during transport change
   private reconcilePromise: Promise<void> | null = null;
-
-  // Bug Fix #55 Phase 3: Circuit Breaker for State Reconciliation
-  // Prevents cascading failures when Python runtime is unstable
-  private circuitBreakerState: 'closed' | 'open' | 'half-open' = 'closed';
-  private circuitBreakerFailures = 0;
-  private circuitBreakerLastFailure = 0;
-  private readonly CIRCUIT_BREAKER_THRESHOLD = 3; // Open after 3 consecutive failures
-  private readonly CIRCUIT_BREAKER_TIMEOUT = 30000; // 30 seconds before attempting half-open
 
   // Python-style snake_case aliases (accept both camelCase and snake_case params)
   public readonly load_model: (options: LoadModelOptions | Record<string, unknown>) => Promise<ModelHandle>;
@@ -131,6 +126,10 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
   public readonly get_runtime_info: () => Promise<RuntimeInfo>;
   public readonly health_check: () => Promise<HealthStatus>;
 
+  private get runner(): PythonRunner {
+    return this.runtimeLifecycle.getRunner();
+  }
+
   /**
    * Create a new engine instance.
    *
@@ -149,10 +148,13 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
     this.logger = dependencies.logger ?? pino({ level: DEFAULT_LOG_LEVEL });
     this.telemetry = options.telemetry?.enabled ? options.telemetry.hooks : undefined;
 
-    this.runner = dependencies.runner ?? new PythonRunner({
-      pythonPath: options.pythonPath,
-      runtimePath: options.runtimePath,
+    this.runtimeLifecycle = new RuntimeLifecycleService({
+      options,
+      runner: dependencies.runner,
       logger: this.logger,
+      emit: <E extends keyof EngineEvents>(event: E, payload: Parameters<EngineEvents[E]>[0]) => {
+        this.emit(event, payload as any);
+      },
     });
 
     this.load_model = (loadOptions) => this.loadModel(loadOptions as LoadModelOptions);
@@ -199,7 +201,15 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
    */
   public async loadModel(options: LoadModelOptions | string): Promise<ModelHandle> {
     try {
+      // Normalize first (handles aliases like model_id → model)
       const normalizedOptions = normalizeLoadModelOptions(options)!;
+
+      // Zod validation
+      const parseResult = LoadModelOptionsSchema.safeParse(normalizedOptions);
+      if (!parseResult.success) {
+        throw zodErrorToEngineError(parseResult.error);
+      }
+
       const runtime = await this.ensureRuntime();
       const handle = await runtime.modelManager.loadModel(normalizedOptions);
 
@@ -247,10 +257,18 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
    */
   public async loadDraftModel(options: LoadModelOptions): Promise<ModelHandle> {
     try {
+      // Normalize first (handles aliases like model_id → model)
       const normalizedOptions = normalizeLoadModelOptions({
         ...options,
         draft: true,
       })!;
+
+      // Zod validation
+      const parseResult = LoadModelOptionsSchema.safeParse(normalizedOptions);
+      if (!parseResult.success) {
+        throw zodErrorToEngineError(parseResult.error);
+      }
+
       const runtime = await this.ensureRuntime();
       const handle = await runtime.modelManager.loadDraftModel(normalizedOptions);
 
@@ -457,7 +475,15 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
     params: GeneratorParams,
     options: CreateGeneratorOptions = {}
   ): AsyncGenerator<GeneratorChunk, void> {
+    // Normalize first (handles aliases like model_id → model)
     const normalizedParams = normalizeGeneratorParams(params)! as GeneratorParams;
+
+    // Zod validation
+    const parseResult = GeneratorParamsWithStructuredSchema.safeParse(normalizedParams);
+    if (!parseResult.success) {
+      throw zodErrorToEngineError(parseResult.error);
+    }
+
     const runtime = await this.ensureRuntime();
 
     // BUG-011 FIX: Ensure we have a streamId for acknowledgment
@@ -761,7 +787,15 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
    * ```
    */
   public async tokenize(request: TokenizeRequest): Promise<TokenizeResponse> {
+    // Normalize first (handles aliases)
     const normalizedRequest = normalizeTokenizeRequest(request)!;
+
+    // Zod validation
+    const parseResult = TokenizeRequestSchema.safeParse(normalizedRequest);
+    if (!parseResult.success) {
+      throw zodErrorToEngineError(parseResult.error);
+    }
+
     const runtime = await this.ensureRuntime();
 
     if (!runtime.modelManager.isLoaded(normalizedRequest.model)) {
@@ -806,7 +840,6 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
       return this.shutdownPromise;
     }
 
-    this.shuttingDown = true;
     this.shutdownPromise = (async () => {
       try {
         // Bug Fix #69: Wait for in-flight state reconciliation before shutdown
@@ -825,17 +858,21 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
           }
         }
 
-        if (this.started) {
-          await this.runner.stop();
-        }
+        await this.runtimeLifecycle.shutdown();
       } catch (error) {
         throw this.mapError(error, 'RuntimeError');
       } finally {
-        this.started = false;
-        this.startPromise = null;
         this.modelManager = null;
         this.generatorFactory = null;
-        this.shuttingDown = false;
+        if (this.batchQueue) {
+          this.batchQueue.cleanup();
+          this.batchQueue = null;
+        }
+        if (this.generateBatcher) {
+          this.generateBatcher.cleanup();
+          this.generateBatcher = null;
+        }
+        this.lastTransport = null;
         this.shutdownPromise = null;
         // Bug Fix #69: Clear reconcilePromise on shutdown
         this.reconcilePromise = null;
@@ -951,24 +988,7 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
    */
   public async getRuntimeInfo(): Promise<RuntimeInfo> {
     try {
-      const runtime = await this.ensureRuntime();
-      const response = await runtime.transport.request<{
-        version: string;
-        mlx_version: string;
-        protocol: string;
-        capabilities: string[];
-        mlx_supported?: boolean;
-        memory?: { rss: number; vms: number };
-      }>('runtime/info');
-
-      return {
-        version: response.version,
-        mlxVersion: response.mlx_version,
-        protocol: response.protocol,
-        capabilities: response.capabilities,
-        mlxSupported: response.mlx_supported,
-        memory: response.memory,
-      };
+      return await this.runtimeLifecycle.getRuntimeInfo();
     } catch (error) {
       throw this.mapError(error, 'RuntimeError');
     }
@@ -998,132 +1018,7 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
    * ```
    */
   public async healthCheck(): Promise<HealthStatus> {
-    try {
-      const info = this.runner.getInfo();
-      const activeStreams = this.runner.streamRegistry.getActiveCount();
-      const loadedModels = this.modelManager?.listModels().length ?? 0;
-
-      // Bug Fix #72: Type-safe runtime status mapping with explicit fallback
-      // Using PythonRuntimeInfo['status'] type ensures TypeScript detects missing states
-      const runtimeStatusMap: Record<PythonRuntimeInfo['status'], 'running' | 'stopped' | 'crashed'> = {
-        'starting': 'running',
-        'ready': 'running',
-        'error': 'crashed',
-        'stopped': 'stopped',
-      };
-
-      // Type-safe lookup with defensive fallback
-      let healthRuntimeStatus: 'running' | 'stopped' | 'crashed';
-      if (info.status in runtimeStatusMap) {
-        healthRuntimeStatus = runtimeStatusMap[info.status];
-      } else {
-        // Unknown status - treat as crashed to be safe
-        this.logger?.warn(
-          { pythonStatus: info.status, knownStatuses: Object.keys(runtimeStatusMap) },
-          'Unknown Python runtime status, treating as "crashed" for safety'
-        );
-        healthRuntimeStatus = 'crashed';
-      }
-
-      const runtimeStatus: HealthStatus['runtime'] = {
-        pid: info.pid > 0 ? info.pid : undefined,
-        status: healthRuntimeStatus,
-      };
-
-      let status: HealthStatus['status'] = 'healthy';
-      if (info.status === 'stopped' || info.status === 'error') {
-        status = 'unhealthy';
-      } else if (activeStreams > 10 || info.status === 'starting') {
-        status = 'degraded';
-      }
-
-      // Bug Fix #55 Phase 4: Check state consistency between TypeScript and Python
-      let stateConsistent: boolean | undefined = undefined;
-      let stateErrors: string[] | undefined = undefined;
-
-      // Only check state consistency if Python runtime is ready
-      if (info.status === 'ready') {
-        const transport = this.runner.getTransport();
-        if (transport) {
-          try {
-            const response = await transport.request<{
-              loaded_models?: Array<{ model_id: string; state: string; type: string }>;
-              active_streams?: number;
-              restart_count?: number;
-            }>('runtime/state', undefined, { timeout: 5000 });
-
-            if (response && response.loaded_models) {
-              const pythonModels = new Set<string>(response.loaded_models.map(m => m.model_id));
-              const typescriptModels: Set<string> = this.modelManager
-                ? new Set(this.modelManager.listModels().map(h => h.descriptor.id))
-                : new Set<string>();
-
-              const orphanedInPython: string[] = Array.from(pythonModels).filter(id => !typescriptModels.has(id));
-              const orphanedInTS: string[] = Array.from(typescriptModels).filter(id => !pythonModels.has(id));
-
-              stateErrors = [];
-              if (orphanedInPython.length > 0) {
-                stateErrors.push(`${orphanedInPython.length} orphaned models in Python: ${orphanedInPython.join(', ')}`);
-              }
-              if (orphanedInTS.length > 0) {
-                stateErrors.push(`${orphanedInTS.length} orphaned models in TypeScript: ${orphanedInTS.join(', ')}`);
-              }
-
-              stateConsistent = stateErrors.length === 0;
-
-              // If state is inconsistent, mark as degraded
-              if (!stateConsistent && status === 'healthy') {
-                status = 'degraded';
-              }
-            } else {
-              // runtime/state not supported - skip state check
-              stateConsistent = undefined;
-            }
-          } catch (err) {
-            // State check failed - mark as degraded
-            stateErrors = ['Failed to query Python runtime state'];
-            stateConsistent = false;
-            if (status === 'healthy') {
-              status = 'degraded';
-            }
-          }
-        }
-      }
-
-      // Bug Fix #55 Phase 4: Include circuit breaker state in health check
-      // If circuit breaker is open, mark as degraded
-      if (this.circuitBreakerState === 'open') {
-        status = 'degraded';
-        stateErrors = stateErrors || [];
-        stateErrors.push(`Circuit breaker is open (${this.circuitBreakerFailures} failures)`);
-        stateConsistent = false;
-      } else if (this.circuitBreakerState === 'half-open') {
-        stateErrors = stateErrors || [];
-        stateErrors.push('Circuit breaker is half-open (recovery in progress)');
-      }
-
-      return {
-        status,
-        uptime: info.uptime,
-        activeStreams,
-        loadedModels,
-        runtime: runtimeStatus,
-        stateConsistent,
-        stateErrors: stateErrors && stateErrors.length > 0 ? stateErrors : undefined,
-      };
-    } catch (error) {
-      return {
-        status: 'unhealthy',
-        uptime: 0,
-        activeStreams: 0,
-        loadedModels: 0,
-        runtime: {
-          status: 'crashed',
-        },
-        stateConsistent: false,
-        stateErrors: ['Health check failed with exception'],
-      };
-    }
+    return this.runtimeLifecycle.healthCheck(this.modelManager);
   }
 
   /**
@@ -1192,138 +1087,6 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
     }
   }
 
-  /**
-   * Reset circuit breaker to closed state after successful operation
-   * Bug Fix #55 Phase 3: Circuit Breaker State Management
-   */
-  private resetCircuitBreaker(): void {
-    if (this.circuitBreakerState !== 'closed' || this.circuitBreakerFailures > 0) {
-      this.logger?.info(
-        {
-          previousState: this.circuitBreakerState,
-          previousFailures: this.circuitBreakerFailures,
-        },
-        'Circuit breaker reset to closed state after successful operation'
-      );
-    }
-    this.circuitBreakerState = 'closed';
-    this.circuitBreakerFailures = 0;
-    this.circuitBreakerLastFailure = 0;
-  }
-
-  /**
-   * Record a circuit breaker failure and potentially open the circuit
-   * Bug Fix #55 Phase 3: Circuit Breaker State Management
-   * Bug Fix #60: Add special handling for half-open state
-   */
-  private recordCircuitBreakerFailure(): void {
-    this.circuitBreakerFailures += 1;
-    this.circuitBreakerLastFailure = Date.now();
-
-    // Bug Fix #60: Special handling for half-open state
-    // If we fail during half-open, immediately go back to open
-    // This prevents infinite retry loops
-    if (this.circuitBreakerState === 'half-open') {
-      this.logger?.error(
-        {
-          failures: this.circuitBreakerFailures,
-          threshold: this.CIRCUIT_BREAKER_THRESHOLD,
-        },
-        'Circuit breaker reopened due to failure during half-open state'
-      );
-      this.circuitBreakerState = 'open';
-
-      this.emit('error', {
-        error: {
-          code: 'RuntimeError',
-          message: 'Circuit breaker reopened after failed recovery attempt',
-          details: {
-            failures: this.circuitBreakerFailures,
-            threshold: this.CIRCUIT_BREAKER_THRESHOLD,
-            previousState: 'half-open',
-          },
-        },
-        context: 'circuit_breaker',
-        timestamp: Date.now(),
-      });
-
-      return; // Exit early - don't check threshold again
-    }
-
-    // Normal closed state behavior
-    if (this.circuitBreakerFailures >= this.CIRCUIT_BREAKER_THRESHOLD) {
-      if (this.circuitBreakerState !== 'open') {
-        this.logger?.error(
-          {
-            failures: this.circuitBreakerFailures,
-            threshold: this.CIRCUIT_BREAKER_THRESHOLD,
-          },
-          'Circuit breaker opened due to repeated failures'
-        );
-        this.circuitBreakerState = 'open';
-
-        // Emit error event to notify users
-        this.emit('error', {
-          error: {
-            code: 'RuntimeError',
-            message: 'Circuit breaker opened due to repeated state reconciliation failures',
-            details: {
-              failures: this.circuitBreakerFailures,
-              threshold: this.CIRCUIT_BREAKER_THRESHOLD,
-            },
-          },
-          context: 'circuit_breaker',
-          timestamp: Date.now(),
-        });
-      }
-    } else {
-      this.logger?.warn(
-        {
-          failures: this.circuitBreakerFailures,
-          threshold: this.CIRCUIT_BREAKER_THRESHOLD,
-        },
-        'Circuit breaker failure recorded'
-      );
-    }
-  }
-
-  /**
-   * Check if circuit breaker allows operation
-   * Bug Fix #55 Phase 3: Circuit Breaker State Management
-   *
-   * @returns true if operation is allowed, false if circuit is open
-   */
-  private canAttemptOperation(): boolean {
-    if (this.circuitBreakerState === 'closed') {
-      return true;
-    }
-
-    if (this.circuitBreakerState === 'open') {
-      // Check if timeout has elapsed to attempt half-open
-      const timeSinceLastFailure = Date.now() - this.circuitBreakerLastFailure;
-      if (timeSinceLastFailure >= this.CIRCUIT_BREAKER_TIMEOUT) {
-        this.logger?.info(
-          { timeSinceLastFailure, timeout: this.CIRCUIT_BREAKER_TIMEOUT },
-          'Circuit breaker transitioning to half-open state'
-        );
-        this.circuitBreakerState = 'half-open';
-        return true;
-      }
-
-      this.logger?.warn(
-        {
-          timeSinceLastFailure,
-          timeout: this.CIRCUIT_BREAKER_TIMEOUT,
-          remainingTime: this.CIRCUIT_BREAKER_TIMEOUT - timeSinceLastFailure,
-        },
-        'Circuit breaker is open - operation blocked'
-      );
-      return false;
-    }
-
-    // half-open state: allow attempt
-    return true;
-  }
 
   /**
    * Reconcile TypeScript and Python states after Python restart
@@ -1350,7 +1113,7 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
       if (!response || !response.loaded_models) {
         this.logger?.debug('runtime/state not supported or returned empty - skipping reconciliation');
         // Bug Fix #55 Phase 3: Reset circuit breaker on successful response (even if empty)
-        this.resetCircuitBreaker();
+        this.runtimeLifecycle.resetCircuitBreaker();
         return;
       }
 
@@ -1404,18 +1167,19 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
       );
 
       // Bug Fix #55 Phase 3: Reset circuit breaker on successful reconciliation
-      this.resetCircuitBreaker();
+      this.runtimeLifecycle.resetCircuitBreaker();
     } catch (err) {
       // Bug Fix #55 Phase 3: Record failure and update circuit breaker state
-      this.recordCircuitBreakerFailure();
+      this.runtimeLifecycle.recordCircuitBreakerFailure();
 
       // Log error but don't throw - allow engine to continue with best-effort
       // This allows the system to work even if reconciliation fails
+      const breaker = this.runtimeLifecycle.getCircuitBreakerSnapshot();
       this.logger?.warn(
         {
           err,
-          circuitBreakerState: this.circuitBreakerState,
-          failures: this.circuitBreakerFailures,
+          circuitBreakerState: breaker.state,
+          failures: breaker.failures,
         },
         'State reconciliation failed - circuit breaker updated'
       );
@@ -1424,7 +1188,7 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
   }
 
   private async ensureRuntime(): Promise<EngineRuntime> {
-    await this.ensureStarted();
+    await this.runtimeLifecycle.ensureStarted();
 
     let attempts = 0;
     const MAX_ATTEMPTS = 3;
@@ -1435,10 +1199,7 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
     while (attempts < MAX_ATTEMPTS) {
       attempts += 1;
 
-      const transport = this.runner.getTransport();
-      if (!transport) {
-        throw createTransportError('Python runtime transport unavailable');
-      }
+      const transport = this.runtimeLifecycle.getActiveTransport();
 
       // Fix Bug #26 (Critical): Engine state desync after Python restart
       // Fix Bug #31 (Critical): Clear model state and log lost models after restart
@@ -1505,20 +1266,27 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
                 this.batchQueue = null;
               }
 
+              // Bug #1: Ensure GenerateBatcher is reset when transport changes
+              if (this.generateBatcher) {
+                this.generateBatcher.cleanup();
+                this.generateBatcher = null;
+              }
+
               // Clear TypeScript state
               this.modelManager = null;
               this.generatorFactory = null;
 
               // Bug Fix #55 Phase 2 & 3: Reconcile state with Python (with circuit breaker)
               // Check circuit breaker before attempting reconciliation
-              if (this.canAttemptOperation()) {
+              if (this.runtimeLifecycle.canAttemptOperation()) {
                 await this.reconcileState(transport);
               } else {
+                const breaker = this.runtimeLifecycle.getCircuitBreakerSnapshot();
                 this.logger?.warn(
                   {
-                    circuitBreakerState: this.circuitBreakerState,
-                    failures: this.circuitBreakerFailures,
-                    lastFailure: this.circuitBreakerLastFailure,
+                    circuitBreakerState: breaker.state,
+                    failures: breaker.failures,
+                    lastFailure: breaker.lastFailure,
                   },
                   'Skipping state reconciliation - circuit breaker is open'
                 );
@@ -1671,31 +1439,7 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
   }
 
   private async ensureStarted(): Promise<void> {
-    if (this.started) {
-      return;
-    }
-
-    if (this.shuttingDown) {
-      throw new EngineClientError('RuntimeError', 'Engine shutdown in progress');
-    }
-
-    if (!this.startPromise) {
-      this.startPromise = this.runner
-        .start()
-        .then(() => {
-          this.started = true;
-        })
-        .catch((error) => {
-          this.startPromise = null;
-          throw toEngineError(error, 'RuntimeError');
-        });
-    }
-
-    try {
-      await this.startPromise;
-    } catch (error) {
-      throw this.mapError(error, 'RuntimeError');
-    }
+    await this.runtimeLifecycle.ensureStarted();
   }
 
   private mapError(error: unknown, fallback: EngineErrorCode): EngineClientError {

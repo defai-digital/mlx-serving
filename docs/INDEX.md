@@ -10,6 +10,7 @@
 |----------|-------------|------|
 | **[ARCHITECTURE.md](./ARCHITECTURE.md)** | Complete architecture, M3+ strategy, distributed design | 18K |
 | **[GUIDES.md](./GUIDES.md)** | User guides (migration, structured output, vision models) | 17K |
+| **[ZOD_SCHEMAS.md](./ZOD_SCHEMAS.md)** | Zod schema validation guide (runtime type safety) | 26K |
 | **[DEPLOYMENT.md](./DEPLOYMENT.md)** | Deployment and operations guide | 10K |
 | **[INDEX.md](./INDEX.md)** | This document (documentation map) | 4K |
 
@@ -88,6 +89,41 @@
    - Common parameters
    - Error handling
 
+### Validation & Type Safety
+
+**[ZOD_SCHEMAS.md](./ZOD_SCHEMAS.md)** - Comprehensive Zod schema validation guide:
+
+1. **[Overview & Quick Start](./ZOD_SCHEMAS.md#overview)**
+   - Runtime type validation with Zod v3.22.4
+   - Type safety and error handling
+   - Zero breaking changes (100% backward compatible)
+
+2. **[Schema Reference](./ZOD_SCHEMAS.md#schema-reference)**
+   - Model schemas (LoadModelOptions, ModelDescriptor)
+   - Generator schemas (GeneratorParams, structured output)
+   - Tokenizer schemas (TokenizeRequest, TokenizeResponse)
+   - Config schemas (60+ properties, 11 sections)
+   - JSON-RPC schemas (request/response validation)
+   - Telemetry schemas (OpenTelemetry config)
+   - Event schemas (8 event payloads)
+
+3. **[Validation Patterns](./ZOD_SCHEMAS.md#validation-patterns)**
+   - Normalize → Validate → Execute pattern
+   - .passthrough() for extensibility
+   - Union types for shortcuts
+   - Cross-field validation with .refine()
+   - Recursive types with z.lazy()
+
+4. **[Error Handling](./ZOD_SCHEMAS.md#error-handling)**
+   - .safeParse() vs .parse()
+   - Error message formatting
+   - Converting Zod errors to Engine errors
+
+5. **[Migration Guide](./ZOD_SCHEMAS.md#migration-guide)**
+   - Manual validators → Zod (81% code reduction)
+   - Migration checklist
+   - Best practices
+
 ### Operations
 
 **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Deployment and operations guide:
@@ -138,6 +174,12 @@ All examples located in [`examples/`](../examples/):
 - `createEngine()` - Factory function
 - `withEngine()` - Context manager helper
 - Dual API support (camelCase + snake_case)
+
+**Validation Schemas** (Located in [`src/types/schemas/`](../src/types/schemas/)):
+- See [ZOD_SCHEMAS.md](./ZOD_SCHEMAS.md) for complete schema reference
+- 9 schema modules covering all API boundaries
+- Runtime type validation with Zod v3.22.4
+- Type inference: `z.infer<typeof Schema>`
 
 ### Python Runtime
 
@@ -230,6 +272,7 @@ kr-serve-mlx/
 │   ├── bridge/            # Python IPC (JSON-RPC over stdio)
 │   ├── adapters/          # Provider adapters
 │   ├── types/             # TypeScript type definitions
+│   │   └── schemas/       # Zod validation schemas (9 modules)
 │   └── utils/             # Utilities (logger, validators)
 ├── python/                # Python runtime
 │   ├── runtime.py         # JSON-RPC server

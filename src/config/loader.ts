@@ -9,6 +9,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 import type { CacheConfig } from '../types/cache.js';
+import { RuntimeConfigSchema } from '../types/schemas/config.js';
+import { zodErrorToEngineError } from '../api/errors.js';
 
 /**
  * Configuration Schema (matches runtime.yaml structure)
@@ -296,54 +298,14 @@ export function loadConfig(
  * Validate configuration values
  */
 export function validateConfig(config: Config): void {
-  const errors: string[] = [];
+  const parseResult = RuntimeConfigSchema.safeParse(config);
+  if (!parseResult.success) {
+    // Format all errors with field paths (match old format)
+    const errors = parseResult.error.issues.map((issue) => {
+      const field = issue.path.length > 0 ? issue.path.join('.') : 'root';
+      return `${field} ${issue.message}`;
+    });
 
-  // Validate timeouts
-  if (config.python_runtime.startup_timeout_ms < 1000) {
-    errors.push('python_runtime.startup_timeout_ms must be >= 1000ms');
-  }
-
-  if (config.python_runtime.max_restarts < 0) {
-    errors.push('python_runtime.max_restarts must be >= 0');
-  }
-
-  if (config.python_bridge.max_buffer_size < 1024) {
-    errors.push('python_bridge.max_buffer_size must be >= 1024 bytes');
-  }
-
-  if (config.stream_registry.max_active_streams < 1) {
-    errors.push('stream_registry.max_active_streams must be >= 1');
-  }
-
-  if (config.json_rpc.retry.max_attempts < 1) {
-    errors.push('json_rpc.retry.max_attempts must be >= 1');
-  }
-
-  if (config.json_rpc.retry.initial_delay_ms < 0) {
-    errors.push('json_rpc.retry.initial_delay_ms must be >= 0');
-  }
-
-  if (config.json_rpc.retry.max_delay_ms < config.json_rpc.retry.initial_delay_ms) {
-    errors.push('json_rpc.retry.max_delay_ms must be >= initial_delay_ms');
-  }
-
-  if (config.json_rpc.retry.backoff_multiplier < 1) {
-    errors.push('json_rpc.retry.backoff_multiplier must be >= 1');
-  }
-
-  if (config.json_rpc.circuit_breaker.failure_threshold < 1) {
-    errors.push('json_rpc.circuit_breaker.failure_threshold must be >= 1');
-  }
-
-  if (config.json_rpc.circuit_breaker.half_open_max_calls < 1) {
-    errors.push('json_rpc.circuit_breaker.half_open_max_calls must be >= 1');
-  }
-
-  if (config.json_rpc.circuit_breaker.half_open_success_threshold < 1) {
-    errors.push('json_rpc.circuit_breaker.half_open_success_threshold must be >= 1');
-  }
-
-  if (errors.length > 0) {
     throw new Error(`Configuration validation failed:\n${errors.join('\n')}`);
   }
 }

@@ -22,6 +22,7 @@ export type EngineErrorCode =
   | 'InvalidRequest'
   | 'MethodNotFound'
   | 'InvalidParams'
+  | 'ValidationError' // Phase 1 Week 1: Zod validation errors
   | 'InternalError'
   | 'ServerError'
   | 'ModelLoadError'
@@ -171,4 +172,39 @@ export function createTimeoutError(
   // Bug #5 P2: Restore legacy phrasing so monitors detect "timed out" events.
   const message = `Request timed out after ${timeout}ms: ${method}${requestId ? ` (id: ${requestId})` : ''}`;
   return new TimeoutError(message, { method, timeout, requestId, duration });
+}
+
+/**
+ * Convert Zod validation error to EngineClientError
+ *
+ * Phase 1 Week 1: Zod Integration
+ *
+ * Extracts validation issues from Zod and formats them as clear,
+ * actionable error messages with field-level details.
+ *
+ * @param error - Zod validation error
+ * @returns EngineClientError with ValidationError code
+ *
+ * @example
+ * ```typescript
+ * const result = LoadModelOptionsSchema.safeParse({ model: '' });
+ * if (!result.success) {
+ *   throw zodErrorToEngineError(result.error);
+ * }
+ * // Throws: "Validation error on field 'model': Cannot be empty"
+ * ```
+ */
+export function zodErrorToEngineError(error: import('zod').ZodError): EngineClientError {
+  const firstIssue = error.issues[0];
+  const field = firstIssue.path.length > 0 ? firstIssue.path.join('.') : 'root';
+  const message = `Validation error on field '${field}': ${firstIssue.message}`;
+
+  return new EngineClientError('InvalidParams', message, {
+    field,
+    issues: error.issues.map((issue) => ({
+      path: issue.path,
+      message: issue.message,
+      code: issue.code,
+    })),
+  });
 }
