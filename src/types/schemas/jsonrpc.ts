@@ -80,7 +80,7 @@ const METHOD_PARAM_SCHEMAS: Record<string, any> = {
 /**
  * Validation result for JSON-RPC messages
  */
-export interface ValidationResult<T> {
+export interface JsonRpcValidationResult<T> {
   success: boolean;
   data?: T;
   error?: ZodError;
@@ -110,7 +110,7 @@ export interface ValidationResult<T> {
 export function validateJsonRpcRequest(
   request: unknown,
   validateParams: boolean = true
-): ValidationResult<any> {
+): JsonRpcValidationResult<any> {
   // 1. Validate generic JSON-RPC 2.0 structure
   const parseResult = JsonRpcRequestSchema.safeParse(request);
   if (!parseResult.success) {
@@ -161,7 +161,7 @@ export function validateJsonRpcRequest(
  * }
  * ```
  */
-export function validateJsonRpcResponse(response: unknown): ValidationResult<any> {
+export function validateJsonRpcResponse(response: unknown): JsonRpcValidationResult<any> {
   // Try success schema first
   const successResult = JsonRpcSuccessSchema.safeParse(response);
   if (successResult.success) {
@@ -206,7 +206,7 @@ export function validateJsonRpcResponse(response: unknown): ValidationResult<any
  * }
  * ```
  */
-export function validateJsonRpcNotification(notification: unknown): ValidationResult<any> {
+export function validateJsonRpcNotification(notification: unknown): JsonRpcValidationResult<any> {
   const parseResult = JsonRpcNotificationSchema.safeParse(notification);
   if (!parseResult.success) {
     return {
@@ -235,7 +235,7 @@ export function validateJsonRpcNotification(notification: unknown): ValidationRe
  * }
  * ```
  */
-export function validateJsonRpcMessage(message: unknown): ValidationResult<any> {
+export function validateJsonRpcMessage(message: unknown): JsonRpcValidationResult<any> {
   const parseResult = JsonRpcMessageSchema.safeParse(message);
   if (!parseResult.success) {
     return {

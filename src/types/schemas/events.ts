@@ -116,12 +116,15 @@ export const RuntimeStatusEventSchema = z.object({
 
 /**
  * Type inference for event schemas
+ *
+ * Note: Event types are already exported from src/api/events.ts
+ * These schemas validate the runtime structure of those types
  */
-export type ModelLoadedEvent = z.infer<typeof ModelLoadedEventSchema>;
-export type ModelUnloadedEvent = z.infer<typeof ModelUnloadedEventSchema>;
-export type ModelInvalidatedEvent = z.infer<typeof ModelInvalidatedEventSchema>;
-export type GenerationStartedEvent = z.infer<typeof GenerationStartedEventSchema>;
-export type TokenGeneratedEvent = z.infer<typeof TokenGeneratedEventSchema>;
-export type GenerationCompletedEvent = z.infer<typeof GenerationCompletedEventSchema>;
-export type ErrorEvent = z.infer<typeof ErrorEventSchema>;
-export type RuntimeStatusEvent = z.infer<typeof RuntimeStatusEventSchema>;
+// export type ModelLoadedEvent = z.infer<typeof ModelLoadedEventSchema>;
+// export type ModelUnloadedEvent = z.infer<typeof ModelUnloadedEventSchema>;
+// export type ModelInvalidatedEvent = z.infer<typeof ModelInvalidatedEventSchema>;
+// export type GenerationStartedEvent = z.infer<typeof GenerationStartedEventSchema>;
+// export type TokenGeneratedEvent = z.infer<typeof TokenGeneratedEventSchema>;
+// export type GenerationCompletedEvent = z.infer<typeof GenerationCompletedEventSchema>;
+// export type ErrorEvent = z.infer<typeof ErrorEventSchema>;
+// export type RuntimeStatusEvent = z.infer<typeof RuntimeStatusEventSchema>;

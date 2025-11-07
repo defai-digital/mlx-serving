@@ -31,3 +31,6 @@ export type {
 } from './types/index.js';
 
 export * from './types/index.js';
+
+// Phase 1: Zod Validation Schemas
+export * from './types/schemas/index.js';

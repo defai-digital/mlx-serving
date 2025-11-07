@@ -57,9 +57,9 @@ export const ClampedPenalty = z
   .max(2, 'Penalty cannot exceed 2');
 
 /**
- * Quantization mode enum
+ * Quantization mode enum schema
  */
-export const QuantizationMode = z.enum(['none', 'int8', 'int4'], {
+export const QuantizationModeSchema = z.enum(['none', 'int8', 'int4'], {
   errorMap: () => ({ message: 'Quantization must be one of: none, int8, int4' }),
 });
 

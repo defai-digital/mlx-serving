@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { NonEmptyString, QuantizationMode } from './common.js';
+import { NonEmptyString, QuantizationModeSchema } from './common.js';
 
 /**
  * Tokenizer configuration schema
@@ -58,7 +58,7 @@ export const LoadModelOptionsSchema = z
     ),
     draft: z.boolean().optional(),
     revision: z.string().optional(),
-    quantization: QuantizationMode.optional(),
+    quantization: QuantizationModeSchema.optional(),
     parameters: z.record(z.unknown()).optional(),
     trustRemoteCode: z.boolean().optional(),
   })
