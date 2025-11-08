@@ -61,10 +61,10 @@ export interface RemediationResult {
  * Metric sample for percentile calculation
  */
 export interface MetricSample {
-  streamId: string;
   metric: string;
   value: number;
   timestamp: number;
+  streamId?: string; // Optional for aggregate metrics
   tenantId?: string;
   modelId?: string;
 }
