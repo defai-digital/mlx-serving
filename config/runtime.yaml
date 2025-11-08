@@ -519,3 +519,26 @@ transport:
     backpressure_threshold: 1048576     # Backpressure threshold (1MB)
     max_buffered_chunks: 100            # Max buffered chunks before backpressure
 
+
+# Phase 4.3: TTFT Accelerator Pipeline (Performance Optimization v0.2.0)
+# Warm queue, speculation, and KV cache prefetch for 30-40% TTFT reduction
+
+ttft_accelerator:
+  enabled: false                      # DISABLED: Enable after testing
+  warm_queue:
+    max_size: 100                     # Maximum queue size
+    ttl_ms: 800                       # Item TTL (800ms)
+    priority_by_tokens: true          # Prioritize by estimated tokens
+  
+  speculation:
+    enabled: false                    # DISABLED: Extra-conservative
+    allowlist_only: true              # Only allow allowlisted prompts
+    max_candidates: 1000              # Maximum speculation candidates
+    min_confidence: 0.85              # Minimum confidence threshold (85%)
+    decay_factor: 0.8                 # Confidence decay on failure
+  
+  kv_prep:
+    enabled: false                    # DISABLED: Enable after testing
+    prefetch_enabled: true            # Enable KV cache prefetch
+    cache_warmup_ms: 50               # Cache warmup time (50ms)
+
