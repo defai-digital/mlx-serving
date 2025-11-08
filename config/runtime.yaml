@@ -542,3 +542,64 @@ ttft_accelerator:
     prefetch_enabled: true            # Enable KV cache prefetch
     cache_warmup_ms: 50               # Cache warmup time (50ms)
 
+
+# Phase 4.4: Stream QoS Telemetry (SLO Monitoring & Remediation)
+# Automatic SLO violation detection and remediation with loop prevention
+
+qos_monitor:
+  enabled: false                      # DISABLED: Enable after testing
+
+  # QoS Evaluator (SLO monitoring with TDigest percentiles)
+  evaluator:
+    enabled: false                    # DISABLED: Enable after testing
+    evaluation_interval_ms: 5000      # Evaluate SLOs every 5 seconds
+    window_ms: 60000                  # 1-minute rolling window
+    tdigest_compression: 100          # TDigest compression factor
+
+  # Remediation Executor (Auto-remediation with loop detection)
+  executor:
+    enabled: false                    # DISABLED: Enable after testing
+    cooldown_ms: 60000                # 1-minute cooldown between same remediation
+    max_executions_per_window: 5      # Max 5 executions per window
+    execution_window_ms: 300000       # 5-minute rolling window
+    loop_detection_window: 6          # Check last 6 actions for loops
+
+  # Policy Store (YAML-driven SLO policies)
+  policy_store:
+    policies:
+      - id: default_ttft_policy
+        name: Default TTFT SLO
+        description: Enforce 550ms TTFT target
+        enabled: true
+        priority: 100
+        slos:
+          - name: ttft_p95
+            metric: ttft
+            threshold: 550            # 550ms P95 TTFT
+            window_ms: 60000          # 1-minute window
+            severity: critical
+        remediations:
+          - type: scale_up
+            target: governor
+            params:
+              delta: 5
+            reason: TTFT SLO violated - scaling up concurrency
+
+      - id: error_rate_policy
+        name: Error Rate SLO
+        description: Enforce < 1% error rate
+        enabled: true
+        priority: 90
+        slos:
+          - name: error_rate
+            metric: error_rate
+            threshold: 0.01           # 1% error rate
+            window_ms: 60000          # 1-minute window
+            severity: warning
+        remediations:
+          - type: alert
+            target: stream_registry
+            params:
+              channel: slack
+            reason: Error rate SLO violated - alerting team
+
