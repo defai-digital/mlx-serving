@@ -1,6 +1,33 @@
 # Performance Benchmarks
 
-Comprehensive performance benchmark framework for kr-mlx-lm.
+Comprehensive performance benchmark framework for mlx-serving.
+
+## 🆕 Flexible Benchmark Tool (Recommended)
+
+**NEW!** We now have a powerful CLI tool for benchmarking **any MLX model** with **any number of questions**:
+
+```bash
+# Quick test (10 questions)
+npm run bench:quick
+
+# Compare both engines (100 questions)
+npm run bench:compare
+
+# Custom benchmark (gemma-2-27b-it with 200 questions)
+npm run bench:flexible -- -m mlx-community/gemma-2-27b-it-4bit -q 200 -c both
+```
+
+**Features:**
+- ✅ Any HuggingFace MLX model
+- ✅ 1-10,000+ questions
+- ✅ Compare mlx-serving vs mlx-engine
+- ✅ Comprehensive statistics (P50/P95/P99)
+- ✅ JSON output for analysis
+- ✅ Progress tracking
+
+📖 **Full Documentation:** [FLEXIBLE-BENCHMARK-README.md](./FLEXIBLE-BENCHMARK-README.md)
+
+---
 
 ## Quick Start
 

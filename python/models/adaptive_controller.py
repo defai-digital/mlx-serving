@@ -1,270 +1,298 @@
 """
-Adaptive Controller for GPU Scheduler Auto-Tuning.
+Adaptive Batch Controller for mlx-serving Phase 2.
 
-This module implements load-aware batch size adjustment using EMA smoothing
-and P99 latency feedback to optimize GPU scheduler performance.
+This module implements adaptive batch sizing with EMA-based feedback for mlx-serving.
+It monitors batch latency and dynamically adjusts batch size to maintain target latency
+while maximizing throughput.
 
-Part of kr-serve-mlx v1.4.1 upgrade.
+Algorithm:
+- Use Exponential Moving Average (EMA) to smooth latency measurements
+- Adjust batch size based on deviation from target latency
+- Rate-limit adjustments to prevent oscillation
+- Handle edge cases gracefully (cold start, extreme latency)
+
+Part of mlx-serving Phase 2: Multi-Worker Scaling and Adaptive Batching
 """
 
-import os
 import time
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, field
+from typing import Dict, Any, Optional
+from dataclasses import dataclass
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ControllerConfig:
-    """Configuration for AdaptiveController."""
+class AdaptiveBatchConfig:
+    """Configuration for adaptive batch sizing."""
 
+    enabled: bool = True
     min_batch_size: int = 2
-    max_batch_size: int = 8
-    ema_alpha: float = 0.3  # Exponential moving average smoothing factor
-    adjustment_interval: int = 10  # Adjust every N batches
-    p99_target_ms: float = 100.0  # Target P99 latency in milliseconds
-    p99_tolerance_ms: float = 20.0  # Tolerance before adjustment
-    degradation_threshold: float = 2.0  # Multiplier for degradation detection
-    max_adjustment_step: int = 1  # Maximum batch size change per adjustment
-
-    @classmethod
-    def from_env(cls) -> 'ControllerConfig':
-        """Load configuration from environment variables."""
-        return cls(
-            min_batch_size=int(os.getenv('MLX_AUTO_TUNE_MIN_BATCH', '2')),
-            max_batch_size=int(os.getenv('MLX_AUTO_TUNE_MAX_BATCH', '8')),
-            ema_alpha=float(os.getenv('MLX_AUTO_TUNE_EMA_ALPHA', '0.3')),
-            adjustment_interval=int(os.getenv('MLX_AUTO_TUNE_INTERVAL', '10')),
-            p99_target_ms=float(os.getenv('MLX_GPU_SCHEDULER_P99_THRESHOLD_MS', '100.0')),
-        )
+    max_batch_size: int = 16
+    target_latency_ms: float = 10.0
+    ema_alpha: float = 0.3  # Smoothing factor (0-1, higher = more reactive)
+    adjustment_interval_ms: float = 1000.0  # Min time between adjustments (milliseconds)
 
 
-@dataclass
-class ControllerMetrics:
-    """Metrics tracked by the controller."""
-
-    current_batch_size: int
-    p99_latency_ms: float
-    ema_p99_ms: float
-    batch_count: int
-    adjustment_count: int
-    degradation_events: int
-    last_adjustment_time: float
-    adjustment_history: List[Tuple[float, int, str]] = field(default_factory=list)  # (timestamp, batch_size, reason)
-
-
-class AdaptiveController:
+class AdaptiveBatchController:
     """
-    Adaptive batch size controller using EMA and P99 latency feedback.
+    Adaptive batch sizing controller using EMA-based feedback.
 
-    The controller monitors P99 latency and adjusts batch size to maintain
-    optimal throughput while staying within latency targets.
+    Monitors batch processing latency and dynamically adjusts batch size
+    to maintain target latency while maximizing throughput.
 
     Strategy:
-    - If P99 latency is below target: Increase batch size (more throughput)
-    - If P99 latency is above target: Decrease batch size (reduce latency)
+    - If EMA latency < target * 0.9: Increase batch size (more throughput)
+    - If EMA latency > target * 1.1: Decrease batch size (reduce latency)
+    - Otherwise: Keep current size (within acceptable range)
     - Use EMA smoothing to avoid oscillations
-    - Detect degradation events for automatic fallback
+    - Rate-limit adjustments to prevent thrashing
+
+    Thread-safety: Designed for single-threaded async Python runtime.
+    All methods should be called from the same event loop.
     """
 
-    def __init__(self, config: Optional[ControllerConfig] = None):
+    def __init__(self, config: AdaptiveBatchConfig):
         """
-        Initialize the adaptive controller.
+        Initialize the adaptive batch controller.
 
         Args:
-            config: Controller configuration. If None, loads from environment.
+            config: Controller configuration
         """
-        self.config = config or ControllerConfig.from_env()
-        self.enabled = os.getenv('MLX_AUTO_TUNE', 'off').lower() == 'on'
-
-        # State
-        self.current_batch_size = self.config.min_batch_size
-        self.batch_count = 0
-        self.adjustment_count = 0
-        self.degradation_events = 0
-
-        # EMA state
-        self.ema_p99_ms: Optional[float] = None
-        self.p99_history: List[float] = []
-
-        # Timing
-        self.last_adjustment_time = time.time()
-        self.adjustment_history: List[Tuple[float, int, str]] = []
+        self.config = config
+        self.current_size = config.min_batch_size
+        self.ema_latency = 0.0
+        self.last_adjustment_time = 0.0
+        self.total_batches = 0
+        self.total_adjustments = 0
+        self.size_increase_count = 0
+        self.size_decrease_count = 0
 
         logger.info(
-            f"AdaptiveController initialized: enabled={self.enabled}, "
-            f"batch_size={self.current_batch_size}, "
-            f"min={self.config.min_batch_size}, max={self.config.max_batch_size}, "
-            f"alpha={self.config.ema_alpha}, target_p99={self.config.p99_target_ms}ms"
+            f"AdaptiveBatchController initialized: enabled={config.enabled}, "
+            f"size={self.current_size}, min={config.min_batch_size}, "
+            f"max={config.max_batch_size}, alpha={config.ema_alpha}, "
+            f"target={config.target_latency_ms}ms, interval={config.adjustment_interval_ms}ms"
         )
 
-    def update(self, p99_latency_ms: float) -> Tuple[int, bool]:
+    def update(self, batch_latency_ms: float, batch_size: int) -> int:
         """
-        Update controller with new P99 latency measurement.
+        Update controller with batch metrics and return recommended size.
 
         Args:
-            p99_latency_ms: Current P99 latency in milliseconds
+            batch_latency_ms: Actual latency of last batch (milliseconds)
+            batch_size: Size of last batch
 
         Returns:
-            Tuple of (new_batch_size, adjustment_made)
+            Recommended batch size for next batch
         """
-        if not self.enabled:
-            return self.current_batch_size, False
+        # If disabled, always return min size
+        if not self.config.enabled:
+            return self.config.min_batch_size
 
-        # Update EMA
-        if self.ema_p99_ms is None:
-            self.ema_p99_ms = p99_latency_ms
-        else:
-            self.ema_p99_ms = (
-                self.config.ema_alpha * p99_latency_ms +
-                (1 - self.config.ema_alpha) * self.ema_p99_ms
-            )
-
-        self.p99_history.append(p99_latency_ms)
-        self.batch_count += 1
-
-        # Check for degradation (sudden spike)
-        if self._detect_degradation(p99_latency_ms):
-            self.degradation_events += 1
+        # Validate input
+        if batch_latency_ms <= 0:
             logger.warning(
-                f"Degradation detected: P99={p99_latency_ms:.2f}ms, "
-                f"EMA={self.ema_p99_ms:.2f}ms, threshold={self.config.p99_target_ms * self.config.degradation_threshold:.2f}ms"
+                f"Invalid batch latency: {batch_latency_ms}ms (must be > 0), "
+                "skipping adjustment"
             )
-            # Emergency batch size reduction
-            new_size = max(self.config.min_batch_size, self.current_batch_size - 2)
-            if new_size != self.current_batch_size:
-                self._apply_adjustment(new_size, "degradation_emergency")
-                return new_size, True
+            return self.current_size
 
-        # Check if adjustment interval reached
-        if self.batch_count % self.config.adjustment_interval == 0:
-            new_size = self._calculate_adjustment()
-            if new_size != self.current_batch_size:
-                self._apply_adjustment(new_size, "periodic_adjustment")
-                return new_size, True
+        # Handle extremely high latency (>10x target) - emergency reduction
+        if batch_latency_ms > self.config.target_latency_ms * 10:
+            logger.warning(
+                f"Extreme latency detected: {batch_latency_ms:.2f}ms "
+                f"(>{self.config.target_latency_ms * 10:.2f}ms), "
+                "reducing to minimum batch size"
+            )
+            self._apply_adjustment(self.config.min_batch_size, "extreme_latency")
+            return self.current_size
 
-        return self.current_batch_size, False
+        # Update EMA latency
+        if self.ema_latency == 0.0:
+            # Cold start: Initialize EMA with first measurement
+            self.ema_latency = batch_latency_ms
+            logger.info(f"EMA initialized: {self.ema_latency:.2f}ms (first batch)")
+        else:
+            # Standard EMA update: ema = alpha * current + (1 - alpha) * ema
+            self.ema_latency = (
+                self.config.ema_alpha * batch_latency_ms
+                + (1 - self.config.ema_alpha) * self.ema_latency
+            )
 
-    def _detect_degradation(self, p99_latency_ms: float) -> bool:
-        """Detect if current latency indicates degradation."""
-        if self.ema_p99_ms is None:
-            return False
+        self.total_batches += 1
 
-        # Degradation if latency exceeds threshold by multiplier
-        threshold = self.config.p99_target_ms * self.config.degradation_threshold
-        return p99_latency_ms > threshold and p99_latency_ms > self.ema_p99_ms * 1.5
+        # Check if enough time has passed since last adjustment
+        current_time_ms = time.time() * 1000  # Convert to milliseconds
+        time_since_last_adjustment = current_time_ms - self.last_adjustment_time
+
+        if time_since_last_adjustment < self.config.adjustment_interval_ms:
+            # Too soon to adjust, return current size
+            return self.current_size
+
+        # Calculate adjustment based on EMA latency
+        new_size = self._calculate_adjustment()
+
+        # Apply adjustment if size changed
+        if new_size != self.current_size:
+            self._apply_adjustment(new_size, "periodic_adjustment")
+
+        return self.current_size
 
     def _calculate_adjustment(self) -> int:
         """
-        Calculate new batch size based on EMA P99 latency.
+        Calculate new batch size based on EMA latency.
 
         Returns:
             New batch size (may be same as current)
         """
-        if self.ema_p99_ms is None:
-            return self.current_batch_size
+        target = self.config.target_latency_ms
+        lower_bound = target * 0.9  # 10% below target
+        upper_bound = target * 1.1  # 10% above target
 
-        current_size = self.current_batch_size
-        target = self.config.p99_target_ms
-        tolerance = self.config.p99_tolerance_ms
+        current_size = self.current_size
 
-        # Calculate latency deviation
-        deviation = self.ema_p99_ms - target
-
-        # Decision logic
-        if deviation < -tolerance:
-            # P99 well below target -> increase batch size for more throughput
-            new_size = min(
-                self.config.max_batch_size,
-                current_size + self.config.max_adjustment_step
-            )
-            reason = f"p99_below_target (EMA={self.ema_p99_ms:.2f}ms < target={target:.2f}ms)"
-        elif deviation > tolerance:
-            # P99 above target -> decrease batch size to reduce latency
-            new_size = max(
-                self.config.min_batch_size,
-                current_size - self.config.max_adjustment_step
-            )
-            reason = f"p99_above_target (EMA={self.ema_p99_ms:.2f}ms > target={target:.2f}ms)"
+        # Decision logic based on ±10% target latency band
+        if self.ema_latency < lower_bound:
+            # Latency is good, increase batch size for more throughput
+            new_size = min(self.config.max_batch_size, current_size + 1)
+            if new_size != current_size:
+                logger.debug(
+                    f"EMA latency {self.ema_latency:.2f}ms < {lower_bound:.2f}ms, "
+                    f"increasing batch size: {current_size} -> {new_size}"
+                )
+        elif self.ema_latency > upper_bound:
+            # Latency is high, decrease batch size to reduce latency
+            new_size = max(self.config.min_batch_size, current_size - 1)
+            if new_size != current_size:
+                logger.debug(
+                    f"EMA latency {self.ema_latency:.2f}ms > {upper_bound:.2f}ms, "
+                    f"decreasing batch size: {current_size} -> {new_size}"
+                )
         else:
-            # Within tolerance -> no change
+            # Latency is acceptable, keep current size
             new_size = current_size
-            reason = f"within_tolerance (EMA={self.ema_p99_ms:.2f}ms)"
-
-        if new_size != current_size:
-            logger.info(
-                f"Auto-tuning decision: {current_size} -> {new_size} ({reason})"
+            logger.debug(
+                f"EMA latency {self.ema_latency:.2f}ms within acceptable range "
+                f"[{lower_bound:.2f}ms, {upper_bound:.2f}ms], "
+                f"keeping batch size: {current_size}"
             )
 
         return new_size
 
     def _apply_adjustment(self, new_size: int, reason: str):
-        """Apply batch size adjustment and record history."""
-        old_size = self.current_batch_size
-        self.current_batch_size = new_size
-        self.adjustment_count += 1
-        self.last_adjustment_time = time.time()
-
-        self.adjustment_history.append((
-            time.time(),
-            new_size,
-            reason
-        ))
-
-        # Keep history bounded
-        if len(self.adjustment_history) > 100:
-            self.adjustment_history = self.adjustment_history[-100:]
-
-        logger.info(
-            f"Batch size adjusted: {old_size} -> {new_size} (reason: {reason}, "
-            f"adjustments: {self.adjustment_count}, batches: {self.batch_count})"
-        )
-
-    def get_metrics(self) -> ControllerMetrics:
-        """Get current controller metrics."""
-        return ControllerMetrics(
-            current_batch_size=self.current_batch_size,
-            p99_latency_ms=self.p99_history[-1] if self.p99_history else 0.0,
-            ema_p99_ms=self.ema_p99_ms or 0.0,
-            batch_count=self.batch_count,
-            adjustment_count=self.adjustment_count,
-            degradation_events=self.degradation_events,
-            last_adjustment_time=self.last_adjustment_time,
-            adjustment_history=self.adjustment_history[-10:]  # Last 10 adjustments
-        )
-
-    def reset(self):
-        """Reset controller state (keeps configuration)."""
-        self.current_batch_size = self.config.min_batch_size
-        self.batch_count = 0
-        self.adjustment_count = 0
-        self.degradation_events = 0
-        self.ema_p99_ms = None
-        self.p99_history.clear()
-        self.adjustment_history.clear()
-        self.last_adjustment_time = time.time()
-
-        logger.info("AdaptiveController reset")
-
-    def get_current_batch_size(self) -> int:
-        """Get current recommended batch size."""
-        return self.current_batch_size
-
-    def get_stability_score(self) -> float:
         """
-        Calculate stability score (0.0 to 1.0).
+        Apply batch size adjustment and update statistics.
+
+        Args:
+            new_size: New batch size to apply
+            reason: Reason for adjustment (for logging)
+        """
+        old_size = self.current_size
+        self.current_size = new_size
+        self.last_adjustment_time = time.time() * 1000  # milliseconds
+
+        # Update adjustment counters
+        if new_size > old_size:
+            self.size_increase_count += 1
+        elif new_size < old_size:
+            self.size_decrease_count += 1
+
+        if new_size != old_size:
+            self.total_adjustments += 1
+            logger.info(
+                f"Batch size adjusted: {old_size} -> {new_size} "
+                f"(reason: {reason}, EMA: {self.ema_latency:.2f}ms, "
+                f"adjustments: {self.total_adjustments})"
+            )
+
+    def get_recommended_size(self) -> int:
+        """Get current recommended batch size."""
+        return self.current_size
+
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get controller statistics.
 
         Returns:
-            1.0 = very stable (few adjustments)
-            0.0 = very unstable (many adjustments)
+            Dictionary with current state and statistics
         """
-        if self.batch_count == 0:
-            return 1.0
+        return {
+            'current_size': self.current_size,
+            'ema_latency_ms': self.ema_latency,
+            'total_batches': self.total_batches,
+            'total_adjustments': self.total_adjustments,
+            'size_increase_count': self.size_increase_count,
+            'size_decrease_count': self.size_decrease_count,
+            'target_latency_ms': self.config.target_latency_ms,
+        }
 
-        # Score based on adjustment frequency
-        adjustment_rate = self.adjustment_count / max(1, self.batch_count)
-        stability = max(0.0, 1.0 - (adjustment_rate * 10))  # 10% adjustment = 0 score
+    def reset(self):
+        """Reset controller state."""
+        self.current_size = self.config.min_batch_size
+        self.ema_latency = 0.0
+        self.last_adjustment_time = 0.0
+        self.total_batches = 0
+        self.total_adjustments = 0
+        self.size_increase_count = 0
+        self.size_decrease_count = 0
 
-        return stability
+        logger.info("AdaptiveBatchController reset")
+
+
+# Unit test helper functions
+def create_test_controller(
+    min_size: int = 2,
+    max_size: int = 16,
+    target_ms: float = 10.0,
+    alpha: float = 0.3,
+) -> AdaptiveBatchController:
+    """
+    Create a test controller with specified parameters.
+
+    Args:
+        min_size: Minimum batch size
+        max_size: Maximum batch size
+        target_ms: Target latency in milliseconds
+        alpha: EMA smoothing factor
+
+    Returns:
+        Configured AdaptiveBatchController instance
+    """
+    config = AdaptiveBatchConfig(
+        enabled=True,
+        min_batch_size=min_size,
+        max_batch_size=max_size,
+        target_latency_ms=target_ms,
+        ema_alpha=alpha,
+        adjustment_interval_ms=0,  # No rate limiting for tests
+    )
+    return AdaptiveBatchController(config)
+
+
+def simulate_batch_sequence(
+    controller: AdaptiveBatchController,
+    latencies_ms: list[float],
+    batch_sizes: Optional[list[int]] = None,
+) -> list[int]:
+    """
+    Simulate a sequence of batches and return recommended sizes.
+
+    Args:
+        controller: Controller instance
+        latencies_ms: List of batch latencies (milliseconds)
+        batch_sizes: Optional list of batch sizes (defaults to recommended sizes)
+
+    Returns:
+        List of recommended batch sizes after each update
+    """
+    recommended_sizes = []
+
+    if batch_sizes is None:
+        batch_sizes = [controller.current_size] * len(latencies_ms)
+
+    for latency, size in zip(latencies_ms, batch_sizes):
+        recommended = controller.update(latency, size)
+        recommended_sizes.append(recommended)
+
+    return recommended_sizes

@@ -23,6 +23,129 @@ export interface Config {
     target_batch_time_ms?: number; // Week 2 Day 3
     priority_queue?: boolean; // Week 2 Day 3
   };
+  generate_batcher: {
+    enabled: boolean;
+    min_batch_size: number;
+    max_batch_size: number;
+    min_hold_ms: number;
+    max_hold_ms: number;
+    background_hold_extension_ms: number;
+    target_batch_time_ms: number;
+    pause_on_backpressure_ms: number;
+  };
+  // Phase 1: Performance Optimization (v0.1.0-alpha.1)
+  request_deduplication: {
+    enabled: boolean;
+    ttl_ms: number;
+    max_entries: number;
+    max_payload_bytes: number;
+  };
+  prompt_cache: {
+    enabled: boolean;
+    max_entries: number;
+    max_total_tokens: number;
+    max_total_bytes: number;
+    ttl_ms: number;
+    cleanup_interval_ms: number;
+    persistence?: {
+      enabled: boolean;
+      path: string;
+      save_interval_ms: number;
+    };
+  };
+  request_coalescing: {
+    enabled: boolean;
+    max_subscribers: number;
+    timeout_ms: number;
+  };
+  // Phase 2: Multi-Worker Routing (v0.2.0)
+  runtime_router: {
+    enabled: boolean;
+    worker_count: number;
+    routing_strategy: 'round-robin' | 'least-busy';
+    health_check_interval_ms: number;
+    worker_restart_delay_ms: number;
+    sticky_session_enabled: boolean;
+    sticky_session_ttl_ms: number;
+  };
+  python_runtime_manager: {
+    enabled: boolean;
+    worker_count: number;
+    heartbeat_interval_ms: number;
+    heartbeat_timeout_ms: number;
+  };
+  adaptive_batch_coordinator: {
+    enabled: boolean;
+    python_rpc_method: string;
+    update_interval_ms: number;
+    default_batch_size: number;
+    min_batch_size: number;
+    max_batch_size: number;
+    rpc_timeout_ms: number;
+  };
+  retry_policy: {
+    enabled: boolean;
+    max_attempts: number;
+    initial_delay_ms: number;
+    max_delay_ms: number;
+    backoff_multiplier: number;
+    jitter: number;
+    retryable_errors: string[];
+  };
+  circuit_breaker: {
+    enabled: boolean;
+    failure_threshold: number;
+    recovery_timeout_ms: number;
+    half_open_max_calls: number;
+    half_open_success_threshold: number;
+    failure_window_ms: number;
+  };
+  // Phase 3: Production Hardening (Performance Optimization v0.2.0)
+  connection_pool: {
+    enabled: boolean;
+    min_connections: number;
+    max_connections: number;
+    acquire_timeout_ms: number;
+    idle_timeout_ms: number;
+    health_check_interval_ms: number;
+    warmup_on_start: boolean;
+  };
+  streaming_controller: {
+    enabled: boolean;
+    chunk_size_bytes: number;
+    chunk_timeout_ms: number;
+    max_unacked_chunks: number;
+    ack_timeout_ms: number;
+    slow_consumer_threshold_ms: number;
+    metrics_export_interval_ms: number;
+  };
+  model_lifecycle_manager: {
+    enabled: boolean;
+    idle_timeout_ms: number;
+    max_loaded_models: number;
+    prefetch_enabled: boolean;
+    prefetch_min_confidence: number;
+    warmups_on_startup: string[];
+    pinned_models: string[];
+    drain_timeout_ms: number;
+  };
+  rolling_restart_coordinator: {
+    enabled: boolean;
+    drain_timeout_ms: number;
+    min_active_workers: number;
+    preflight_check_enabled: boolean;
+    preflight_timeout_ms: number;
+    request_replay_enabled: boolean;
+    max_replay_attempts: number;
+    watchdog_interval_ms: number;
+  };
+  continuous_batching?: {
+    max_batch_size: number;
+    batch_window_ms: number;
+    adaptive_sizing: boolean;
+    target_gpu_utilization: number;
+    min_batch_size: number;
+  };
   python_runtime: {
     python_path: string;
     runtime_path: string;
@@ -84,6 +207,36 @@ export interface Config {
       track_throughput: boolean;
       track_cancellations: boolean;
       export_interval_ms: number;
+    };
+  };
+  streaming?: {
+    phase4?: {
+      adaptive_governor?: {
+        enabled: boolean;
+        target_ttft_ms: number;
+        max_concurrent: number;
+        min_concurrent: number;
+        pid: {
+          kp: number;
+          ki: number;
+          kd: number;
+          integral_saturation: number;
+          sample_interval_ms: number;
+        };
+        cleanup: {
+          sweep_interval_ms: number;
+          max_stale_lifetime_ms: number;
+        };
+        tenant_budgets: Record<
+          string,
+          {
+            tenant_id?: string;
+            hard_limit: number;
+            burst_limit: number;
+            decay_ms: number;
+          }
+        >;
+      };
     };
   };
   model: {

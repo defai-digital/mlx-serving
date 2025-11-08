@@ -51,6 +51,9 @@
     "bench:apple-to-apple": "tsx benchmarks/apple-to-apple-comparison.ts",
     "bench:50-questions": "tsx benchmarks/50-questions-comparison.ts",
     "bench:100-questions": "tsx benchmarks/100-questions-comparison.ts",
+    "bench:flexible": "tsx benchmarks/flexible-benchmark.ts",
+    "bench:quick": "tsx benchmarks/flexible-benchmark.ts -q 10",
+    "bench:compare": "tsx benchmarks/flexible-benchmark.ts -q 100 -c both",
     "docs:generate": "typedoc"
   },
   "keywords": [
@@ -78,6 +81,7 @@
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.11.30",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^7.5.0",
     "@typescript-eslint/parser": "^7.5.0",
     "@vitest/coverage-v8": "^1.4.0",

@@ -137,6 +137,44 @@ export const StreamRegistryConfigSchema = z.object({
   metrics: StreamMetricsConfigSchema,
 });
 
+const TenantBudgetSchema = z.object({
+  tenant_id: z.string().optional(),
+  hard_limit: z.number().int().positive('Hard limit must be positive'),
+  burst_limit: z.number().int().positive('Burst limit must be positive'),
+  decay_ms: z.number().int().positive('Decay must be positive'),
+});
+
+const AdaptiveGovernorPidSchema = z.object({
+  kp: z.number(),
+  ki: z.number(),
+  kd: z.number(),
+  integral_saturation: z.number().int().positive('Integral saturation must be positive'),
+  sample_interval_ms: z.number().int().positive('Sample interval must be positive'),
+});
+
+const AdaptiveGovernorCleanupSchema = z.object({
+  sweep_interval_ms: z.number().int().positive('Sweep interval must be positive'),
+  max_stale_lifetime_ms: z.number().int().positive('Max stale lifetime must be positive'),
+});
+
+export const AdaptiveGovernorConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    target_ttft_ms: z.number().int().positive('Target TTFT must be positive'),
+    max_concurrent: z.number().int().positive('Max concurrent must be positive'),
+    min_concurrent: z.number().int().positive('Min concurrent must be positive'),
+    pid: AdaptiveGovernorPidSchema,
+    cleanup: AdaptiveGovernorCleanupSchema,
+    tenant_budgets: z.record(TenantBudgetSchema),
+  })
+  .refine(
+    (data) => data.max_concurrent >= data.min_concurrent,
+    {
+      message: 'max_concurrent must be >= min_concurrent',
+      path: ['max_concurrent'],
+    }
+  );
+
 /**
  * Model Memory Cache Configuration
  */
@@ -236,6 +274,15 @@ const RuntimeConfigSchemaBase = z.object({
   python_runtime: PythonRuntimeConfigSchema,
   json_rpc: JsonRpcConfigSchema,
   stream_registry: StreamRegistryConfigSchema,
+  streaming: z
+    .object({
+      phase4: z
+        .object({
+          adaptive_governor: AdaptiveGovernorConfigSchema.optional(),
+        })
+        .optional(),
+    })
+    .optional(),
   model: ModelConfigSchema,
   cache: CacheConfigSchema,
   python_bridge: PythonBridgeConfigSchema,

@@ -113,6 +113,10 @@ export class BatchQueue {
   private tokenizeTimer?: NodeJS.Timeout;
   private checkDraftTimer?: NodeJS.Timeout;
 
+  // Bug #74 FIX: Prevent concurrent flush operations (race condition)
+  private tokenizeFlushInProgress = false;
+  private checkDraftFlushInProgress = false;
+
   // Statistics (Week 2 Day 3: Enhanced)
   private stats = {
     tokenizeBatches: 0,
@@ -251,7 +255,13 @@ export class BatchQueue {
   private scheduleTokenizeFlush(): void {
     // Immediate flush if max batch size reached
     if (this.tokenizeQueue.length >= this.config.maxBatchSize) {
-      this.flushTokenizeQueue();
+      // Bug #82 FIX: Use queueMicrotask to avoid blocking and ensure async execution
+      // This maintains the flush-in-progress lock protection from Bug #74
+      queueMicrotask(() => {
+        this.flushTokenizeQueue().catch((err) => {
+          this.logger?.error({ err }, 'Immediate tokenize flush failed');
+        });
+      });
       return;
     }
 
@@ -269,7 +279,13 @@ export class BatchQueue {
   private scheduleCheckDraftFlush(): void {
     // Immediate flush if max batch size reached
     if (this.checkDraftQueue.length >= this.config.maxBatchSize) {
-      this.flushCheckDraftQueue();
+      // Bug #82 FIX: Use queueMicrotask to avoid blocking and ensure async execution
+      // This maintains the flush-in-progress lock protection from Bug #74
+      queueMicrotask(() => {
+        this.flushCheckDraftQueue().catch((err) => {
+          this.logger?.error({ err }, 'Immediate check draft flush failed');
+        });
+      });
       return;
     }
 
@@ -285,79 +301,91 @@ export class BatchQueue {
    * Flush tokenize queue (send batch request) - Phase 1: True Batching
    */
   private async flushTokenizeQueue(): Promise<void> {
-    // Clear timer
-    if (this.tokenizeTimer) {
-      clearTimeout(this.tokenizeTimer);
-      this.tokenizeTimer = undefined;
-    }
-
-    // Extract requests
-    let requests = this.tokenizeQueue.splice(0, this.tokenizeQueue.length);
-
-    if (requests.length === 0) {
+    // Bug #74 FIX: Prevent concurrent flushes (race condition)
+    if (this.tokenizeFlushInProgress) {
       return;
     }
 
-    // Week 2 Day 3: Priority queue sorting
-    if (this.config.priorityQueue) {
-      const priorityOrder = { high: 0, normal: 1, low: 2 };
-      requests = requests.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-    }
-
-    this.stats.tokenizeBatches++;
-
-    // Week 2 Day 3: Record start time and queue latencies
-    const batchStartTime = Date.now();
-    const queueLatencies = requests.map(r => batchStartTime - r.timestamp);
-
-    this.logger?.info(
-      { batchSize: requests.length, priorityQueue: this.config.priorityQueue },
-      'Flushing tokenize batch'
-    );
+    this.tokenizeFlushInProgress = true;
 
     try {
-      // Phase 1: Use batch_tokenize endpoint (single IPC call for all requests)
-      const batchResponse = await this.transport.request<{ results: Array<{ success: boolean; result: TokenizeResponse | null; error: string | null }> }>(
-        'batch_tokenize',
-        { requests: requests.map(r => r.params) }
+      // Clear timer
+      if (this.tokenizeTimer) {
+        clearTimeout(this.tokenizeTimer);
+        this.tokenizeTimer = undefined;
+      }
+
+      // Extract requests
+      let requests = this.tokenizeQueue.splice(0, this.tokenizeQueue.length);
+
+      if (requests.length === 0) {
+        return;
+      }
+
+      // Week 2 Day 3: Priority queue sorting
+      if (this.config.priorityQueue) {
+        const priorityOrder = { high: 0, normal: 1, low: 2 };
+        requests = requests.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+      }
+
+      this.stats.tokenizeBatches++;
+
+      // Week 2 Day 3: Record start time and queue latencies
+      const batchStartTime = Date.now();
+      const queueLatencies = requests.map(r => batchStartTime - r.timestamp);
+
+      this.logger?.info(
+        { batchSize: requests.length, priorityQueue: this.config.priorityQueue },
+        'Flushing tokenize batch'
       );
 
-      const batchTime = Date.now() - batchStartTime;
+      try {
+        // Phase 1: Use batch_tokenize endpoint (single IPC call for all requests)
+        const batchResponse = await this.transport.request<{ results: Array<{ success: boolean; result: TokenizeResponse | null; error: string | null }> }>(
+          'batch_tokenize',
+          { requests: requests.map(r => r.params) }
+        );
 
-      // Distribute responses back to individual callers
-      let successes = 0;
-      for (let i = 0; i < requests.length; i++) {
-        const result = batchResponse.results[i];
-        if (result.success && result.result) {
-          requests[i].resolve(result.result);
-          successes++;
-        } else {
-          const error = new Error(result.error || 'Batch tokenization failed');
-          queueMicrotask(() => requests[i].reject(error));
+        const batchTime = Date.now() - batchStartTime;
+
+        // Distribute responses back to individual callers
+        let successes = 0;
+        for (let i = 0; i < requests.length; i++) {
+          const result = batchResponse.results[i];
+          if (result.success && result.result) {
+            requests[i].resolve(result.result);
+            successes++;
+          } else {
+            const error = new Error(result.error || 'Batch tokenization failed');
+            queueMicrotask(() => requests[i].reject(error));
+          }
+        }
+
+        this.recordBatchMetrics('tokenize', batchTime, requests.length, queueLatencies);
+
+        this.logger?.debug(
+          {
+            batchSize: requests.length,
+            successes,
+            batchTime,
+          },
+          'Tokenize batch completed via batch_tokenize endpoint'
+        );
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+
+        this.logger?.error(
+          { err: error, batchSize: requests.length },
+          'Tokenize batch dispatch failed'
+        );
+
+        for (const req of requests) {
+          queueMicrotask(() => req.reject(error));
         }
       }
-
-      this.recordBatchMetrics('tokenize', batchTime, requests.length, queueLatencies);
-
-      this.logger?.debug(
-        {
-          batchSize: requests.length,
-          successes,
-          batchTime,
-        },
-        'Tokenize batch completed via batch_tokenize endpoint'
-      );
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
-
-      this.logger?.error(
-        { err: error, batchSize: requests.length },
-        'Tokenize batch dispatch failed'
-      );
-
-      for (const req of requests) {
-        queueMicrotask(() => req.reject(error));
-      }
+    } finally {
+      // Bug #74 FIX: Always release the lock, even on early return or error
+      this.tokenizeFlushInProgress = false;
     }
   }
 
@@ -365,79 +393,91 @@ export class BatchQueue {
    * Flush check draft queue (send batch request) - Phase 1: True Batching
    */
   private async flushCheckDraftQueue(): Promise<void> {
-    // Clear timer
-    if (this.checkDraftTimer) {
-      clearTimeout(this.checkDraftTimer);
-      this.checkDraftTimer = undefined;
-    }
-
-    // Extract requests
-    let requests = this.checkDraftQueue.splice(0, this.checkDraftQueue.length);
-
-    if (requests.length === 0) {
+    // Bug #74 FIX: Prevent concurrent flushes (race condition)
+    if (this.checkDraftFlushInProgress) {
       return;
     }
 
-    // Week 2 Day 3: Priority queue sorting
-    if (this.config.priorityQueue) {
-      const priorityOrder = { high: 0, normal: 1, low: 2 };
-      requests = requests.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-    }
-
-    this.stats.checkDraftBatches++;
-
-    // Week 2 Day 3: Record start time and queue latencies
-    const batchStartTime = Date.now();
-    const queueLatencies = requests.map(r => batchStartTime - r.timestamp);
-
-    this.logger?.info(
-      { batchSize: requests.length, priorityQueue: this.config.priorityQueue },
-      'Flushing check draft batch'
-    );
+    this.checkDraftFlushInProgress = true;
 
     try {
-      // Phase 1: Use batch_check_draft endpoint (single IPC call for all requests)
-      const batchResponse = await this.transport.request<{ results: Array<{ success: boolean; result: CheckDraftResponse | null; error: string | null }> }>(
-        'batch_check_draft',
-        { requests: requests.map(r => r.params) }
+      // Clear timer
+      if (this.checkDraftTimer) {
+        clearTimeout(this.checkDraftTimer);
+        this.checkDraftTimer = undefined;
+      }
+
+      // Extract requests
+      let requests = this.checkDraftQueue.splice(0, this.checkDraftQueue.length);
+
+      if (requests.length === 0) {
+        return;
+      }
+
+      // Week 2 Day 3: Priority queue sorting
+      if (this.config.priorityQueue) {
+        const priorityOrder = { high: 0, normal: 1, low: 2 };
+        requests = requests.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+      }
+
+      this.stats.checkDraftBatches++;
+
+      // Week 2 Day 3: Record start time and queue latencies
+      const batchStartTime = Date.now();
+      const queueLatencies = requests.map(r => batchStartTime - r.timestamp);
+
+      this.logger?.info(
+        { batchSize: requests.length, priorityQueue: this.config.priorityQueue },
+        'Flushing check draft batch'
       );
 
-      const batchTime = Date.now() - batchStartTime;
+      try {
+        // Phase 1: Use batch_check_draft endpoint (single IPC call for all requests)
+        const batchResponse = await this.transport.request<{ results: Array<{ success: boolean; result: CheckDraftResponse | null; error: string | null }> }>(
+          'batch_check_draft',
+          { requests: requests.map(r => r.params) }
+        );
 
-      // Distribute responses back to individual callers
-      let successes = 0;
-      for (let i = 0; i < requests.length; i++) {
-        const result = batchResponse.results[i];
-        if (result.success && result.result) {
-          requests[i].resolve(result.result);
-          successes++;
-        } else {
-          const error = new Error(result.error || 'Batch check draft failed');
-          queueMicrotask(() => requests[i].reject(error));
+        const batchTime = Date.now() - batchStartTime;
+
+        // Distribute responses back to individual callers
+        let successes = 0;
+        for (let i = 0; i < requests.length; i++) {
+          const result = batchResponse.results[i];
+          if (result.success && result.result) {
+            requests[i].resolve(result.result);
+            successes++;
+          } else {
+            const error = new Error(result.error || 'Batch check draft failed');
+            queueMicrotask(() => requests[i].reject(error));
+          }
+        }
+
+        this.recordBatchMetrics('checkDraft', batchTime, requests.length, queueLatencies);
+
+        this.logger?.debug(
+          {
+            batchSize: requests.length,
+            successes,
+            batchTime,
+          },
+          'Check draft batch completed via batch_check_draft endpoint'
+        );
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+
+        this.logger?.error(
+          { err: error, batchSize: requests.length },
+          'Check draft batch dispatch failed'
+        );
+
+        for (const req of requests) {
+          queueMicrotask(() => req.reject(error));
         }
       }
-
-      this.recordBatchMetrics('checkDraft', batchTime, requests.length, queueLatencies);
-
-      this.logger?.debug(
-        {
-          batchSize: requests.length,
-          successes,
-          batchTime,
-        },
-        'Check draft batch completed via batch_check_draft endpoint'
-      );
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
-
-      this.logger?.error(
-        { err: error, batchSize: requests.length },
-        'Check draft batch dispatch failed'
-      );
-
-      for (const req of requests) {
-        queueMicrotask(() => req.reject(error));
-      }
+    } finally {
+      // Bug #74 FIX: Always release the lock, even on early return or error
+      this.checkDraftFlushInProgress = false;
     }
   }
 

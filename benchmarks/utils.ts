@@ -140,11 +140,14 @@ export async function runSamples<T>(
 /**
  * Get system information for benchmark context
  */
-export function getSystemInfo() {
+export async function getSystemInfo() {
   const os = process.platform;
   const arch = process.arch;
-  const cpus = require('os').cpus().length;
-  const totalMemoryMB = Math.round(require('os').totalmem() / 1024 / 1024);
+
+  // Use dynamic import for Node.js built-ins in ESM
+  const osModule = await import('node:os');
+  const cpus = osModule.cpus().length;
+  const totalMemoryMB = Math.round(osModule.totalmem() / 1024 / 1024);
 
   return {
     nodeVersion: process.version,

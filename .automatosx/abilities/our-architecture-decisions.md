@@ -174,25 +174,7 @@
 - ✅ Resilience to provider failures
 - ✅ Easy to add new providers
 
-## ADR-011: Service-Oriented Engine Refactor
-
-**Decision:** Replace the monolithic `Engine` class with a service-layer architecture that cleanly separates API facades, domain services, and bridge adapters.
-
-**Rationale:**
-
-- `src/api/engine.ts` grew to 1,738 lines and entangles lifecycle, model, generation, telemetry, and bridge state, blocking parallel work.
-- Bridge components (`python-runner`, `jsonrpc-transport`) currently leak into core domain logic, making it risky to evolve either side.
-- A thin `EngineFacade` backed by dedicated services (RuntimeLifecycle, ModelLifecycle, Generation, Telemetry) enables targeted testing and safer incremental refactors while keeping the public API stable.
-- Explicit service contracts + lint rules provide the governance needed to keep responsibilities separated going forward.
-
-**Impact:**
-
-- ✅ Engine responsibilities are partitioned into testable modules with constructor-injected dependencies.
-- ✅ `bridge/` regains its role as a pure IPC layer, while `core/` focuses on domain state machines.
-- ✅ Incremental rollout preserves the 331-test safety net and allows feature flags or fallbacks per service.
-- ⚠️ Teams must learn the new service contracts and update contribution guidelines (mitigated via documentation).
-
 ---
 
-**Last Updated:** 2025-11-06
+**Last Updated:** 2025-10-10
 **For:** AutomatosX v5.0+

@@ -33,6 +33,7 @@ MLX_GENERATE_ERROR: Optional[str] = None
 if MLX_AVAILABLE:
     try:
         from mlx_lm import stream_generate as mlx_generate  # type: ignore[assignment]
+        from mlx_lm.sample_utils import make_sampler
 
         MLX_GENERATE_AVAILABLE = True
     except Exception as exc:  # noqa: BLE001
@@ -78,6 +79,47 @@ def ensure_model_dtype(handle: ModelHandle, params: Dict[str, Any]) -> None:
         raise GenerationError(handle.model_id, f"Unsupported dtype {model_dtype}")
 
 
+def apply_chat_template(prompt: str, model_id: str, tokenizer: Any) -> str:
+    """
+    Apply chat template using tokenizer for models that require it
+
+    Args:
+        prompt: Raw prompt text
+        model_id: Model identifier
+        tokenizer: Model tokenizer
+
+    Returns:
+        Formatted prompt with chat template applied
+
+    Note:
+        Uses tokenizer.apply_chat_template() which is the canonical way to format
+        prompts for instruction-tuned models. This avoids subtle whitespace issues
+        that can cause models like Gemma 2 to generate only padding tokens.
+    """
+    # Check if this is a model that requires chat template
+    if 'gemma-2' in model_id.lower() or 'gemma2' in model_id.lower():
+        # Try to use tokenizer's apply_chat_template for accurate formatting
+        # This is the canonical approach that avoids subtle whitespace issues
+        messages = [{"role": "user", "content": prompt}]
+        try:
+            return tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+        except Exception as exc:
+            # Fallback to manual template if apply_chat_template fails
+            print(
+                f"Warning: apply_chat_template failed ({exc}), using manual template",
+                file=sys.stderr,
+                flush=True
+            )
+            return f"<bos><start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
+
+    # For other models, return raw prompt
+    return prompt
+
+
 def build_generation_kwargs(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Map JSON-RPC parameters to MLX generation kwargs
@@ -89,13 +131,13 @@ def build_generation_kwargs(params: Dict[str, Any]) -> Dict[str, Any]:
         Clean kwargs dict for mlx_lm.stream_generate()
 
     Note:
-        mlx_lm.stream_generate() accepts limited parameters:
+        mlx_lm.stream_generate() accepts parameters:
         - max_tokens: int
+        - sampler: Callable (for temperature, top_p, etc.)
         - verbose: bool
         - formatter: callable (for output formatting)
 
-        Sampling parameters (temperature, top_p, etc.) are NOT accepted directly.
-        They must be implemented via custom sampler if needed in the future.
+        Sampling parameters (temperature, top_p, etc.) are implemented via sampler.
 
         P1-1: draft_model parameter is accepted but not yet implemented in mlx-lm.
         This is forwarded through for API compatibility with mlx-engine.
@@ -104,11 +146,18 @@ def build_generation_kwargs(params: Dict[str, Any]) -> Dict[str, Any]:
     config = get_config()
 
     # Only pass parameters that stream_generate actually accepts
-    # Based on MLX 0.29.3 / mlx-lm 0.28.3, stream_generate only accepts:
-    # - max_tokens (int)
     kwargs = {
         "max_tokens": params.get("max_tokens", config.default_max_tokens),
     }
+
+    # Create sampler with temperature and top_p if provided
+    if MLX_GENERATE_AVAILABLE:
+        temperature = params.get("temperature", 0.7)
+        top_p = params.get("top_p", 1.0)
+
+        # Create sampler using make_sampler
+        sampler = make_sampler(temp=temperature, top_p=top_p)
+        kwargs["sampler"] = sampler
 
     # P1-1: Extract draft_model parameter (for future implementation)
     # mlx-lm does not currently support speculative decoding in stream_generate
@@ -124,9 +173,6 @@ def build_generation_kwargs(params: Dict[str, Any]) -> Dict[str, Any]:
         )
         # TODO: Implement speculative decoding when mlx-lm supports it
         # This will require loading the draft model handle and passing it to generation
-
-    # TODO: Implement proper sampler support for temperature, top_p, etc.
-    # For now, we use MLX defaults which work well for most cases
 
     # Note: stop sequences and other advanced parameters may need special handling
     # via custom samplers or formatters in future versions
@@ -172,6 +218,9 @@ async def stream_generate(
     stream_id = params.get("stream_id")
     if not stream_id:
         raise GenerationError(handle.model_id, "stream_id required")
+
+    # Apply chat template for models that require it (e.g. Gemma 2)
+    prompt = apply_chat_template(prompt, handle.model_id, handle.tokenizer)
 
     generation_kwargs = build_generation_kwargs(params)
 

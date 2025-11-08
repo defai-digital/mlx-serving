@@ -27,6 +27,40 @@ generate_batcher:
   target_batch_time_ms: 12             # Target batch processing time for adaptive sizing
   pause_on_backpressure_ms: 20         # Pause duration when StreamRegistry signals backpressure
 
+# Phase 1: Request Deduplication (Performance Optimization v0.1.0-alpha.1)
+# Collapses identical concurrent requests into shared Promise
+# Target: +10-30% throughput for duplicate-heavy workloads
+request_deduplication:
+  enabled: false                    # DISABLED: Enable after testing
+  ttl_ms: 1000                      # Time-to-live for dedupe cache (1 second)
+  max_entries: 1000                 # Maximum dedupe cache entries
+  max_payload_bytes: 10240          # Maximum payload size (10KB)
+
+# Phase 1: Prompt Cache (Performance Optimization v0.1.0-alpha.1)
+# LRU cache for prompt responses with size-aware eviction
+# Target: >80% cache hit rate for repeated prompts
+prompt_cache:
+  enabled: false                    # DISABLED: Enable after testing
+  max_entries: 10000                # Maximum cache entries (LRU eviction)
+  max_total_tokens: 1000000         # Maximum total tokens cached
+  max_total_bytes: 104857600        # Maximum total bytes (100MB)
+  ttl_ms: 300000                    # Time-to-live for cache entries (5 minutes)
+  cleanup_interval_ms: 60000        # Cleanup interval (1 minute)
+
+  # Optional disk persistence
+  persistence:
+    enabled: false                  # DISABLED: Enable for persistent cache
+    path: 'automatosx/tmp/prompt-cache.json'
+    save_interval_ms: 300000        # Save every 5 minutes
+
+# Phase 1: Request Coalescing (Performance Optimization v0.1.0-alpha.1)
+# Merges identical concurrent requests (N→1 inference, N responses)
+# Target: >50% request reduction for concurrent duplicates
+request_coalescing:
+  enabled: false                    # DISABLED: Enable after testing
+  max_subscribers: 100              # Maximum subscribers per coalesced request
+  timeout_ms: 5000                  # Coalescing window timeout (5 seconds)
+
 # Continuous Batching (Week 2 Feature)
 # Dynamic batch composition - requests join/leave independently
 # No head-of-line blocking, continuous GPU utilization
@@ -78,7 +112,7 @@ python_runtime:
 # JSON-RPC Transport Configuration
 json_rpc:
   # Default request timeout (milliseconds)
-  default_timeout_ms: 30000  # 30 seconds
+  default_timeout_ms: 300000  # 300 seconds (5 minutes) for large models like Gemma 27B
 
   # Maximum line buffer size for incomplete JSON (bytes)
   max_line_buffer_size: 65536  # 64KB
@@ -151,6 +185,29 @@ stream_registry:
     track_throughput: true  # Tokens per second
     track_cancellations: true  # Cancellation rates
     export_interval_ms: 10000  # Export metrics every 10s
+
+streaming:
+  phase4:
+    adaptive_governor:
+      enabled: false
+      target_ttft_ms: 550
+      max_concurrent: 80
+      min_concurrent: 16
+      pid:
+        kp: 0.35
+        ki: 0.08
+        kd: 0.15
+        integral_saturation: 200
+        sample_interval_ms: 200
+      cleanup:
+        sweep_interval_ms: 100
+        max_stale_lifetime_ms: 500
+      tenant_budgets:
+        default:
+          tenant_id: default
+          hard_limit: 20
+          burst_limit: 32
+          decay_ms: 60000
 
 # Model Configuration
 model:
@@ -308,6 +365,102 @@ development:
   # Enable performance profiling
   enable_profiling: false
 
+# Phase 2: Multi-Worker Routing (Performance Optimization v0.2.0)
+# Enables multiple Python worker processes with intelligent routing
+runtime_router:
+  enabled: false                      # DISABLED: Enable after testing
+  worker_count: 3                     # Number of Python workers
+  routing_strategy: 'round-robin'     # Options: 'round-robin', 'least-busy'
+  health_check_interval_ms: 5000      # Health check interval (5 seconds)
+  worker_restart_delay_ms: 1000       # Base delay for worker restart
+  sticky_session_enabled: true        # Enable sticky sessions for streaming
+  sticky_session_ttl_ms: 300000       # Sticky session TTL (5 minutes)
+
+# Python Runtime Manager (Phase 2: Multi-Worker)
+python_runtime_manager:
+  enabled: false                      # DISABLED: Enable after testing
+  worker_count: 3                     # Number of Python workers
+  heartbeat_interval_ms: 5000         # Worker heartbeat interval (5 seconds)
+  heartbeat_timeout_ms: 10000         # Heartbeat timeout (10 seconds)
+
+# Adaptive Batch Coordinator (Phase 2: Smart Batching)
+adaptive_batch_coordinator:
+  enabled: false                      # DISABLED: Enable after testing
+  python_rpc_method: 'adaptive_batch.update_metrics'
+  update_interval_ms: 1000            # Metric update frequency (1 second)
+  default_batch_size: 4               # Fallback batch size
+  min_batch_size: 2                   # Minimum batch size
+  max_batch_size: 16                  # Maximum batch size
+  rpc_timeout_ms: 100                 # RPC timeout (100ms)
+
+# Retry Policy (Phase 2: Fault Tolerance)
+retry_policy:
+  enabled: false                      # DISABLED: Enable after testing
+  max_attempts: 3                     # Maximum retry attempts
+  initial_delay_ms: 100               # Initial backoff delay
+  max_delay_ms: 5000                  # Maximum backoff delay
+  backoff_multiplier: 2.0             # Exponential multiplier
+  jitter: 0.25                        # Jitter factor (±25%)
+  retryable_errors:
+    - 'TIMEOUT'
+    - 'ECONNRESET'
+    - 'EPIPE'
+    - 'WORKER_RESTART'
+
+# Circuit Breaker (Phase 2: Fault Tolerance)
+circuit_breaker:
+  enabled: false                      # DISABLED: Enable after testing
+  failure_threshold: 5                # Failures to trigger OPEN
+  recovery_timeout_ms: 10000          # Time in OPEN before HALF_OPEN (10 seconds)
+  half_open_max_calls: 1              # Max calls in HALF_OPEN
+  half_open_success_threshold: 2      # Successes to return to CLOSED
+  failure_window_ms: 60000            # Rolling window for failures (1 minute)
+
+# Phase 3: Production Hardening (Performance Optimization v0.2.0)
+# Connection pooling, streaming optimization, model lifecycle management, zero-downtime restarts
+
+# Connection Pool (Phase 3.1)
+connection_pool:
+  enabled: false                      # DISABLED: Enable after testing
+  min_connections: 2                  # Minimum warm connections per worker
+  max_connections: 10                 # Maximum connections per worker
+  acquire_timeout_ms: 5000            # Timeout to acquire connection (5 seconds)
+  idle_timeout_ms: 60000              # Idle connection timeout (1 minute)
+  health_check_interval_ms: 30000     # Health check interval (30 seconds)
+  warmup_on_start: true               # Pre-create connections on startup
+
+# Streaming Controller (Phase 3.2)
+streaming_controller:
+  enabled: false                      # DISABLED: Enable after testing
+  chunk_size_bytes: 65536             # Aggregation boundary (64KB)
+  chunk_timeout_ms: 100               # Max wait for chunk (100ms)
+  max_unacked_chunks: 100             # Backpressure threshold
+  ack_timeout_ms: 5000                # Timeout waiting for ACK (5 seconds)
+  slow_consumer_threshold_ms: 1000    # Warn if latency > 1 second
+  metrics_export_interval_ms: 10000   # Metric export frequency (10 seconds)
+
+# Model Lifecycle Manager (Phase 3.3)
+model_lifecycle_manager:
+  enabled: false                      # DISABLED: Enable after testing
+  idle_timeout_ms: 300000             # Unload if unused > 5 minutes
+  max_loaded_models: 5                # Max models in memory (LRU eviction)
+  prefetch_enabled: true              # Enable predictive prefetch
+  prefetch_min_confidence: 0.7        # Min confidence to prefetch (70%)
+  warmups_on_startup: []              # Models to preload on engine start
+  pinned_models: []                   # Models never to unload
+  drain_timeout_ms: 30000             # Max time to drain requests (30 seconds)
+
+# Rolling Restart Coordinator (Phase 3.4)
+rolling_restart_coordinator:
+  enabled: false                      # DISABLED: Enable after testing
+  drain_timeout_ms: 30000             # Max drain time per worker (30 seconds)
+  min_active_workers: 1               # Safety minimum (circuit breaker)
+  preflight_check_enabled: true       # Health check before removing old worker
+  preflight_timeout_ms: 5000          # Preflight deadline (5 seconds)
+  request_replay_enabled: true        # Replay on new worker if timeout
+  max_replay_attempts: 1              # Replay retry limit
+  watchdog_interval_ms: 5000          # Enforce min workers (5 seconds)
+
 # Environment-specific overrides
 # These can be loaded based on NODE_ENV or PYTHON_ENV
 
@@ -331,3 +484,38 @@ environments:
       default_timeout_ms: 30000  # 30 seconds for model operations
     stream_registry:
       default_timeout_ms: 30000  # 30 seconds for streaming tests
+
+# Phase 4.2: HTTP/2 Transport Multiplexing (Performance Optimization v0.2.0)
+# Replaces per-request HTTP/1.1 connections with multiplexed HTTP/2 sessions
+# Target: 15-20% faster TTFT, 20% lower CPU, 40% reduction in connection overhead
+
+# HTTP/2 Session Pool
+transport:
+  http2:
+    enabled: false                      # DISABLED: Enable after testing
+    max_sessions: 16                    # Maximum HTTP/2 sessions
+    max_streams_per_session: 100        # Max streams per session (HTTP/2 spec: 100-256)
+    ping_interval_ms: 15000             # Ping interval (15 seconds)
+    connect_timeout_ms: 200             # Connection timeout (200ms)
+    tls:
+      ca_file: config/certs/ca.pem      # TLS CA certificate
+      cert_file: config/certs/service.pem  # TLS service certificate
+      key_file: config/certs/service.key   # TLS private key
+      reject_unauthorized: true         # Enforce certificate validation
+
+  # WebSocket Gateway (Bidirectional fallback)
+  websocket:
+    enabled: false                      # DISABLED: Enable after testing
+    max_connections: 200                # Maximum WebSocket connections
+    max_frame_size_bytes: 1048576       # Max frame size (1MB)
+    idle_timeout_ms: 600000             # Idle timeout (10 minutes)
+    heartbeat_interval_ms: 30000        # Heartbeat interval (30 seconds)
+
+  # SSE Writer Configuration (Zero-copy optimization)
+  sse_writer:
+    chunk_pool:
+      max_pool_size: 1000               # Maximum chunk pool size
+      chunk_size: 65536                 # Chunk size (64KB)
+    backpressure_threshold: 1048576     # Backpressure threshold (1MB)
+    max_buffered_chunks: 100            # Max buffered chunks before backpressure
+
