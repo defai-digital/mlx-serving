@@ -22,6 +22,10 @@
 import { EventEmitter } from 'eventemitter3';
 import type { Logger } from 'pino';
 import { getConfig } from '../config/loader.js';
+import type { Config } from '../config/loader.js';
+import { AdaptiveGovernor } from '../streaming/governor/AdaptiveGovernor.js';
+import { CleanupScheduler } from '../streaming/governor/CleanupScheduler.js';
+import type { StreamCleanupEvent, StreamGovernorConfig } from '../streaming/governor/types.js';
 import type {
   StreamChunkNotification,
   StreamStatsNotification,
@@ -252,6 +256,8 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
   private readonly maxUnackedChunks: number;
   private readonly ackTimeoutMs: number;
   private readonly slowConsumerThresholdMs: number;
+  private readonly cleanupScheduler?: CleanupScheduler;
+  private readonly adaptiveGovernor?: AdaptiveGovernor;
 
   constructor(options: StreamRegistryOptions = {}) {
     super();
@@ -289,6 +295,27 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     this.slowConsumerThresholdMs = backpressure.slow_consumer_threshold_ms;
 
     this.metricsEnabled = metrics.enabled;
+
+    const governorConfig = buildStreamGovernorConfig(config);
+    const governorEnabled = Boolean(
+      this.adaptiveLimitsEnabled && governorConfig?.featureFlag
+    );
+
+    if (governorEnabled && governorConfig) {
+      this.adaptiveGovernor = new AdaptiveGovernor(governorConfig, this.logger);
+      this.cleanupScheduler = new CleanupScheduler(
+        {
+          sweepIntervalMs: governorConfig.cleanup.sweepIntervalMs,
+          maxStaleLifetimeMs: governorConfig.cleanup.maxStaleLifetimeMs,
+        },
+        this.logger
+      );
+      this.cleanupScheduler.start();
+      this.currentStreamLimit = Math.min(
+        this.maxStreamLimit,
+        governorConfig.maxConcurrentStreams
+      );
+    }
 
     // BUG-014 FIX: Extract timer initialization into separate method
     // so it can be called after cleanup during restarts
@@ -573,15 +600,28 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     }
 
     const event = params.event;
-
-    // Handle stream completion/error with error boundary around emits
-    try {
+    const processEvent = (): void => {
       if (event === 'completed') {
         this.completeStream(streamId, params.finish_reason);
       } else if (event === 'error') {
         const error = params.error || 'Unknown error';
         this.failStream(streamId, error);
       }
+    };
+
+    if (this.cleanupScheduler) {
+      const cleanupEvent: StreamCleanupEvent = {
+        streamId,
+        closedAt: Date.now(),
+        reason: event === 'completed' ? 'complete' : 'error',
+      };
+
+      this.cleanupScheduler.schedule(cleanupEvent);
+    }
+
+    // Handle stream completion/error with error boundary around emits
+    try {
+      processEvent();
     } catch (err) {
       // If completeStream/failStream throws (unlikely), log and force fail
       this.logger?.error(
@@ -678,13 +718,18 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
       ? activeStreams / this.currentStreamLimit
       : 0;
 
+    // Bug #79 FIX: Snapshot arrays to prevent race conditions during reduce()
+    // Arrays can be modified by handleChunk() or completeStream() during iteration
+    const ttftSnapshot = [...this.ttftSamples];
+    const throughputSnapshot = [...this.throughputSamples];
+
     // Calculate averages
-    const avgTTFT = this.ttftSamples.length > 0
-      ? this.ttftSamples.reduce((a, b) => a + b, 0) / this.ttftSamples.length
+    const avgTTFT = ttftSnapshot.length > 0
+      ? ttftSnapshot.reduce((a, b) => a + b, 0) / ttftSnapshot.length
       : 0;
 
-    const avgThroughput = this.throughputSamples.length > 0
-      ? this.throughputSamples.reduce((a, b) => a + b, 0) / this.throughputSamples.length
+    const avgThroughput = throughputSnapshot.length > 0
+      ? throughputSnapshot.reduce((a, b) => a + b, 0) / throughputSnapshot.length
       : 0;
 
     return {
@@ -759,6 +804,8 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
       clearInterval(this.poolCleanupInterval);
       this.poolCleanupInterval = undefined;
     }
+
+    this.cleanupScheduler?.stop();
 
     // Bug Fix #63: Clean up ALL streams, not just active ones
     // This ensures we don't leak completed but not-yet-deleted streams
@@ -1028,6 +1075,23 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
 
     const metrics = this.getAggregateMetrics();
 
+    if (this.adaptiveGovernor) {
+      // Update PID controller with measured TTFT
+      this.adaptiveGovernor.updateControl(
+        metrics.averageTTFT || 0,
+        this.streams.size
+      );
+
+      // Get the new limit from governor
+      const newLimit = this.adaptiveGovernor.getCurrentLimit();
+      const bounded = Math.min(
+        Math.max(newLimit, this.minStreamLimit),
+        this.maxStreamLimit
+      );
+      this.currentStreamLimit = bounded;
+      return;
+    }
+
     // Decision logic for scaling
     let newLimit = this.currentStreamLimit;
 
@@ -1096,4 +1160,51 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
       'Metrics exported'
     );
   }
+}
+
+function buildStreamGovernorConfig(config: Config): StreamGovernorConfig | null {
+  const raw = config.streaming?.phase4?.adaptive_governor;
+  if (!raw) {
+    return null;
+  }
+
+  const tenantBudgets: StreamGovernorConfig['tenantBudgets'] = {};
+  const rawBudgets = raw.tenant_budgets ?? {};
+
+  for (const [key, budget] of Object.entries(rawBudgets)) {
+    tenantBudgets[key] = {
+      tenantId: budget.tenant_id ?? key,
+      hardLimit: budget.hard_limit,
+      burstLimit: budget.burst_limit,
+      decayMs: budget.decay_ms,
+    };
+  }
+
+  if (!tenantBudgets.default) {
+    tenantBudgets.default = {
+      tenantId: 'default',
+      hardLimit: raw.max_concurrent,
+      burstLimit: raw.max_concurrent,
+      decayMs: 60000,
+    };
+  }
+
+  return {
+    featureFlag: raw.enabled,
+    targetTtftMs: raw.target_ttft_ms,
+    maxConcurrentStreams: raw.max_concurrent,
+    minConcurrentStreams: raw.min_concurrent,
+    tenantBudgets,
+    pid: {
+      kp: raw.pid.kp,
+      ki: raw.pid.ki,
+      kd: raw.pid.kd,
+      integralSaturation: raw.pid.integral_saturation,
+      sampleIntervalMs: raw.pid.sample_interval_ms,
+    },
+    cleanup: {
+      sweepIntervalMs: raw.cleanup.sweep_interval_ms,
+      maxStaleLifetimeMs: raw.cleanup.max_stale_lifetime_ms,
+    },
+  };
 }
