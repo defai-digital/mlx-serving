@@ -14,6 +14,7 @@ import type { WorkerInfo } from '../worker-registry.js';
 import type { InferenceRequest } from '../../types/messages.js';
 import { SessionRegistry } from '../session-registry.js';
 import { createLogger, type Logger } from '../../utils/logger.js';
+import { ControllerError, ControllerErrorCode } from '../../utils/errors.js';
 
 /**
  * Load balancer interface
@@ -128,7 +129,12 @@ export class SmartLoadBalancer implements LoadBalancer {
       this.logger.error('No online workers available', {
         totalWorkers: workers.length,
       });
-      throw new Error('No online workers available');
+      // Bug Fix #32: Throw ControllerError with proper error code instead of generic Error
+      throw new ControllerError(
+        'No online workers available',
+        ControllerErrorCode.NO_WORKERS_AVAILABLE,
+        { totalWorkers: workers.length }
+      );
     }
 
     // Phase 1: Filter by skills (can serve this model?)
@@ -142,7 +148,16 @@ export class SmartLoadBalancer implements LoadBalancer {
         onlineWorkers: onlineWorkers.length,
         availableModels: this.collectAvailableModels(onlineWorkers),
       });
-      throw new Error(`No workers can serve model: ${request.modelId}`);
+      // Bug Fix #32: Throw ControllerError with WORKER_UNAVAILABLE code instead of generic Error
+      throw new ControllerError(
+        `No workers can serve model: ${request.modelId}`,
+        ControllerErrorCode.WORKER_UNAVAILABLE,
+        {
+          modelId: request.modelId,
+          onlineWorkers: onlineWorkers.length,
+          availableModels: this.collectAvailableModels(onlineWorkers),
+        }
+      );
     }
 
     this.logger.debug('Phase 1: Skills filtering', {
