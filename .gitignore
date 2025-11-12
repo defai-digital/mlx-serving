@@ -11,8 +11,9 @@ dist/
 # Test coverage
 coverage/
 
-# Benchmark results (generated locally)
+# Benchmark results and scripts (development files)
 results/
+benchmarks/
 
 # Python
 *.pyc
