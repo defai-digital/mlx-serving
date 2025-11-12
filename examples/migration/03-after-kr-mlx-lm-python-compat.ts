@@ -7,7 +7,7 @@
  * type-safe than the TypeScript-style API.
  */
 
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 async function main(): Promise<void> {
   // Create and start engine

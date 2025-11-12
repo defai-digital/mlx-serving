@@ -6,7 +6,7 @@
  * This is the most type-safe and ergonomic approach.
  */
 
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 async function main(): Promise<void> {
   // Create and start engine (factory pattern)

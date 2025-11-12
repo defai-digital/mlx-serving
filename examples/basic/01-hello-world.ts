@@ -3,7 +3,7 @@
  * Simplest possible example of using kr-serve-mlx
  */
 
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 async function main() {
   console.log('🚀 Starting kr-serve-mlx Hello World example\n');

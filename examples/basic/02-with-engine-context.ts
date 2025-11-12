@@ -5,7 +5,7 @@
  * Automatically manages engine lifecycle with guaranteed cleanup.
  */
 
-import { withEngine } from '@knowrag/kr-serve-mlx';
+import { withEngine } from '@defai.digital/mlx-serving';
 
 async function main() {
   console.log('=== Example 1: Basic Usage ===');
