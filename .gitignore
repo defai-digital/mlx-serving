@@ -45,6 +45,7 @@ compile_commands.json
 # AutomatosX
 .automatosx/
 automatosx/
+automatosx*
 
 # Claude Code configuration (private)
 .claude/
