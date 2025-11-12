@@ -68,7 +68,7 @@ export class PriorityScheduler {
   private readonly queues: Map<PriorityLevel, SchedulableRequest[]>;
   private readonly metrics: SchedulerMetrics;
   private readonly fairQueuing: FairQueuingState;
-  private readonly logger?: { info: Function; debug: Function; warn: Function; error: Function };
+  private readonly logger?: { info: (...args: unknown[]) => void; debug: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void };
 
   // Execution tracking
   private executing: Set<string> = new Set();
@@ -90,7 +90,7 @@ export class PriorityScheduler {
       logger: config?.logger,
     };
 
-    this.logger = this.config.logger as any;
+    this.logger = this.config.logger as Logger;
 
     // Initialize priority queues
     this.queues = new Map();
@@ -494,7 +494,7 @@ export class PriorityScheduler {
     }
 
     // Find low-priority long-running request
-    for (const requestId of this.executing) {
+    for (const _requestId of this.executing) {
       // In a real implementation, we'd track executing requests
       // and their priorities to make preemption decisions
       // For now, we don't actually preempt (requires more complex integration)
@@ -624,7 +624,7 @@ export class PriorityScheduler {
   /**
    * Get metrics snapshot
    */
-  public getMetrics() {
+  public getMetrics(): ReturnType<SchedulerMetrics['getSnapshot']> | null {
     if (!this.config.enableMetrics) {
       throw new Error('Metrics collection is disabled');
     }

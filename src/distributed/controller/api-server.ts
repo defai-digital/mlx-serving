@@ -243,6 +243,7 @@ export class ApiServer {
     const reader = stream.getReader();
 
     try {
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
 
@@ -289,6 +290,7 @@ export class ApiServer {
     const tokens: string[] = [];
 
     try {
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
 

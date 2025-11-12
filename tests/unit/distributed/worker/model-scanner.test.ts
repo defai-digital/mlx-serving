@@ -45,7 +45,7 @@ describe('ModelScanner', () => {
     });
 
     it('should discover models with safetensors and config', async () => {
-      const mockModelPath = path.join(mockModelDir, 'mlx-community', 'test-model');
+      const _mockModelPath = path.join(mockModelDir, 'mlx-community', 'test-model');
 
       // Mock directory structure
       vi.mocked(fs.stat).mockImplementation(async (p) => {
@@ -92,7 +92,7 @@ describe('ModelScanner', () => {
     });
 
     it('should calculate total model size correctly', async () => {
-      const mockModelPath = path.join(mockModelDir, 'test-model');
+      const _mockModelPath = path.join(mockModelDir, 'test-model');
       const mockFileSize = 5000;
 
       vi.mocked(fs.stat).mockImplementation(async (p) => {
@@ -154,7 +154,7 @@ describe('ModelScanner', () => {
     });
 
     it('should extract model names correctly', async () => {
-      const mockModelPath = path.join(mockModelDir, 'mlx-community', 'Llama-3.2-3B-Instruct-4bit');
+      const _mockModelPath = path.join(mockModelDir, 'mlx-community', 'Llama-3.2-3B-Instruct-4bit');
 
       vi.mocked(fs.stat).mockImplementation(async (p) => {
         if (typeof p === 'string') {

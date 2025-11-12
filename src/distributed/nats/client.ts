@@ -459,11 +459,12 @@ export class NatsClient {
             this.emit('connected');
             break;
 
-          case 'error':
+          case 'error': {
             const errorData = status.data instanceof Error ? status.data : new Error(String(status.data));
             this.logger.error('NATS error', errorData);
             this.emit('error', errorData);
             break;
+          }
         }
       }
     })();

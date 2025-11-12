@@ -225,7 +225,7 @@ export class ModelScanner {
    * @param dirPath - Directory path
    * @returns True if exists
    */
-  private async directoryExists(dirPath: string) {
+  private async directoryExists(dirPath: string): Promise<boolean> {
     try {
       const stats = await fs.stat(dirPath);
       return stats.isDirectory();

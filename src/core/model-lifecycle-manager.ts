@@ -652,7 +652,7 @@ export class ModelLifecycleManager extends EventEmitter<ModelLifecycleEvents> {
       const waiters = this.drainWaiters.get(modelId) ?? new Set<DrainResolution>();
 
       // Declare timeout handle at function scope for proper cleanup
-      let timeout: NodeJS.Timeout;
+      const timeout: NodeJS.Timeout;
 
       const finish = (result: boolean): void => {
         if (settled) {

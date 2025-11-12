@@ -22,7 +22,7 @@ describe('Memory Profiling', () => {
     console.log(`========================================\n`);
   }, 60000);
 
-  it('should profile memory usage during inference', async () => {
+  it('should profile memory usage during inference', async (): Promise<void> => {
     console.log(`\n--- Memory Usage Profile ---`);
 
     const config: RealModelBenchmarkConfig = {
@@ -49,7 +49,7 @@ describe('Memory Profiling', () => {
     const rssUsages = snapshots.map(s => s.memory.rssMb);
 
     const heapAvg = heapUsages.reduce((sum, h) => sum + h, 0) / heapUsages.length;
-    const rssAvg = rssUsages.reduce((sum, r) => sum + r, 0) / rssUsages.length;
+    const _rssAvg = rssUsages.reduce((sum, r) => sum + r, 0) / rssUsages.length;
 
     console.log(`\n✅ Memory Profiling Results:`);
     console.log(`   Duration: ${(result.durationMs / 1000).toFixed(1)}s`);
@@ -75,7 +75,7 @@ describe('Memory Profiling', () => {
     expect(Math.abs(resourceAnalysis.memory.trendMbPerSec)).toBeLessThan(5); // < 5MB/sec leak
   }, 180000);
 
-  it('should detect memory growth patterns', async () => {
+  it('should detect memory growth patterns', async (): Promise<void> => {
     console.log(`\n--- Memory Growth Pattern Analysis ---`);
 
     const config: RealModelBenchmarkConfig = {
@@ -91,7 +91,7 @@ describe('Memory Profiling', () => {
     const monitor = new ResourceMonitor();
     monitor.startMonitoring(5000); // Sample every 5 seconds
 
-    const result = await runRealModelBenchmark('Memory Growth Analysis', config);
+    const _result = await runRealModelBenchmark('Memory Growth Analysis', config);
 
     monitor.stopMonitoring();
     const snapshots = monitor.getAllSnapshots();
@@ -102,8 +102,8 @@ describe('Memory Profiling', () => {
     const segment2 = snapshots.slice(segmentSize, segmentSize * 2);
     const segment3 = snapshots.slice(segmentSize * 2);
 
-    const avgRss = (segment: typeof segment1) =>
-      segment.reduce((sum, s) => sum + s.memory.rssMb, 0) / segment.length;
+    const avgRss = (segment: typeof segment1): number =>
+      segment.reduce((sum, s) => sum + s.memory.rss, 0) / segment.length;
 
     const segment1Avg = avgRss(segment1);
     const segment2Avg = avgRss(segment2);

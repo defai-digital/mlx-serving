@@ -124,14 +124,14 @@ export enum ControllerErrorCode {
  */
 export class ControllerError extends DistributedError {
   public readonly errorCode: ControllerErrorCode;
-  public readonly context: Record<string, any>;
+  public readonly context: Record<string, unknown>;
   public readonly timestamp: number;
   public readonly retryable: boolean;
 
   constructor(
     message: string,
     errorCode: ControllerErrorCode = ControllerErrorCode.CONTROLLER_ERROR,
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
     retryable: boolean = false,
     cause?: Error
   ) {
@@ -146,7 +146,7 @@ export class ControllerError extends DistributedError {
   /**
    * Convert to JSON for logging/API responses
    */
-  toJSON(): Record<string, any> {
+  toJSON(): Record<string, unknown> {
     return {
       error: {
         code: this.errorCode,

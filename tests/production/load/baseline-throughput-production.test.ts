@@ -22,7 +22,7 @@ describe('Production: Baseline Throughput (1 hour)', () => {
   const DURATION = 3600000; // 1 hour
   const TARGET_RPS = 10;
 
-  it('should sustain baseline throughput with 2 workers for 1 hour', async () => {
+  it('should sustain baseline throughput with 2 workers for 1 hour', async (): Promise<void> => {
     console.log(`\n========================================`);
     console.log(`Baseline Throughput: 2 Workers (1 hour)`);
     console.log(`Model: ${MODEL}`);
@@ -62,7 +62,7 @@ describe('Production: Baseline Throughput (1 hour)', () => {
       snapshots.slice(segmentSize * 3),
     ];
 
-    const avgMemory = (seg: typeof segments[0]) =>
+    const avgMemory = (seg: typeof segments[0]): number =>
       seg.reduce((sum, s) => sum + s.memory.rssMb, 0) / seg.length;
 
     console.log(`\n✅ Baseline Throughput (2 Workers) - 1 Hour Results:`);
@@ -94,7 +94,7 @@ describe('Production: Baseline Throughput (1 hour)', () => {
     expect(Math.abs(resourceAnalysis.memory.trendMbPerSec)).toBeLessThan(0.5); // < 0.5MB/sec leak
   }, 4000000); // 66-minute timeout
 
-  it('should sustain baseline throughput with 4 workers for 1 hour', async () => {
+  it('should sustain baseline throughput with 4 workers for 1 hour', async (): Promise<void> => {
     console.log(`\n========================================`);
     console.log(`Baseline Throughput: 4 Workers (1 hour)`);
     console.log(`========================================\n`);
@@ -129,7 +129,7 @@ describe('Production: Baseline Throughput (1 hour)', () => {
     expect(Math.abs(resourceAnalysis.memory.trendMbPerSec)).toBeLessThan(0.5);
   }, 4000000);
 
-  it('should sustain baseline throughput with 8 workers for 1 hour', async () => {
+  it('should sustain baseline throughput with 8 workers for 1 hour', async (): Promise<void> => {
     console.log(`\n========================================`);
     console.log(`Baseline Throughput: 8 Workers (1 hour)`);
     console.log(`========================================\n`);

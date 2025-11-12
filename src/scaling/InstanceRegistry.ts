@@ -49,8 +49,8 @@ export class InstanceRegistry {
     // Start auto-discovery if enabled
     if (this.config.autoDiscovery) {
       this.discoveryInterval = setInterval(() => {
-        this.performDiscovery().catch((error) => {
-          console.error('Discovery error:', error);
+        this.performDiscovery().catch((_error) => {
+          // console.error('Discovery error:', _error);
         });
       }, this.config.discoveryIntervalMs);
     }
@@ -63,8 +63,8 @@ export class InstanceRegistry {
     // Start auto-scaling if enabled
     if (this.config.enableAutoScaling) {
       setInterval(() => {
-        this.evaluateAutoScaling().catch((error) => {
-          console.error('Auto-scaling evaluation error:', error);
+        this.evaluateAutoScaling().catch((_error) => {
+          // console.error('Auto-scaling evaluation error:', _error);
         });
       }, 5000); // Check every 5 seconds
     }
@@ -95,7 +95,7 @@ export class InstanceRegistry {
 
     if (!existing) {
       // New instance
-      console.log(`Instance registered: ${instance.id} (${instance.endpoint})`);
+      // console.log(`Instance registered: ${instance.id} (${instance.endpoint})`);
 
       // Emit instance added event
       for (const handler of this.onInstanceAddedHandlers) {
@@ -122,7 +122,7 @@ export class InstanceRegistry {
     if (instance) {
       this.instances.delete(instanceId);
 
-      console.log(`Instance unregistered: ${instanceId}`);
+      // console.log(`Instance unregistered: ${instanceId}`);
 
       // Emit instance removed event
       for (const handler of this.onInstanceRemovedHandlers) {
@@ -205,7 +205,7 @@ export class InstanceRegistry {
     // - AWS ECS/EKS service discovery
     // - etc.
 
-    console.log('Performing instance discovery...');
+    // console.log('Performing instance discovery...');
     // Implementation depends on deployment environment
   }
 
@@ -220,7 +220,7 @@ export class InstanceRegistry {
       const age = now - instance.lastHealthCheck;
 
       if (age > timeout) {
-        console.log(`Removing stale instance: ${id} (${age}ms since last heartbeat)`);
+        // console.log(`Removing stale instance: ${id} (${age}ms since last heartbeat)`);
         this.unregisterInstance(id);
       }
     }
@@ -266,9 +266,9 @@ export class InstanceRegistry {
       instanceCount < maxInstances &&
       now - this.lastScaleUpTime > scaleUpCooldownMs
     ) {
-      console.log(
-        `Auto-scaling: Scale up triggered (utilization: ${(utilization * 100).toFixed(1)}%)`
-      );
+      // console.log(
+      //   `Auto-scaling: Scale up triggered (utilization: ${(utilization * 100).toFixed(1)}%)`
+      // );
 
       this.lastScaleUpTime = now;
 
@@ -291,9 +291,7 @@ export class InstanceRegistry {
       instanceCount > minInstances &&
       now - this.lastScaleDownTime > scaleDownCooldownMs
     ) {
-      console.log(
-        `Auto-scaling: Scale down triggered (utilization: ${(utilization * 100).toFixed(1)}%)`
-      );
+      // console.log(`Auto-scaling: Scale down triggered (utilization: ${(utilization * 100).toFixed(1)}%}`);
 
       this.lastScaleDownTime = now;
 
@@ -323,7 +321,7 @@ export class InstanceRegistry {
     // - Azure VM Scale Sets
     // - etc.
 
-    console.log('Triggering scale up...');
+    // console.log('Triggering scale up...');
     // Implementation depends on deployment environment
   }
 
@@ -334,7 +332,7 @@ export class InstanceRegistry {
     // This is a placeholder for auto-scaling
     // In production, this would integrate with orchestration platform
 
-    console.log('Triggering scale down...');
+    // console.log('Triggering scale down...');
     // Implementation depends on deployment environment
 
     // For now, we can remove the least utilized instance

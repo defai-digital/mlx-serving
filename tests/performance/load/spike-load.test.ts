@@ -280,7 +280,7 @@ describe('Spike Load Test', () => {
 
     console.log(`Starting spike recovery test: ${baseRps} → ${spikeRps} → ${baseRps} req/sec`);
 
-    let spikeTriggered = false;
+    const _spikeTriggered = false;
 
     // Trigger spike after 10 seconds
     setTimeout(() => {

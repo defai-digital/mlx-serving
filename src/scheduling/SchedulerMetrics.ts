@@ -347,7 +347,7 @@ export class SchedulerMetrics {
 
     for (const record of records) {
       const latency = record.completedAt - record.queuedAt;
-      const deadline = record.slaDeadline || (record.queuedAt + (slaConfig?.maxLatencyMs || Infinity));
+      const _deadline = record.slaDeadline || (record.queuedAt + (slaConfig?.maxLatencyMs || Infinity));
 
       if (latency > (slaConfig?.maxLatencyMs || Infinity)) {
         violations++;

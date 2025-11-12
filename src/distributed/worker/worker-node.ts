@@ -42,7 +42,7 @@ export enum WorkerState {
 export interface WorkerNodeOptions {
   config: ClusterConfig;
   workerId?: string;
-  runtimeConfig?: any; // Runtime config for Engine (separate from cluster config)
+  runtimeConfig?: Record<string, unknown>; // Runtime config for Engine (separate from cluster config)
 }
 
 /**
@@ -74,7 +74,7 @@ export class WorkerNode extends EventEmitter {
   private batcher?: ContinuousBatcher;
   private batcherRunning = false;
   private pendingRequests: Map<string, {
-    resolve: (value: any) => void;
+    resolve: (value: unknown) => void;
     reject: (error: Error) => void;
     enqueuedAt: number;
   }> = new Map();
@@ -367,7 +367,7 @@ export class WorkerNode extends EventEmitter {
   /**
    * Get pre-warming status (for heartbeat)
    */
-  getPreWarmStatus(): any {
+  getPreWarmStatus(): unknown {
     if (!this.preWarmer) return null;
 
     return {
@@ -576,12 +576,12 @@ export class WorkerNode extends EventEmitter {
    */
   private determinePriority(request: InferenceRequest): RequestPriority {
     // Check if request has explicit priority
-    if ((request as any).priority) {
-      return (request as any).priority as RequestPriority;
+    if ((request as { priority?: RequestPriority }).priority) {
+      return (request as { priority?: RequestPriority }).priority as RequestPriority;
     }
 
     // Buffered requests get higher priority (complete faster)
-    if ((request as any).stream === false) {
+    if ((request as { stream?: boolean }).stream === false) {
       return RequestPriority.HIGH;
     }
 
@@ -691,7 +691,7 @@ export class WorkerNode extends EventEmitter {
    * Execute batch of requests
    * Called by ContinuousBatcher when a batch is ready
    */
-  private async executeBatch(requests: InferenceRequest[]): Promise<any[]> {
+  private async executeBatch(requests: InferenceRequest[]): Promise<unknown[]> {
     this.logger.debug('Executing batch', {
       batchSize: requests.length,
     });
@@ -804,7 +804,7 @@ export class WorkerNode extends EventEmitter {
         requestId: request.requestId,
         type: 'error',
         error: (error as Error).message,
-        code: (error as any).code || 'INFERENCE_ERROR',
+        code: (error as { code?: string }).code || 'INFERENCE_ERROR',
       };
 
       await this.nats.publish(`response.${request.requestId}`, errorResponse);
@@ -940,7 +940,7 @@ export class WorkerNode extends EventEmitter {
   /**
    * Get resource statistics
    */
-  public getResourceStats(): any {
+  public getResourceStats(): unknown {
     if (!this.resourceManager) {
       return null;
     }
@@ -958,7 +958,7 @@ export class WorkerNode extends EventEmitter {
   /**
    * Get queue statistics
    */
-  public getQueueStats(): any {
+  public getQueueStats(): unknown {
     if (!this.requestQueue) {
       return null;
     }
@@ -974,7 +974,7 @@ export class WorkerNode extends EventEmitter {
   /**
    * Get batcher statistics
    */
-  public getBatcherStats(): any {
+  public getBatcherStats(): unknown {
     if (!this.batcher) {
       return null;
     }
@@ -985,7 +985,7 @@ export class WorkerNode extends EventEmitter {
   /**
    * Get comprehensive worker statistics (includes Week 4 optimizations)
    */
-  public getWorkerStats(): any {
+  public getWorkerStats(): unknown {
     return {
       workerId: this.workerId,
       state: this.state,

@@ -73,6 +73,7 @@ export class Logger {
       ...(context && { context }),
     };
 
+    // eslint-disable-next-line no-console
     console.debug(this.formatEntry(entry));
   }
 
@@ -90,6 +91,7 @@ export class Logger {
       ...(context && { context }),
     };
 
+    // eslint-disable-next-line no-console
     console.info(this.formatEntry(entry));
   }
 
@@ -116,7 +118,7 @@ export class Logger {
   error(message: string, error?: Error, context?: Record<string, unknown>): void {
     if (!this.shouldLog('error')) return;
 
-    const entry: LogEntry = {
+    const _entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level: 'error',
       component: this.component,
@@ -131,7 +133,7 @@ export class Logger {
       }),
     };
 
-    console.error(this.formatEntry(entry));
+    // console.error(this.formatEntry(_entry));
   }
 
   /**

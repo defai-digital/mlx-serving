@@ -24,7 +24,7 @@ describe('Production: Soak Test (24 hours)', () => {
   const DURATION = 86400000; // 24 hours
   const TARGET_RPS = 3;
 
-  it('should sustain 30% capacity load for 24 hours with 0 crashes', async () => {
+  it('should sustain 30% capacity load for 24 hours with 0 crashes', async (): Promise<void> => {
     console.log(`\n========================================`);
     console.log(`Soak Test: 24 Hours @ 30% Capacity`);
     console.log(`Model: ${MODEL}`);
@@ -71,10 +71,10 @@ describe('Production: Soak Test (24 hours)', () => {
       snapshots.slice(quarterSize * 3),
     ];
 
-    const avgMemory = (quarter: typeof quarters[0]) =>
+    const avgMemory = (quarter: typeof quarters[0]): number =>
       quarter.reduce((sum, s) => sum + s.memory.rssMb, 0) / quarter.length;
 
-    const avgCpu = (quarter: typeof quarters[0]) =>
+    const avgCpu = (quarter: typeof quarters[0]): number =>
       quarter.reduce((sum, s) => sum + s.cpu.totalPercent, 0) / quarter.length;
 
     console.log(`\n✅ Soak Test (24 Hours) Results:`);

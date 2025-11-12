@@ -241,7 +241,7 @@ export class EmbeddedNatsServer {
     const startTime = Date.now();
 
     return new Promise((resolve, reject) => {
-      const checkReady = () => {
+      const checkReady = (): string | null => {
         if (Date.now() - startTime > timeoutMs) {
           reject(new Error(`NATS server did not start within ${timeoutMs}ms`));
           return;

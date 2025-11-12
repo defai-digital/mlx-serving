@@ -600,90 +600,90 @@ export class ABTestRunner {
    * Print results to console
    */
   private printResults(results: ABTestResults): void {
-    console.log('\n' + '='.repeat(80));
-    console.log('A/B TEST RESULTS');
-    console.log('='.repeat(80));
+    // console.log('\n' + '='.repeat(80));
+    // console.log('A/B TEST RESULTS');
+    // console.log('='.repeat(80));
 
-    console.log(`\nTimestamp: ${results.timestamp}`);
-    console.log(`Duration: ${(results.testDurationMs / 1000).toFixed(2)}s`);
-    console.log(`Test cases: ${results.totalTestCases}`);
+    // console.log(`\nTimestamp: ${results.timestamp}`);
+    // console.log(`Duration: ${(results.testDurationMs / 1000).toFixed(2)}s`);
+    // console.log(`Test cases: ${results.totalTestCases}`);
 
     // Baseline metrics
-    console.log('\n--- BASELINE ---');
+    // console.log('\n--- BASELINE ---');
     this.printMetrics(results.baseline.metrics);
 
     // Variant metrics
-    console.log('\n--- VARIANT ---');
+    // console.log('\n--- VARIANT ---');
     this.printMetrics(results.variant.metrics);
 
     // Statistical comparison
-    console.log('\n--- STATISTICAL COMPARISON ---');
-    console.log(`Confidence level: ${(results.decision.confidenceLevel * 100).toFixed(1)}%`);
+    // console.log('\n--- STATISTICAL COMPARISON ---');
+    // console.log(`Confidence level: ${(results.decision.confidenceLevel * 100).toFixed(1)}%`);
 
-    console.log('\nThroughput (tokens/sec):');
-    console.log(`  Improvement: ${results.comparison.throughput.improvement > 0 ? '+' : ''}${results.comparison.throughput.improvement.toFixed(2)}%`);
-    console.log(`  ${formatPValue(results.comparison.throughput.tTest.pValue)}`);
-    console.log(`  Effect size: ${results.comparison.throughput.effectSize.cohensD.toFixed(3)} (${results.comparison.throughput.effectSize.interpretation})`);
-    console.log(`  Significant: ${results.comparison.throughput.significant ? 'YES' : 'NO'}`);
+    // console.log('\nThroughput (tokens/sec):');
+    // console.log(`  Improvement: ${results.comparison.throughput.improvement > 0 ? '+' : ''}${results.comparison.throughput.improvement.toFixed(2)}%`);
+    // console.log(`  ${formatPValue(results.comparison.throughput.tTest.pValue)}`);
+    // console.log(`  Effect size: ${results.comparison.throughput.effectSize.cohensD.toFixed(3)} (${results.comparison.throughput.effectSize.interpretation})`);
+    // console.log(`  Significant: ${results.comparison.throughput.significant ? 'YES' : 'NO'}`);
 
-    console.log('\nTTFT (ms):');
-    console.log(`  Improvement: ${results.comparison.ttft.improvement > 0 ? '+' : ''}${results.comparison.ttft.improvement.toFixed(2)}%`);
-    console.log(`  ${formatPValue(results.comparison.ttft.tTest.pValue)}`);
-    console.log(`  Effect size: ${results.comparison.ttft.effectSize.cohensD.toFixed(3)} (${results.comparison.ttft.effectSize.interpretation})`);
-    console.log(`  Significant: ${results.comparison.ttft.significant ? 'YES' : 'NO'}`);
+    // console.log('\nTTFT (ms):');
+    // console.log(`  Improvement: ${results.comparison.ttft.improvement > 0 ? '+' : ''}${results.comparison.ttft.improvement.toFixed(2)}%`);
+    // console.log(`  ${formatPValue(results.comparison.ttft.tTest.pValue)}`);
+    // console.log(`  Effect size: ${results.comparison.ttft.effectSize.cohensD.toFixed(3)} (${results.comparison.ttft.effectSize.interpretation})`);
+    // console.log(`  Significant: ${results.comparison.ttft.significant ? 'YES' : 'NO'}`);
 
-    console.log('\nLatency (ms):');
-    console.log(`  Improvement: ${results.comparison.latency.improvement > 0 ? '+' : ''}${results.comparison.latency.improvement.toFixed(2)}%`);
-    console.log(`  ${formatPValue(results.comparison.latency.tTest.pValue)}`);
-    console.log(`  Effect size: ${results.comparison.latency.effectSize.cohensD.toFixed(3)} (${results.comparison.latency.effectSize.interpretation})`);
-    console.log(`  Significant: ${results.comparison.latency.significant ? 'YES' : 'NO'}`);
+    // console.log('\nLatency (ms):');
+    // console.log(`  Improvement: ${results.comparison.latency.improvement > 0 ? '+' : ''}${results.comparison.latency.improvement.toFixed(2)}%`);
+    // console.log(`  ${formatPValue(results.comparison.latency.tTest.pValue)}`);
+    // console.log(`  Effect size: ${results.comparison.latency.effectSize.cohensD.toFixed(3)} (${results.comparison.latency.effectSize.interpretation})`);
+    // console.log(`  Significant: ${results.comparison.latency.significant ? 'YES' : 'NO'}`);
 
     // Decision
-    console.log('\n--- DECISION ---');
-    console.log(`Recommendation: ${results.decision.recommendation.toUpperCase()}`);
-    console.log('\nReasons:');
-    for (const reason of results.decision.reasons) {
-      console.log(`  ${reason}`);
+    // console.log('\n--- DECISION ---');
+    // console.log(`Recommendation: ${results.decision.recommendation.toUpperCase()}`);
+    // console.log('\nReasons:');
+    for (const _reason of results.decision.reasons) {
+      // console.log(`  ${_reason}`);
     }
 
-    console.log('\n' + '='.repeat(80));
+    // console.log('\n' + '='.repeat(80));
   }
 
   /**
    * Print metrics summary
    */
   private printMetrics(metrics: PerformanceMetrics): void {
-    console.log(`Success rate: ${(metrics.successRate * 100).toFixed(2)}% (${metrics.successfulRequests}/${metrics.totalRequests})`);
-    console.log(`Total tokens: ${metrics.totalTokens}`);
+    // console.log(`Success rate: ${(metrics.successRate * 100).toFixed(2)}% (${metrics.successfulRequests}/${metrics.totalRequests})`);
+    // console.log(`Total tokens: ${metrics.totalTokens}`);
 
-    console.log('\nThroughput (tokens/sec):');
+    // console.log('\nThroughput (tokens/sec):');
     this.printStats(metrics.throughput);
 
-    console.log('\nTTFT (ms):');
+    // console.log('\nTTFT (ms):');
     this.printStats(metrics.ttft);
 
-    console.log('\nLatency (ms):');
+    // console.log('\nLatency (ms):');
     this.printStats(metrics.latency);
   }
 
   /**
    * Print statistics summary
    */
-  private printStats(stats: SampleStatistics): void {
-    console.log(`  Mean:   ${stats.mean.toFixed(2)}`);
-    console.log(`  Median: ${stats.median.toFixed(2)}`);
-    console.log(`  P95:    ${stats.p95.toFixed(2)}`);
-    console.log(`  P99:    ${stats.p99.toFixed(2)}`);
-    console.log(`  StdDev: ${stats.stdDev.toFixed(2)}`);
-    console.log(`  Range:  [${stats.min.toFixed(2)}, ${stats.max.toFixed(2)}]`);
+  private printStats(_stats: SampleStatistics): void {
+    // console.log(`  Mean:   ${_stats.mean.toFixed(2)}`);
+    // console.log(`  Median: ${_stats.median.toFixed(2)}`);
+    // console.log(`  P95:    ${_stats.p95.toFixed(2)}`);
+    // console.log(`  P99:    ${_stats.p99.toFixed(2)}`);
+    // console.log(`  StdDev: ${_stats.stdDev.toFixed(2)}`);
+    // console.log(`  Range:  [${_stats.min.toFixed(2)}, ${_stats.max.toFixed(2)}]`);
   }
 
   /**
    * Log message (if verbose)
    */
-  private log(message: string): void {
+  private log(_message: string): void {
     if (this.config.verbose) {
-      console.log(message);
+      // console.log(_message);
     }
   }
 }

@@ -24,7 +24,7 @@ describe('WebSocketGateway Timer Leak Prevention (BUG-017)', () => {
     logger = pino({ level: 'silent' }); // Silent for tests
   });
 
-  afterEach(async () => {
+  afterEach(async (): Promise<void> => {
     if (gateway) {
       await gateway.shutdown();
     }
@@ -36,7 +36,7 @@ describe('WebSocketGateway Timer Leak Prevention (BUG-017)', () => {
    * This tests the defensive cleanup pattern in startHeartbeat():
    * - Lines 323-327: Clears existing timer before setting new one
    */
-  it('should not leak timers on rapid initialize/shutdown cycles', async () => {
+  it('should not leak timers on rapid initialize/shutdown cycles', async (): Promise<void> => {
     gateway = new WebSocketGateway(config, logger);
 
     // Measure initial timer handles
@@ -77,7 +77,7 @@ describe('WebSocketGateway Timer Leak Prevention (BUG-017)', () => {
    * - Lines 419-423: Clears heartbeatTimer
    * - Lines 425-428: Clears cleanupTimer
    */
-  it('should clear heartbeat timer on shutdown', async () => {
+  it('should clear heartbeat timer on shutdown', async (): Promise<void> => {
     gateway = new WebSocketGateway(config, logger);
     gateway.initialize();
 
@@ -99,7 +99,7 @@ describe('WebSocketGateway Timer Leak Prevention (BUG-017)', () => {
   /**
    * Test 3: Verify cleanup timer is cleared on shutdown
    */
-  it('should clear cleanup timer on shutdown', async () => {
+  it('should clear cleanup timer on shutdown', async (): Promise<void> => {
     gateway = new WebSocketGateway(config, logger);
     gateway.initialize();
 
@@ -124,7 +124,7 @@ describe('WebSocketGateway Timer Leak Prevention (BUG-017)', () => {
    * This tests the defensive pattern in startHeartbeat():
    * - Lines 323-327: "Clear any existing timer (defensive cleanup)"
    */
-  it('should not accumulate timers on multiple initialize calls without shutdown', async () => {
+  it('should not accumulate timers on multiple initialize calls without shutdown', async (): Promise<void> => {
     gateway = new WebSocketGateway(config, logger);
 
     // Initialize multiple times without shutdown
@@ -149,7 +149,7 @@ describe('WebSocketGateway Timer Leak Prevention (BUG-017)', () => {
    *
    * This is an extreme stress test to verify no leaks under heavy churn
    */
-  it('should handle 1000 rapid initialize/shutdown cycles without leaking', async () => {
+  it('should handle 1000 rapid initialize/shutdown cycles without leaking', async (): Promise<void> => {
     gateway = new WebSocketGateway(config, logger);
 
     const getActiveTimers = (): number => {
@@ -185,7 +185,7 @@ describe('WebSocketGateway Timer Leak Prevention (BUG-017)', () => {
    *
    * This verifies the timers are functional, not just stored
    */
-  it('should execute heartbeat callback periodically', async () => {
+  it('should execute heartbeat callback periodically', async (): Promise<void> => {
     let heartbeatCount = 0;
 
     // Spy on sendHeartbeats method
@@ -216,7 +216,7 @@ describe('WebSocketGateway Timer Leak Prevention (BUG-017)', () => {
    *
    * Multiple shutdown calls should not cause errors
    */
-  it('should handle multiple shutdown calls gracefully', async () => {
+  it('should handle multiple shutdown calls gracefully', async (): Promise<void> => {
     gateway = new WebSocketGateway(config, logger);
     gateway.initialize();
 
@@ -234,14 +234,14 @@ describe('WebSocketGateway Timer Leak Prevention (BUG-017)', () => {
    *
    * This tests for leaks during normal operation (no churn)
    */
-  it('should not leak memory during long-running operation', async () => {
+  it('should not leak memory during long-running operation', async (): Promise<void> => {
     gateway = new WebSocketGateway(
       { ...config, heartbeatIntervalMs: 10 }, // Very fast heartbeat
       logger
     );
     gateway.initialize();
 
-    const getMemoryUsage = () => {
+    const getMemoryUsage = (): number => {
       if (global.gc) global.gc();
       return process.memoryUsage().heapUsed;
     };

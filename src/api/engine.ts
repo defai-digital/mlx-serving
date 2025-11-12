@@ -1,3 +1,4 @@
+/* eslint-disable import/max-dependencies */
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'eventemitter3';
 import type { Logger } from 'pino';

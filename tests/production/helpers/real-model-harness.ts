@@ -151,7 +151,7 @@ export class RealModelBenchmarkHarness extends BenchmarkHarness {
   /**
    * Get model stats
    */
-  getModelStats(modelId: string) {
+  getModelStats(modelId: string): ReturnType<typeof this.loader.getModelStats> {
     return this.loader.getModelStats(modelId);
   }
 }

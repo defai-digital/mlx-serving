@@ -76,13 +76,13 @@ describe('ParallelTokenizer', () => {
     };
 
     mockTokenizer = {
-      encode: vi.fn().mockImplementation((text: string, fn: Function) => {
+      encode: vi.fn().mockImplementation((text: string, fn: (text: string) => number[]) => {
         return fn(text);
       }),
-      encode_batch: vi.fn().mockImplementation((texts: string[], fn: Function) => {
+      encode_batch: vi.fn().mockImplementation((texts: string[], fn: (text: string) => number[]) => {
         return texts.map((text) => fn(text));
       }),
-      encode_async: vi.fn().mockImplementation((text: string, fn: Function) => {
+      encode_async: vi.fn().mockImplementation((text: string, fn: (text: string) => number[]) => {
         return Promise.resolve(fn(text));
       }),
       get_statistics: vi.fn().mockReturnValue(mockStatistics),
@@ -105,7 +105,7 @@ describe('ParallelTokenizer', () => {
 
   describe('Configuration Validation', () => {
     it('should accept valid configuration', () => {
-      const config = {
+      const _config = {
         num_threads: 8,
         use_accelerate: true,
         batch_mode: true,
@@ -122,7 +122,7 @@ describe('ParallelTokenizer', () => {
     });
 
     it('should reject thread count below minimum (1)', () => {
-      const config = {
+      const _config = {
         num_threads: 0, // Invalid
         thread_pool_size: 4,
       };
@@ -137,7 +137,7 @@ describe('ParallelTokenizer', () => {
     });
 
     it('should reject thread count above maximum (16)', () => {
-      const config = {
+      const _config = {
         num_threads: 20, // Too many
         thread_pool_size: 4,
       };
@@ -152,7 +152,7 @@ describe('ParallelTokenizer', () => {
     });
 
     it('should validate thread pool size range (1-16)', () => {
-      const invalidConfig = {
+      const _invalidConfig = {
         num_threads: 8,
         thread_pool_size: 0, // Invalid
       };
@@ -199,7 +199,7 @@ describe('ParallelTokenizer', () => {
     });
 
     it('should handle empty text', () => {
-      mockTokenizer.encode.mockImplementation((text: string, fn: Function) => {
+      mockTokenizer.encode.mockImplementation((text: string, fn: (text: string) => number[]) => {
         if (text === '') return [];
         return fn(text);
       });
@@ -211,7 +211,7 @@ describe('ParallelTokenizer', () => {
 
     it('should handle very long text (>10KB)', () => {
       const longText = 'A'.repeat(15000); // 15KB text
-      mockTokenizer.encode.mockImplementation((text: string, fn: Function) => {
+      mockTokenizer.encode.mockImplementation((text: string, fn: (text: string) => number[]) => {
         // Simulate parallel processing for large text
         return fn(text);
       });
@@ -225,7 +225,7 @@ describe('ParallelTokenizer', () => {
 
     it('should handle Unicode text (emoji, Chinese, etc.)', () => {
       const unicodeText = '你好世界 🌍 Hello';
-      mockTokenizer.encode.mockImplementation((text: string, _fn: Function) => {
+      mockTokenizer.encode.mockImplementation((text: string, _fn: (text: string) => number[]) => {
         // For this test, just count characters
         return Array.from(text).map((char) => char.codePointAt(0) || 0);
       });
@@ -246,7 +246,7 @@ describe('ParallelTokenizer', () => {
     });
 
     it('should handle null/undefined gracefully', () => {
-      mockTokenizer.encode.mockImplementation((text: any, fn: Function) => {
+      mockTokenizer.encode.mockImplementation((text: any, fn: (text: string) => number[]) => {
         if (text === null || text === undefined) {
           throw new Error('Text cannot be null or undefined');
         }
@@ -470,7 +470,7 @@ describe('ParallelTokenizer', () => {
       // Test text with multi-byte UTF-8 characters
       const utf8Text = '你好世界 🌍 Hello'; // Mix of 3-byte and 4-byte UTF-8
 
-      mockTokenizer.encode.mockImplementation((text: string, _fn: Function) => {
+      mockTokenizer.encode.mockImplementation((text: string, _fn: (text: string) => number[]) => {
         // Simulate UTF-8 aware chunking
         return Array.from(text).map((char) => char.codePointAt(0) || 0);
       });
@@ -486,7 +486,7 @@ describe('ParallelTokenizer', () => {
       // Text smaller than min_chunk_size should not be split
       const smallText = 'A'.repeat(512); // < 1024 bytes (min_chunk_size)
 
-      mockTokenizer.encode.mockImplementation((text: string, fn: Function) => {
+      mockTokenizer.encode.mockImplementation((text: string, fn: (text: string) => number[]) => {
         if (text.length < mockConfig.min_chunk_size) {
           // Serial processing for small text
           return fn(text);
@@ -566,7 +566,7 @@ describe('ParallelTokenizer', () => {
       // Simulate many concurrent async operations
       const concurrentOps = 20; // > thread_pool_size (4)
 
-      mockTokenizer.encode_async.mockImplementation((text: string, fn: Function) => {
+      mockTokenizer.encode_async.mockImplementation((text: string, fn: (text: string) => number[]) => {
         // Should queue when pool exhausted
         return new Promise((resolve) => {
           setTimeout(() => resolve(fn(text)), 10);
@@ -709,7 +709,7 @@ describe('ParallelTokenizer', () => {
       return Promise.all(promises).then((results) => {
         expect(results).toHaveLength(10);
         // All results should be consistent
-        const firstResult = results[0];
+        const _firstResult = results[0];
         results.forEach((result) => {
           expect(result).toBeDefined();
         });
@@ -766,7 +766,7 @@ describe('ParallelTokenizer', () => {
     });
 
     it('should handle concurrent encode operations', async () => {
-      mockTokenizer.encode.mockImplementation((text: string, fn: Function) => {
+      mockTokenizer.encode.mockImplementation((text: string, fn: (text: string) => number[]) => {
         return fn(text);
       });
 
@@ -784,7 +784,7 @@ describe('ParallelTokenizer', () => {
     });
 
     it('should handle concurrent batch operations', async () => {
-      mockTokenizer.encode_batch.mockImplementation((texts: string[], fn: Function) => {
+      mockTokenizer.encode_batch.mockImplementation((texts: string[], fn: (text: string) => number[]) => {
         return texts.map((text) => fn(text));
       });
 
@@ -806,11 +806,11 @@ describe('ParallelTokenizer', () => {
     });
 
     it('should handle mixed concurrent operations', async () => {
-      mockTokenizer.encode.mockImplementation((text: string, fn: Function) => {
+      mockTokenizer.encode.mockImplementation((text: string, fn: (text: string) => number[]) => {
         return fn(text);
       });
 
-      mockTokenizer.encode_batch.mockImplementation((texts: string[], fn: Function) => {
+      mockTokenizer.encode_batch.mockImplementation((texts: string[], fn: (text: string) => number[]) => {
         return texts.map((text) => fn(text));
       });
 

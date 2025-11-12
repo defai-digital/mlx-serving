@@ -21,7 +21,7 @@ describe('CPU Profiling', () => {
     console.log(`========================================\n`);
   }, 60000);
 
-  it('should profile CPU usage during inference', async () => {
+  it('should profile CPU usage during inference', async (): Promise<void> => {
     console.log(`\n--- CPU Usage Profile ---`);
 
     const config: RealModelBenchmarkConfig = {
@@ -44,7 +44,7 @@ describe('CPU Profiling', () => {
     const snapshots = monitor.getAllSnapshots();
 
     // Analyze CPU usage over time
-    const cpuUsages = snapshots.map(s => s.cpu.totalPercent);
+    const _cpuUsages = snapshots.map(s => s.cpu.totalPercent);
     const userCpuAvg = snapshots.reduce((sum, s) => sum + s.cpu.userPercent, 0) / snapshots.length;
     const systemCpuAvg = snapshots.reduce((sum, s) => sum + s.cpu.systemPercent, 0) / snapshots.length;
 
@@ -69,7 +69,7 @@ describe('CPU Profiling', () => {
     expect(resourceAnalysis.cpu.peakPercent).toBeLessThan(100);
   }, 180000);
 
-  it('should analyze CPU distribution across load phases', async () => {
+  it('should analyze CPU distribution across load phases', async (): Promise<void> => {
     console.log(`\n--- CPU Load Phase Analysis ---`);
 
     const config: RealModelBenchmarkConfig = {
@@ -84,7 +84,7 @@ describe('CPU Profiling', () => {
     const monitor = new ResourceMonitor();
     monitor.startMonitoring(1000); // Sample every 1 second
 
-    const result = await runRealModelBenchmark('CPU Phase Analysis', config);
+    const _result = await runRealModelBenchmark('CPU Phase Analysis', config);
 
     monitor.stopMonitoring();
     const snapshots = monitor.getAllSnapshots();
@@ -95,8 +95,8 @@ describe('CPU Profiling', () => {
     const phase2 = snapshots.slice(phaseSize, phaseSize * 2);
     const phase3 = snapshots.slice(phaseSize * 2);
 
-    const avgCpu = (phase: typeof phase1) =>
-      phase.reduce((sum, s) => sum + s.cpu.totalPercent, 0) / phase.length;
+    const avgCpu = (phase: typeof phase1): number =>
+      phase.reduce((sum, s) => sum + s.cpu, 0) / phase.length;
 
     console.log(`\n✅ CPU Phase Analysis:`);
     console.log(`   Phase 1 (early): ${avgCpu(phase1).toFixed(1)}%`);

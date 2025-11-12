@@ -53,7 +53,7 @@ export interface BatchStats {
 export class ContinuousBatcher {
   private queue: Array<{
     request: InferenceRequest;
-    resolve: (result: any) => void;
+    resolve: (result: unknown) => void;
     reject: (error: Error) => void;
   }> = [];
   private batchTimer?: NodeJS.Timeout;
@@ -69,7 +69,7 @@ export class ContinuousBatcher {
 
   constructor(
     private config: BatcherConfig,
-    private executor: (requests: InferenceRequest[]) => Promise<any[]>
+    private executor: (requests: InferenceRequest[]) => Promise<unknown[]>
   ) {
     this.logger = createLogger('ContinuousBatcher');
     this.logger.info('Continuous batcher initialized', {
@@ -82,7 +82,7 @@ export class ContinuousBatcher {
   /**
    * Enqueue request for batching
    */
-  async enqueue(request: InferenceRequest): Promise<any> {
+  async enqueue(request: InferenceRequest): Promise<unknown> {
     return new Promise((resolve, reject) => {
       this.queue.push({ request, resolve, reject });
 

@@ -143,7 +143,7 @@ export class WsServer {
         if (message.type === 'inference') {
           await this.handleInferenceMessage(ws, message, connectionId);
         } else {
-          this.sendError(ws, `Unknown message type: ${(message as any).type}`);
+          this.sendError(ws, `Unknown message type: ${(message as { type?: string }).type}`);
         }
       } catch (error) {
         this.logger.error('Failed to process message', error as Error, {
@@ -176,7 +176,7 @@ export class WsServer {
         connectionId,
         message: 'WebSocket connection established',
       },
-    } as any);
+    } as Record<string, unknown>);
   }
 
   /**
@@ -235,6 +235,7 @@ export class WsServer {
     let totalTokens = 0;
 
     try {
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
 

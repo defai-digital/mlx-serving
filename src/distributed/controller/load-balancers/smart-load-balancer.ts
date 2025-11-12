@@ -235,7 +235,7 @@ export class SmartLoadBalancer implements LoadBalancer {
   /**
    * Get session registry stats
    */
-  getSessionStats() {
+  getSessionStats(): ReturnType<NonNullable<typeof this.sessionRegistry>['getStats']> | undefined {
     return this.sessionRegistry?.getStats();
   }
 

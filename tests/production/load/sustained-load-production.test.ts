@@ -23,7 +23,7 @@ describe('Production: Sustained Load (4 hours)', () => {
   const DURATION = 14400000; // 4 hours
   const TARGET_RPS = 5;
 
-  it('should sustain 50% capacity load for 4 hours', async () => {
+  it('should sustain 50% capacity load for 4 hours', async (): Promise<void> => {
     console.log(`\n========================================`);
     console.log(`Sustained Load: 4 Hours @ 50% Capacity`);
     console.log(`Model: ${MODEL}`);
@@ -63,11 +63,7 @@ describe('Production: Sustained Load (4 hours)', () => {
       snapshots.slice(quarterSize * 3),
     ];
 
-    const avgMemory = (quarter: typeof quarters[0]) =>
-      quarter.reduce((sum, s) => sum + s.memory.rssMb, 0) / quarter.length;
-
-    const avgCpu = (quarter: typeof quarters[0]) =>
-      quarter.reduce((sum, s) => sum + s.cpu.totalPercent, 0) / quarter.length;
+    // Unused helper functions removed (were incomplete)
 
     console.log(`\n✅ Sustained Load (4 Hours) Results:`);
     console.log(`   Actual duration: ${actualDuration.toFixed(1)} minutes`);

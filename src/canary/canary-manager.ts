@@ -516,7 +516,7 @@ export class CanaryManager {
    *
    * @returns Router stats
    */
-  getRouterStats() {
+  getRouterStats(): ReturnType<CanaryRouter["getStats"]> {
     return this.router.getStats();
   }
 

@@ -593,7 +593,7 @@ export class ControllerNode extends EventEmitter {
     }
 
     const workers = this.workerRegistry.getAllWorkers();
-    const stats: Record<string, any> = {};
+    const stats: Record<string, unknown> = {};
 
     for (const worker of workers) {
       const breaker = this.circuitBreakerManager.getBreaker(worker.workerId);

@@ -43,8 +43,8 @@ export class DistributedCache<T = unknown> {
     this.config = config;
 
     if (config.enabled && config.redisUrl) {
-      this.initRedis().catch((error) => {
-        console.error('Failed to initialize Redis:', error);
+      this.initRedis().catch((_error) => {
+        // console.error('Failed to initialize Redis:', error);
       });
     }
   }
@@ -67,34 +67,34 @@ export class DistributedCache<T = unknown> {
       });
 
       // Setup error handlers
-      this.redis.on('error', (error) => {
-        console.error('Redis error:', error);
+      this.redis.on('error', (_error) => {
+        // console.error('Redis error:', error);
         this.redisConnected = false;
       });
 
       this.redis.on('connect', () => {
-        console.log('Redis connected');
+        // console.log('Redis connected');
         this.redisConnected = true;
         this.connectionAttempts = 0;
       });
 
       this.redis.on('disconnect', () => {
-        console.log('Redis disconnected');
+        // console.log('Redis disconnected');
         this.redisConnected = false;
       });
 
       // Connect
       await this.redis.connect();
     } catch (error) {
-      console.error('Failed to connect to Redis:', error);
+      // console.error('Failed to connect to Redis:', error);
       this.connectionAttempts++;
 
       // Retry with backoff
       if (this.connectionAttempts < this.maxConnectionAttempts) {
         const delay = Math.min(1000 * Math.pow(2, this.connectionAttempts), 10000);
         setTimeout(() => {
-          this.initRedis().catch((error) => {
-            console.error('Redis reconnection failed:', error);
+          this.initRedis().catch((_error) => {
+            // console.error('Redis reconnection failed:', error);
           });
         }, delay);
       }
@@ -117,7 +117,7 @@ export class DistributedCache<T = unknown> {
           return await this.deserializeValue(value);
         }
       } catch (error) {
-        console.error('Redis get error:', error);
+        // console.error('Redis get error:', error);
         this.redisConnected = false;
 
         // Fall through to local cache
@@ -165,7 +165,7 @@ export class DistributedCache<T = unknown> {
       try {
         await this.redis.setEx(fullKey, ttl, serialized);
       } catch (error) {
-        console.error('Redis set error:', error);
+        // console.error('Redis set error:', error);
         this.redisConnected = false;
 
         // Fall through to local cache
@@ -204,7 +204,7 @@ export class DistributedCache<T = unknown> {
       try {
         await this.redis.del(fullKey);
       } catch (error) {
-        console.error('Redis delete error:', error);
+        // console.error('Redis delete error:', error);
       }
     }
 
@@ -228,7 +228,7 @@ export class DistributedCache<T = unknown> {
           await this.redis.del(keys);
         }
       } catch (error) {
-        console.error('Redis clear error:', error);
+        // console.error('Redis clear error:', error);
       }
     }
 
@@ -250,7 +250,7 @@ export class DistributedCache<T = unknown> {
         const exists = await this.redis.exists(fullKey);
         return exists === 1;
       } catch (error) {
-        console.error('Redis exists error:', error);
+        // console.error('Redis exists error:', error);
       }
     }
 
@@ -296,7 +296,7 @@ export class DistributedCache<T = unknown> {
 
         return result;
       } catch (error) {
-        console.error('Redis mget error:', error);
+        // console.error('Redis mget error:', error);
       }
     }
 
@@ -333,7 +333,7 @@ export class DistributedCache<T = unknown> {
 
         await pipeline.exec();
       } catch (error) {
-        console.error('Redis mset error:', error);
+        // console.error('Redis mset error:', error);
       }
     }
 
@@ -465,7 +465,7 @@ export class DistributedCache<T = unknown> {
       const result = await this.redis.ping();
       return result === 'PONG';
     } catch (error) {
-      console.error('Redis ping error:', error);
+      // console.error('Redis ping error:', error);
       return false;
     }
   }
@@ -481,7 +481,7 @@ export class DistributedCache<T = unknown> {
         const keys = await this.redis.keys(pattern);
         return keys.length;
       } catch (error) {
-        console.error('Redis size error:', error);
+        // console.error('Redis size error:', error);
       }
     }
 
@@ -507,7 +507,7 @@ export class DistributedCache<T = unknown> {
         const keys = await this.redis.keys(searchPattern);
         return keys.map((key) => key.replace(`${this.config.keyPrefix}:`, ''));
       } catch (error) {
-        console.error('Redis keys error:', error);
+        // console.error('Redis keys error:', error);
       }
     }
 

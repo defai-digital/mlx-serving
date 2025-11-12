@@ -374,8 +374,8 @@ describe('CommandBufferRing', () => {
         throw new Error('All buffers in-flight - waiting');
       });
 
-      const buffer1 = mockNativeModule.acquireBuffer(ringHandle);
-      const buffer2 = mockNativeModule.acquireBuffer(ringHandle);
+      const _buffer1 = mockNativeModule.acquireBuffer(ringHandle);
+      const _buffer2 = mockNativeModule.acquireBuffer(ringHandle);
 
       // Third acquire should wait (or timeout)
       expect(() => mockNativeModule.acquireBuffer(ringHandle)).toThrow(
@@ -477,7 +477,7 @@ describe('CommandBufferRing', () => {
       mockNativeModule.acquireBuffer.mockReturnValueOnce(100); // Reused after completion
 
       const buffer1 = mockNativeModule.acquireBuffer(ringHandle);
-      const buffer2 = mockNativeModule.acquireBuffer(ringHandle);
+      const _buffer2 = mockNativeModule.acquireBuffer(ringHandle);
 
       // Release first buffer (simulates GPU completion)
       mockNativeModule.releaseBuffer(ringHandle, buffer1);

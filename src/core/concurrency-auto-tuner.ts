@@ -18,7 +18,7 @@ import * as os from 'os';
 import {
   detectHardware,
   recommendConcurrency,
-  printHardwareProfile,
+  _printHardwareProfile,
   type HardwareProfile,
   type ConcurrencyRecommendation,
 } from './hardware-detector.js';
@@ -86,7 +86,7 @@ export class ConcurrencyAutoTuner {
 
     // Validate cache against current hardware
     if (this.cache && !this.isHardwareMatch(this.cache.hardware, this.hardware)) {
-      console.warn('Hardware changed since last run - resetting tuning cache');
+      // console.warn('Hardware changed since last run - resetting tuning cache');
       this.cache = this.createFreshCache();
       this.saveCache();
     }
@@ -99,7 +99,7 @@ export class ConcurrencyAutoTuner {
 
     this.initialized = true;
 
-    console.log(printHardwareProfile(this.hardware, this.recommendations));
+    // console.log(printHardwareProfile(this.hardware, this.recommendations));
   }
 
   /**
@@ -123,7 +123,7 @@ export class ConcurrencyAutoTuner {
       const isConfident = learned.confidence > 0.7;
 
       if (isRecent && isConfident) {
-        console.log(`Using learned limits for ${modelId} (confidence: ${(learned.confidence * 100).toFixed(1)}%)`);
+        // console.log(`Using learned limits for ${modelId} (confidence: ${(learned.confidence * 100).toFixed(1)}%)`);
         return learned.optimalLimits;
       }
     }

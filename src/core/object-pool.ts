@@ -229,7 +229,7 @@ export function createSimplePool<T>(
   options: ObjectPoolOptions = {}
 ): ObjectPool<T> {
   // For simple objects, reset is a no-op (rely on explicit reinitialization)
-  const reset = (_obj: T) => {
+  const reset = (_obj: T): void => {
     // No-op: caller responsible for reinitializing object after acquire
   };
 
@@ -265,6 +265,6 @@ export function createResettablePool<T extends { reset(): void }>(
   factory: () => T,
   options: ObjectPoolOptions = {}
 ): ObjectPool<T> {
-  const reset = (obj: T) => obj.reset();
+  const reset = (obj: T): void => obj.reset();
   return new ObjectPool<T>(factory, reset, options);
 }
