@@ -12,7 +12,7 @@
  * Run: npx tsx examples/performance/03-adaptive-batching.ts
  */
 
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 async function main() {
   console.log('=== Adaptive Batching Example ===\n');

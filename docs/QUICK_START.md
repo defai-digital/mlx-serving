@@ -17,7 +17,7 @@
 
 ```bash
 # Install package
-npm install @knowrag/mlx-serving
+npm install @defai.digital/mlx-serving
 
 # Setup Python environment (one-time)
 npm run setup
@@ -28,7 +28,7 @@ npm run setup
 ## Hello World (30 seconds)
 
 ```typescript
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 // Create engine
 const engine = await createEngine();

@@ -753,7 +753,7 @@ npm --version
 .kr-mlx-venv/bin/python -c "import mlx; print(mlx.__version__)"
 
 # Package version
-npm list @knowrag/mlx-serving
+npm list @defai.digital/mlx-serving
 
 # Recent error logs
 # (enable verbose mode in engine)

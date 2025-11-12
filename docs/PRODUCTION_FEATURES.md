@@ -184,7 +184,7 @@ kv_prep:
 TTFT pipeline is **automatic** - no code changes needed:
 
 ```typescript
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 
@@ -205,7 +205,7 @@ for await (const chunk of generator) {
 Provide hints for better optimization:
 
 ```typescript
-import { TtftHint } from '@knowrag/mlx-serving';
+import { TtftHint } from '@defai.digital/mlx-serving';
 
 // Provide TTFT hint
 const hint: TtftHint = {
@@ -518,7 +518,7 @@ Each policy defines SLOs and remediation actions:
 #### Monitoring with QosMonitor
 
 ```typescript
-import { QosMonitor } from '@knowrag/mlx-serving';
+import { QosMonitor } from '@defai.digital/mlx-serving';
 import { getConfig } from '@/config/loader.js';
 
 const config = getConfig();
@@ -567,7 +567,7 @@ console.log({
 The Policy Engine provides centralized policy management:
 
 ```typescript
-import { PolicyEngine } from '@knowrag/mlx-serving';
+import { PolicyEngine } from '@defai.digital/mlx-serving';
 
 const policyEngine = new PolicyEngine(config.policy_engine, logger);
 
@@ -858,7 +858,7 @@ The system automatically rolls back on threshold violations:
 #### Canary Router API
 
 ```typescript
-import { CanaryRouter } from '@knowrag/mlx-serving';
+import { CanaryRouter } from '@defai.digital/mlx-serving';
 
 const router = new CanaryRouter({
   enabled: true,
@@ -892,7 +892,7 @@ console.log({
 #### Rollback Controller API
 
 ```typescript
-import { RollbackController } from '@knowrag/mlx-serving';
+import { RollbackController } from '@defai.digital/mlx-serving';
 
 const controller = new RollbackController({
   enabled: true,
@@ -1208,7 +1208,7 @@ emergency:
 #### Feature Flag Loader
 
 ```typescript
-import { FeatureFlagLoader } from '@knowrag/mlx-serving';
+import { FeatureFlagLoader } from '@defai.digital/mlx-serving';
 
 const loader = new FeatureFlagLoader('config/feature-flags.yaml');
 

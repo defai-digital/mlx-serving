@@ -17,7 +17,7 @@
  * Run: npx tsx examples/production/03-feature-flags.ts
  */
 
-import { FeatureFlagLoader } from '@knowrag/mlx-serving';
+import { FeatureFlagLoader } from '@defai.digital/mlx-serving';
 
 async function main() {
   console.log('=== Feature Flags Example ===\n');

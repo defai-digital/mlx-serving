@@ -17,7 +17,7 @@
  * Run: npx tsx examples/production/01-qos-monitoring.ts
  */
 
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 async function main() {
   console.log('=== QoS Monitoring Example ===\n');

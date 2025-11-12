@@ -92,7 +92,7 @@ Each model in the `models` array supports:
 ### Usage Example
 
 ```typescript
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 // Engine with model preloading enabled (via config/runtime.yaml)
 const engine = await createEngine();
@@ -171,7 +171,7 @@ Object pooling reduces garbage collection (GC) pressure by reusing objects inste
 Generic object pool for reusing objects.
 
 ```typescript
-import { ObjectPool } from '@knowrag/mlx-serving';
+import { ObjectPool } from '@defai.digital/mlx-serving';
 
 interface GeneratorState {
   modelId: string;
@@ -260,7 +260,7 @@ interface ObjectPoolStats {
 For simple objects without reset logic:
 
 ```typescript
-import { createSimplePool } from '@knowrag/mlx-serving';
+import { createSimplePool } from '@defai.digital/mlx-serving';
 
 // Pool for buffers
 const bufferPool = createSimplePool<Buffer>(
@@ -278,7 +278,7 @@ bufferPool.release(buffer);
 For objects with a `reset()` method:
 
 ```typescript
-import { createResettablePool } from '@knowrag/mlx-serving';
+import { createResettablePool } from '@defai.digital/mlx-serving';
 
 class Counter {
   count = 0;
@@ -296,7 +296,7 @@ const counterPool = createResettablePool(
 #### Example 1: Pool for Request Context
 
 ```typescript
-import { ObjectPool } from '@knowrag/mlx-serving';
+import { ObjectPool } from '@defai.digital/mlx-serving';
 
 interface RequestContext {
   requestId: string;
@@ -337,7 +337,7 @@ async function handleRequest(req: Request) {
 #### Example 2: Pool for Chunk Objects
 
 ```typescript
-import { createSimplePool } from '@knowrag/mlx-serving';
+import { createSimplePool } from '@defai.digital/mlx-serving';
 
 interface Chunk {
   text: string;
@@ -955,7 +955,7 @@ diff results/baseline.json results/optimized.json
 
 ```typescript
 // Add performance monitoring
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 

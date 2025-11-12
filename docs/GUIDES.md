@@ -26,14 +26,14 @@ See [QUICK_START.md](./QUICK_START.md) for the fastest path to using mlx-serving
 ### Installation
 
 ```bash
-npm install @knowrag/mlx-serving
+npm install @defai.digital/mlx-serving
 npm run setup
 ```
 
 ### Hello World
 
 ```typescript
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 
@@ -179,7 +179,7 @@ See [examples/production/](../examples/production/) for complete code examples.
 pip install mlx-engine
 
 # TypeScript mlx-serving (after)
-npm install @knowrag/mlx-serving
+npm install @defai.digital/mlx-serving
 npm run setup  # Sets up Python runtime
 ```
 
@@ -200,7 +200,7 @@ for token in engine.generate(prompt="Hello"):
 #### TypeScript (mlx-serving) - Python-Compatible
 
 ```typescript
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 
@@ -220,7 +220,7 @@ await engine.dispose();
 #### TypeScript (mlx-serving) - Native Style
 
 ```typescript
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 
@@ -288,7 +288,7 @@ for token in engine.generate({"prompt": "Hello", "temperature": 0.7}):
 
 **After (mlx-serving)**:
 ```typescript
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 await engine.load_model({ model: "llama-8b", max_tokens: 100 });
@@ -341,7 +341,7 @@ for await (const chunk of engine.create_generator({ prompt: "Explain AI" })) {
 
 **Context Manager Equivalent**:
 ```typescript
-import { withEngine } from '@knowrag/mlx-serving';
+import { withEngine } from '@defai.digital/mlx-serving';
 
 const result = await withEngine(async (engine) => {
   await engine.load_model({ model: "llama-8b" });
@@ -641,7 +641,7 @@ mlx-serving supports **multi-modal inference** with vision-language models (VLMs
 Vision support is included:
 
 ```bash
-npm install @knowrag/mlx-serving
+npm install @defai.digital/mlx-serving
 npm run setup
 
 # Verify mlx-vlm
@@ -651,7 +651,7 @@ npm run setup
 ### Quick Start
 
 ```typescript
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 
@@ -760,7 +760,7 @@ const analysis = await engine.createVisionGenerator({
 
 ```bash
 # Install
-npm install @knowrag/mlx-serving
+npm install @defai.digital/mlx-serving
 npm run setup
 
 # Test installation
@@ -780,7 +780,7 @@ npm build
 ### Core API
 
 ```typescript
-import { createEngine, withEngine } from '@knowrag/mlx-serving';
+import { createEngine, withEngine } from '@defai.digital/mlx-serving';
 
 // Basic flow
 const engine = await createEngine();
@@ -863,7 +863,7 @@ console.log('Status:', info.status, 'PID:', info.pid);
 
 **Links**:
 - [GitHub Repository](https://github.com/defai-digital/mlx-serving)
-- [npm Package](https://www.npmjs.com/package/@knowrag/mlx-serving)
+- [npm Package](https://www.npmjs.com/package/@defai.digital/mlx-serving)
 - [Issues](https://github.com/defai-digital/mlx-serving/issues)
 - [Discussions](https://github.com/defai-digital/mlx-serving/discussions)
 

@@ -23,7 +23,7 @@ This directory contains working examples demonstrating Week 7 performance optimi
 
 ```bash
 # Install package
-npm install @knowrag/mlx-serving
+npm install @defai.digital/mlx-serving
 
 # Setup Python environment
 npm run setup
@@ -89,7 +89,7 @@ model_preload:
 
 **Key API**:
 ```typescript
-import { ObjectPool } from '@knowrag/mlx-serving';
+import { ObjectPool } from '@defai.digital/mlx-serving';
 
 const pool = new ObjectPool<MyObject>(
   () => createObject(),      // Factory function
@@ -176,7 +176,7 @@ npx tsx benchmarks/flexible-benchmark.ts \
 ### Metrics Collection
 
 ```typescript
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 

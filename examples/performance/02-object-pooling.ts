@@ -8,7 +8,7 @@
  * Run: npx tsx examples/performance/02-object-pooling.ts
  */
 
-import { ObjectPool } from '@knowrag/mlx-serving';
+import { ObjectPool } from '@defai.digital/mlx-serving';
 
 // Example object type (state object in real usage)
 interface GeneratorState {

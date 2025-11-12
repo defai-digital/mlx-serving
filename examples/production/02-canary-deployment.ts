@@ -16,7 +16,7 @@
  * Run: npx tsx examples/production/02-canary-deployment.ts
  */
 
-import { createEngine, FeatureFlagLoader } from '@knowrag/mlx-serving';
+import { createEngine, FeatureFlagLoader } from '@defai.digital/mlx-serving';
 import { createHash } from 'crypto';
 
 // Hash-based routing function (same as CanaryRouter)

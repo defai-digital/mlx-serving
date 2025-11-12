@@ -12,7 +12,7 @@
  * Run: npx tsx examples/performance/01-model-preloading.ts
  */
 
-import { createEngine } from '@knowrag/mlx-serving';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 async function main() {
   console.log('=== Model Preloading Example ===\n');

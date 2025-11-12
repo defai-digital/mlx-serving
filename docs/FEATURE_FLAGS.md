@@ -50,7 +50,7 @@ kill -HUP $(cat /var/run/mlx-serving.pid)
 ### Verify Feature Status
 
 ```typescript
-import { FeatureFlagLoader } from '@knowrag/mlx-serving';
+import { FeatureFlagLoader } from '@defai.digital/mlx-serving';
 
 const loader = new FeatureFlagLoader('config/feature-flags.yaml');
 
@@ -421,7 +421,7 @@ npx tsx scripts/validate-feature-flags.ts config/feature-flags.yaml
 ### Test Feature Routing
 
 ```typescript
-import { FeatureFlagLoader } from '@knowrag/mlx-serving';
+import { FeatureFlagLoader } from '@defai.digital/mlx-serving';
 
 const loader = new FeatureFlagLoader('config/feature-flags.yaml');
 
@@ -529,7 +529,7 @@ emergency:
 ### FeatureFlagLoader
 
 ```typescript
-import { FeatureFlagLoader } from '@knowrag/mlx-serving';
+import { FeatureFlagLoader } from '@defai.digital/mlx-serving';
 
 // Load configuration
 const loader = new FeatureFlagLoader('config/feature-flags.yaml');

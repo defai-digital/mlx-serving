@@ -24,7 +24,7 @@ This directory contains working examples demonstrating production-ready features
 
 ```bash
 # Install package
-npm install @knowrag/mlx-serving
+npm install @defai.digital/mlx-serving
 
 # Setup Python environment
 npm run setup
