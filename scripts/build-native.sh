@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build kr-serve-mlx native acceleration module
+# Build mlx-serving native acceleration module
 
 set -e
 
@@ -9,8 +9,8 @@ echo "╚═══════════════════════�
 echo
 
 # Get Python executable from venv first
-if [ -f ".kr-mlx-venv/bin/python" ]; then
-    PYTHON_EXE="$(pwd)/.kr-mlx-venv/bin/python"
+if [ -f ".mlx-serving-venv/bin/python" ]; then
+    PYTHON_EXE="$(pwd)/.mlx-serving-venv/bin/python"
 else
     PYTHON_EXE=$(which python3)
 fi

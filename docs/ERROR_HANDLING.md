@@ -1,4 +1,4 @@
-# Error Handling in kr-serve-mlx
+# Error Handling in mlx-serving
 
 Production-grade error handling with automatic retries, circuit breakers, and comprehensive error types.
 
@@ -19,7 +19,7 @@ Production-grade error handling with automatic retries, circuit breakers, and co
 
 ## Overview
 
-kr-serve-mlx provides production-grade error handling to ensure reliability in distributed LLM serving environments:
+mlx-serving provides production-grade error handling to ensure reliability in distributed LLM serving environments:
 
 ### Key Features
 
@@ -172,7 +172,7 @@ With default config (`initial_delay_ms: 100`, `backoff_multiplier: 2.0`, `jitter
 ### Custom Retry Configuration
 
 ```typescript
-import { retryWithBackoff } from '@knowrag/kr-serve-mlx/utils/retry.js';
+import { retryWithBackoff } from '@defai.digital/mlx-serving/utils/retry.js';
 
 const result = await retryWithBackoff(
   () => engine.tokenize({ model: 'llama', text: 'hello' }),
@@ -265,7 +265,7 @@ json_rpc:
 ### Custom Circuit Breaker
 
 ```typescript
-import { CircuitBreaker } from '@knowrag/kr-serve-mlx/utils/circuit-breaker.js';
+import { CircuitBreaker } from '@defai.digital/mlx-serving/utils/circuit-breaker.js';
 
 const breaker = new CircuitBreaker({
   failureThreshold: 3,
@@ -425,7 +425,7 @@ try {
 ### 2. Use Type Guards
 
 ```typescript
-import { EngineClientError, TimeoutError } from '@knowrag/kr-serve-mlx';
+import { EngineClientError, TimeoutError } from '@defai.digital/mlx-serving';
 
 function handleError(error: unknown): void {
   if (error instanceof TimeoutError) {
@@ -450,7 +450,7 @@ function handleError(error: unknown): void {
 ### 3. Monitor Circuit Breaker State
 
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 
@@ -618,7 +618,7 @@ try {
 ### Example 1: Basic Error Handling
 
 ```typescript
-import { createEngine, EngineClientError } from '@knowrag/kr-serve-mlx';
+import { createEngine, EngineClientError } from '@defai.digital/mlx-serving';
 
 async function loadModelSafely(modelId: string) {
   const engine = await createEngine();
@@ -665,8 +665,8 @@ loadModelSafely('llama-3.2-3b-instruct');
 ### Example 2: Custom Retry with Logging
 
 ```typescript
-import { retryWithBackoff } from '@knowrag/kr-serve-mlx/utils/retry.js';
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { retryWithBackoff } from '@defai.digital/mlx-serving/utils/retry.js';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 async function robustTokenize(text: string) {
   const engine = await createEngine();
@@ -701,8 +701,8 @@ robustTokenize('Hello, world!');
 ### Example 3: Circuit Breaker Monitoring
 
 ```typescript
-import { CircuitBreaker } from '@knowrag/kr-serve-mlx/utils/circuit-breaker.js';
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { CircuitBreaker } from '@defai.digital/mlx-serving/utils/circuit-breaker.js';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 // Create circuit breaker for external API
 const breaker = new CircuitBreaker({
@@ -759,7 +759,7 @@ async function callExternalAPI() {
 ### Example 4: Graceful Timeout Handling
 
 ```typescript
-import { createEngine, TimeoutError } from '@knowrag/kr-serve-mlx';
+import { createEngine, TimeoutError } from '@defai.digital/mlx-serving';
 
 async function generateWithTimeout(prompt: string, timeoutMs: number) {
   const engine = await createEngine();
@@ -810,7 +810,7 @@ if (result) {
 ### Example 5: Error Telemetry Integration
 
 ```typescript
-import { createEngine, EngineClientError } from '@knowrag/kr-serve-mlx';
+import { createEngine, EngineClientError } from '@defai.digital/mlx-serving';
 import * as Sentry from '@sentry/node';
 
 async function generateWithTelemetry(prompt: string) {

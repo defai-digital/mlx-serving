@@ -1,5 +1,5 @@
 /**
- * OpenTelemetry infrastructure for kr-serve-mlx.
+ * OpenTelemetry infrastructure for mlx-serving.
  *
  * Provides metrics collection, Prometheus exporter, and standardized
  * instrumentation for model loading, token generation, IPC operations,
@@ -22,7 +22,7 @@ export interface TelemetryConfig {
    */
   enabled: boolean;
   /**
-   * Service name for metrics (default: 'kr-serve-mlx').
+   * Service name for metrics (default: 'mlx-serving').
    */
   serviceName?: string;
   /**
@@ -52,9 +52,9 @@ interface NormalizedTelemetryConfig {
 }
 
 /**
- * Standard metrics exported by kr-serve-mlx.
+ * Standard metrics exported by mlx-serving.
  */
-export interface KrServeMetrics {
+export interface MlxServingMetrics {
   // Model lifecycle
   modelsLoaded: Counter;
   modelsUnloaded: Counter;
@@ -82,7 +82,7 @@ export interface KrServeMetrics {
 }
 
 /**
- * OpenTelemetry telemetry manager for kr-serve-mlx.
+ * OpenTelemetry telemetry manager for mlx-serving.
  *
  * Initializes the metrics provider, creates standardized metrics,
  * and provides a simple API for instrumentation throughout the codebase.
@@ -91,7 +91,7 @@ export interface KrServeMetrics {
  * ```typescript
  * const telemetry = new TelemetryManager({
  *   enabled: true,
- *   serviceName: 'kr-serve-mlx',
+ *   serviceName: 'mlx-serving',
  *   prometheusPort: 9464
  * });
  *
@@ -114,13 +114,13 @@ export class TelemetryManager {
   private meterProvider: MeterProvider | null = null;
   private prometheusExporter: PrometheusExporter | null = null;
   private meter: Meter | null = null;
-  private _metrics: KrServeMetrics | null = null;
+  private _metrics: MlxServingMetrics | null = null;
   private started = false;
 
   constructor(config: TelemetryConfig) {
     this.config = {
       enabled: config.enabled,
-      serviceName: config.serviceName || 'kr-serve-mlx',
+      serviceName: config.serviceName || 'mlx-serving',
       prometheusPort: config.prometheusPort ?? 9464,
       exportIntervalMs: config.exportIntervalMs ?? 60000,
       logger: config.logger, // explicitly optional
@@ -130,7 +130,7 @@ export class TelemetryManager {
   /**
    * Get the initialized metrics. Throws if not started.
    */
-  public get metrics(): KrServeMetrics {
+  public get metrics(): MlxServingMetrics {
     if (!this._metrics) {
       throw new Error('TelemetryManager not started. Call start() first.');
     }
@@ -141,7 +141,7 @@ export class TelemetryManager {
    * Initialize the OpenTelemetry metrics provider and create metrics.
    *
    * Sets up the Prometheus exporter on the configured port and registers
-   * all standard kr-serve-mlx metrics.
+   * all standard mlx-serving metrics.
    *
    * @throws {Error} if telemetry is disabled or already started.
    */
@@ -235,9 +235,9 @@ export class TelemetryManager {
   }
 
   /**
-   * Create all standard metrics for kr-serve-mlx.
+   * Create all standard metrics for mlx-serving.
    */
-  private createMetrics(): KrServeMetrics {
+  private createMetrics(): MlxServingMetrics {
     if (!this.meter) {
       throw new Error('Meter not initialized');
     }
@@ -329,7 +329,7 @@ export class TelemetryManager {
  * ```typescript
  * const telemetry = createTelemetry({
  *   enabled: process.env.ENABLE_METRICS === 'true',
- *   serviceName: 'kr-serve-mlx',
+ *   serviceName: 'mlx-serving',
  *   prometheusPort: 9464
  * });
  *

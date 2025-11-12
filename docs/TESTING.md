@@ -1,10 +1,10 @@
-# Testing Guide for kr-serve-mlx
+# Testing Guide for mlx-serving
 
 > **Version**: v0.2.0-beta.1
 > **Last Updated**: 2025-11-04
 > **Status**: Production-Ready Testing Infrastructure
 
-This guide explains the testing strategy, architecture, and best practices for kr-serve-mlx. Our test suite ensures reliability, performance, and security for the MLX LLM serving engine.
+This guide explains the testing strategy, architecture, and best practices for mlx-serving. Our test suite ensures reliability, performance, and security for the MLX LLM serving engine.
 
 ---
 
@@ -26,7 +26,7 @@ This guide explains the testing strategy, architecture, and best practices for k
 
 ### Testing Philosophy
 
-kr-serve-mlx follows a **pragmatic testing approach**:
+mlx-serving follows a **pragmatic testing approach**:
 
 - **Target Coverage**: 80%+ (currently **87.2%**)
 - **Test Quality > Test Quantity**: Meaningful tests that catch real bugs
@@ -1182,7 +1182,7 @@ npm lint
 - Check the [troubleshooting section](#troubleshooting)
 - Review existing tests in `tests/` for patterns
 - See `vitest.config.ts` for configuration
-- Ask in GitHub Issues: https://github.com/defai-digital/kr-serve-mlx/issues
+- Ask in GitHub Issues: https://github.com/defai-digital/mlx-serving/issues
 
 ---
 

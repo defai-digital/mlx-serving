@@ -13,9 +13,9 @@
  *     print(chunk['token'])
  * ```
  *
- * @example TypeScript kr-serve-mlx equivalent
+ * @example TypeScript mlx-serving equivalent
  * ```typescript
- * import { load_model, tokenize, create_generator } from '@knowrag/kr-serve-mlx/module-helpers';
+ * import { load_model, tokenize, create_generator } from '@defai.digital/mlx-serving/module-helpers';
  * const model_kit = await load_model("llama");
  * const result = await tokenize(model_kit, "Hello");
  * for await (const chunk of create_generator(model_kit, result.tokens, { max_tokens: 100 })) {

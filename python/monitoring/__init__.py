@@ -1,4 +1,4 @@
-"""Monitoring and metrics export for kr-serve-mlx."""
+"""Monitoring and metrics export for mlx-serving."""
 
 from .prometheus_exporter import PrometheusExporter
 

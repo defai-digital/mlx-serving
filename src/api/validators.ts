@@ -1,5 +1,5 @@
 /**
- * API Validators for kr-serve-mlx
+ * API Validators for mlx-serving
  *
  * Provides validation utilities for API parameters to catch errors early.
  */

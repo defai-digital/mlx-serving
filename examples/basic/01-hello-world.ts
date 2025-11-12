@@ -1,12 +1,12 @@
 /**
  * Example 1: Hello World
- * Simplest possible example of using kr-serve-mlx
+ * Simplest possible example of using mlx-serving
  */
 
 import { createEngine } from '@defai.digital/mlx-serving';
 
 async function main() {
-  console.log('🚀 Starting kr-serve-mlx Hello World example\n');
+  console.log('🚀 Starting mlx-serving Hello World example\n');
 
   // Create engine instance
   const engine = await createEngine();

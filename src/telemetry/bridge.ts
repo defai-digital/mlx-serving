@@ -11,7 +11,7 @@
 import type { TelemetryHooks } from '../types/engine.js';
 import type { ModelHandle } from '../types/models.js';
 import type { GenerationStats, EngineError } from '../types/generators.js';
-import { TelemetryManager, type TelemetryConfig, type KrServeMetrics } from './otel.js';
+import { TelemetryManager, type TelemetryConfig, type MlxServingMetrics } from './otel.js';
 import type { Logger } from 'pino';
 
 /**
@@ -25,7 +25,7 @@ import type { Logger } from 'pino';
  * ```typescript
  * const { hooks, manager } = await createTelemetryBridge({
  *   enabled: true,
- *   serviceName: 'kr-serve-mlx',
+ *   serviceName: 'mlx-serving',
  *   prometheusPort: 9464
  * }, logger);
  *
@@ -148,9 +148,9 @@ function createHooksFromManager(
  * Get metrics from a telemetry manager (for testing/debugging).
  *
  * @param manager - TelemetryManager instance
- * @returns KrServeMetrics if started, undefined otherwise
+ * @returns MlxServingMetrics if started, undefined otherwise
  */
-export function getMetrics(manager: TelemetryManager): KrServeMetrics | undefined {
+export function getMetrics(manager: TelemetryManager): MlxServingMetrics | undefined {
   try {
     return manager.isStarted() ? manager.metrics : undefined;
   } catch {

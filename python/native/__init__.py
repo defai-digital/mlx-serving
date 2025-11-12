@@ -1,5 +1,5 @@
 """
-Native acceleration module for kr-serve-mlx
+Native acceleration module for mlx-serving
 
 Provides optional C++/ObjC++ acceleration with automatic fallback to pure Python.
 """

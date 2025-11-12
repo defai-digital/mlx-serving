@@ -88,9 +88,9 @@ export type JsonRpcMessage = z.infer<typeof JsonRpcMessageSchema>;
  * JSON-RPC 2.0 Error Codes
  *
  * Standard JSON-RPC codes: -32700 to -32600
- * kr-serve-mlx application codes: -32001 to -32099
+ * mlx-serving application codes: -32001 to -32099
  *
- * See automatosx/tmp/ERROR_CODES.md for complete documentation
+ * See docs/ERROR_CODES.md for complete documentation
  */
 export enum JsonRpcErrorCode {
   // Standard JSON-RPC 2.0 errors
@@ -101,7 +101,7 @@ export enum JsonRpcErrorCode {
   InternalError = -32603,
   ServerError = -32000,
 
-  // kr-serve-mlx application errors (MUST match python/errors.py ERROR_CODE_MAP)
+  // mlx-serving application errors (MUST match python/errors.py ERROR_CODE_MAP)
   ModelLoadError = -32001,
   GenerationError = -32002,
   TokenizerError = -32003,

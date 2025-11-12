@@ -7,7 +7,7 @@
 
 ## Context
 
-Model loading in kr-serve-mlx involves downloading artifacts from HuggingFace Hub, which takes 13-128 seconds depending on model size and network conditions. This significantly impacts user experience, especially during:
+Model loading in mlx-serving involves downloading artifacts from HuggingFace Hub, which takes 13-128 seconds depending on model size and network conditions. This significantly impacts user experience, especially during:
 
 1. **Cold starts** - First load of a model (13-128s)
 2. **Process restarts** - Python runtime crashes require full reload
@@ -340,7 +340,7 @@ async performLoad(descriptor, draft, options) {
 ### Phase 3 (v0.3.0)
 
 1. **Distributed Cache**
-   - Share cache across multiple kr-serve-mlx instances
+   - Share cache across multiple mlx-serving instances
    - Use shared filesystem (NFS, S3, etc.)
    - Lock-free coordination (optimistic concurrency)
 

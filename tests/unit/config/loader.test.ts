@@ -126,7 +126,7 @@ describe('Config Loader', () => {
     },
     telemetry: {
       enabled: false,
-      service_name: 'kr-serve-mlx',
+      service_name: 'mlx-serving',
       prometheus_port: 9464,
       export_interval_ms: 10000,
     },
@@ -205,7 +205,7 @@ describe('Config Loader', () => {
             },
             telemetry: {
               enabled: true,
-              service_name: 'kr-serve-mlx-prod',
+              service_name: 'mlx-serving-prod',
               prometheus_port: 9464,
               export_interval_ms: 10000,
             },
@@ -219,7 +219,7 @@ describe('Config Loader', () => {
 
       expect(config.development.verbose).toBe(false); // Overridden
       expect(config.telemetry.enabled).toBe(true); // Overridden
-      expect(config.telemetry.service_name).toBe('kr-serve-mlx-prod'); // Overridden
+      expect(config.telemetry.service_name).toBe('mlx-serving-prod'); // Overridden
       expect(config.environments).toBeUndefined(); // Removed from final config
     });
 

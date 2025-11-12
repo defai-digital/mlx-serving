@@ -1,6 +1,6 @@
-# Deployment Strategy - kr-serve-mlx
+# Deployment Strategy - mlx-serving
 
-Complete guide for deploying kr-serve-mlx via npm.
+Complete guide for deploying mlx-serving via npm.
 
 ## 🎯 Deployment Model
 
@@ -14,7 +14,7 @@ Complete guide for deploying kr-serve-mlx via npm.
 ### What's Included in npm Package
 
 ```
-@knowrag/kr-serve-mlx/
+@defai.digital/mlx-serving/
 ├── dist/                    # Compiled TypeScript (ESM + CJS)
 ├── python/                  # Python runtime + requirements
 │   ├── runtime.py
@@ -42,15 +42,15 @@ Complete guide for deploying kr-serve-mlx via npm.
 
 ```bash
 # Step 1: Install npm package
-npm install @knowrag/kr-serve-mlx
+npm install @defai.digital/mlx-serving
 
 # Step 2: Setup Python environment (one-time)
-npx kr-serve-mlx setup
+npx mlx-serving setup
 # or
-npm exec kr-serve-mlx setup
+npm exec mlx-serving setup
 
 # Step 3: Use in code
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 ```
 
 ### What Happens During Installation
@@ -74,7 +74,7 @@ graph TD
 
 ```json
 {
-  "name": "@knowrag/kr-serve-mlx",
+  "name": "@defai.digital/mlx-serving",
   "version": "0.1.0",
   "description": "TypeScript MLX engine for Apple Silicon",
   "main": "./dist/index.js",
@@ -82,7 +82,7 @@ graph TD
   "types": "./dist/index.d.ts",
 
   "bin": {
-    "kr-serve-mlx": "./dist/cli.js"
+    "mlx-serving": "./dist/cli.js"
   },
 
   "files": [
@@ -115,7 +115,7 @@ graph TD
 
   "repository": {
     "type": "git",
-    "url": "https://github.com/knowrag/kr-serve-mlx.git"
+    "url": "https://github.com/knowrag/mlx-serving.git"
   },
 
   "publishConfig": {
@@ -141,19 +141,19 @@ const os = require('os');
 const platform = os.platform();
 const arch = os.arch();
 
-console.log('📦 kr-serve-mlx installed successfully!');
+console.log('📦 mlx-serving installed successfully!');
 console.log('');
 
 // Check platform
 if (platform !== 'darwin') {
-  console.error('❌ Error: kr-serve-mlx requires macOS with Apple Silicon M3+');
+  console.error('❌ Error: mlx-serving requires macOS with Apple Silicon M3+');
   console.error('   Your system: ' + platform + ' / ' + arch);
   process.exit(1);
 }
 
 // Check architecture
 if (arch !== 'arm64') {
-  console.error('❌ Error: kr-serve-mlx requires Apple Silicon (ARM64)');
+  console.error('❌ Error: mlx-serving requires Apple Silicon (ARM64)');
   console.error('   Your system: ' + platform + ' / ' + arch);
   process.exit(1);
 }
@@ -176,9 +176,9 @@ if (platform === 'darwin' && arch !== 'arm64') {
 
 console.log('');
 console.log('🐍 Next step: Setup Python environment');
-console.log('   Run: npx kr-serve-mlx setup');
+console.log('   Run: npx mlx-serving setup');
 console.log('');
-console.log('📚 Documentation: https://github.com/knowrag/kr-serve-mlx#readme');
+console.log('📚 Documentation: https://github.com/knowrag/mlx-serving#readme');
 ```
 
 ### CLI Tool (scripts/cli.ts)
@@ -186,7 +186,7 @@ console.log('📚 Documentation: https://github.com/knowrag/kr-serve-mlx#readme'
 ```typescript
 #!/usr/bin/env tsx
 /**
- * CLI tool for kr-serve-mlx
+ * CLI tool for mlx-serving
  */
 
 import { execa } from 'execa';
@@ -196,7 +196,7 @@ const command = process.argv[2];
 async function main() {
   switch (command) {
     case 'setup':
-      console.log('🚀 Setting up kr-serve-mlx...\n');
+      console.log('🚀 Setting up mlx-serving...\n');
       await import('./prepare-env.js');
       break;
 
@@ -214,7 +214,7 @@ async function main() {
       break;
 
     default:
-      console.log('kr-serve-mlx CLI\n');
+      console.log('mlx-serving CLI\n');
       console.log('Commands:');
       console.log('  setup   - Setup Python environment');
       console.log('  verify  - Verify installation');
@@ -287,7 +287,7 @@ npm build
 
 # 2. Test package locally
 npm pack
-npm install -g knowrag-kr-serve-mlx-0.1.0.tgz
+npm install -g knowrag-mlx-serving-0.1.0.tgz
 # Test installation
 
 # 3. Publish to npm
@@ -344,13 +344,13 @@ jobs:
 
 ```bash
 # Install package
-npm install @knowrag/kr-serve-mlx
+npm install @defai.digital/mlx-serving
 
 # Setup Python (one-time)
-npx kr-serve-mlx setup
+npx mlx-serving setup
 
 # Verify
-npx kr-serve-mlx verify
+npx mlx-serving verify
 ```
 
 ### Detailed Installation
@@ -383,12 +383,12 @@ npx kr-serve-mlx verify
 
 1. **Install npm package**
    ```bash
-   npm install @knowrag/kr-serve-mlx
+   npm install @defai.digital/mlx-serving
    ```
 
 2. **Setup Python environment**
    ```bash
-   npx kr-serve-mlx setup
+   npx mlx-serving setup
 
    # This will:
    # - Create .kr-mlx-venv/ in your project
@@ -398,12 +398,12 @@ npx kr-serve-mlx verify
 
 3. **Test installation**
    ```bash
-   npx kr-serve-mlx verify
+   npx mlx-serving verify
    ```
 
 4. **Use in your code**
    ```typescript
-   import { createEngine } from '@knowrag/kr-serve-mlx';
+   import { createEngine } from '@defai.digital/mlx-serving';
 
    const engine = await createEngine();
    // Ready to use!
@@ -419,19 +419,19 @@ npx kr-serve-mlx verify
 # Manual setup
 python3 -m venv .kr-mlx-venv
 source .kr-mlx-venv/bin/activate
-pip install -r node_modules/@knowrag/kr-serve-mlx/python/requirements.txt
+pip install -r node_modules/@defai.digital/mlx-serving/python/requirements.txt
 ```
 
 ### MLX installation fails
 
 **Cause**: Not on Apple Silicon M2+
-**Solution**: MLX with kr-serve-mlx requires M2 or later (M2/M3/M4)
+**Solution**: MLX with mlx-serving requires M2 or later (M2/M3/M4)
 
 ### Permission errors
 
 ```bash
 # Try with sudo (macOS)
-sudo npx kr-serve-mlx setup
+sudo npx mlx-serving setup
 
 # Or change ownership
 sudo chown -R $(whoami) .kr-mlx-venv
@@ -445,11 +445,11 @@ sudo chown -R $(whoami) .kr-mlx-venv
 
 ```bash
 # View package info
-npm view @knowrag/kr-serve-mlx
+npm view @defai.digital/mlx-serving
 
 # Download stats
-npm view @knowrag/kr-serve-mlx dist-tags
-npm view @knowrag/kr-serve-mlx versions
+npm view @defai.digital/mlx-serving dist-tags
+npm view @defai.digital/mlx-serving versions
 ```
 
 ---
@@ -460,7 +460,7 @@ npm view @knowrag/kr-serve-mlx versions
 
 Users can verify package integrity:
 ```bash
-npm audit @knowrag/kr-serve-mlx
+npm audit @defai.digital/mlx-serving
 ```
 
 ### Dependency Scanning
@@ -478,13 +478,13 @@ We use:
 
 1. **Docker Image** (Phase 2)
    ```bash
-   docker pull knowrag/kr-serve-mlx:latest
-   docker run -v $(pwd):/app knowrag/kr-serve-mlx
+   docker pull knowrag/mlx-serving:latest
+   docker run -v $(pwd):/app knowrag/mlx-serving
    ```
 
 2. **Homebrew Formula** (Phase 2)
    ```bash
-   brew install kr-serve-mlx
+   brew install mlx-serving
    ```
 
 3. **Binary Releases** (Phase 3)

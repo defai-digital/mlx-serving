@@ -1,4 +1,4 @@
-# Stream Optimization in kr-serve-mlx
+# Stream Optimization in mlx-serving
 
 Adaptive stream management with automatic scaling, memory efficiency, and backpressure control for high-throughput LLM serving.
 
@@ -20,7 +20,7 @@ Adaptive stream management with automatic scaling, memory efficiency, and backpr
 
 ## Overview
 
-kr-serve-mlx's stream optimization provides production-grade token streaming with automatic scaling and memory efficiency.
+mlx-serving's stream optimization provides production-grade token streaming with automatic scaling and memory efficiency.
 
 ### Key Features
 
@@ -348,7 +348,7 @@ stream_registry:
 ### Accessing Metrics
 
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 
@@ -691,7 +691,7 @@ for await (const chunk of generator) {
 ### Example 1: Basic Streaming
 
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 await engine.loadModel({ model: 'llama-3.2-3b' });
@@ -713,7 +713,7 @@ await engine.dispose();
 ### Example 2: Monitoring Stream Performance
 
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 await engine.loadModel({ model: 'llama-3.2-3b' });
@@ -754,7 +754,7 @@ await engine.dispose();
 ### Example 3: Handling Cancellation
 
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 await engine.loadModel({ model: 'llama-3.2-3b' });
@@ -794,7 +794,7 @@ await engine.dispose();
 ### Example 4: High-Concurrency Server
 
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 import express from 'express';
 
 const engine = await createEngine();
@@ -849,7 +849,7 @@ app.listen(3000, () => {
 ### Example 5: Metrics Integration
 
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 import { register } from 'prom-client';
 
 const engine = await createEngine();

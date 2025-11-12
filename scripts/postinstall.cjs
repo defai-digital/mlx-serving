@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Postinstall script for kr-serve-mlx
+ * Postinstall script for mlx-serving
  * Sets up Python environment automatically after npm install
  *
  * This script:
  * 1. Detects if we're in a user installation (not a dev environment)
- * 2. Creates Python virtual environment (.kr-mlx-venv)
+ * 2. Creates Python virtual environment (.mlx-serving-venv)
  * 3. Installs MLX dependencies (mlx-lm, mlx-vlm, outlines)
  *
  * Exit codes:
@@ -21,7 +21,7 @@ const { resolve } = require('path');
 
 // Paths relative to the package root
 const PACKAGE_ROOT = resolve(__dirname, '..');
-const VENV_PATH = resolve(PACKAGE_ROOT, '.kr-mlx-venv');
+const VENV_PATH = resolve(PACKAGE_ROOT, '.mlx-serving-venv');
 const REQUIREMENTS_PATH = resolve(PACKAGE_ROOT, 'python', 'requirements.txt');
 
 // Check if we're in a development environment (git repo exists)
@@ -164,7 +164,7 @@ function verifyInstallation(pythonPath) {
  * Run the complete Python environment setup
  */
 function setupPythonEnvironment() {
-  console.log('📦 kr-serve-mlx: Setting up Python environment...\n');
+  console.log('📦 mlx-serving: Setting up Python environment...\n');
 
   // Step 1: Find Python
   const pythonCmd = findPythonCommand();
@@ -233,7 +233,7 @@ function main() {
   if (!success) {
     console.error('\n⚠️  Python setup failed, but package installation will continue.');
     console.error('   To fix this manually, run from the package directory:');
-    console.error('   cd node_modules/@defai.digital/kr-serve-mlx && npm run prepare:python\n');
+    console.error('   cd node_modules/@defai.digital/mlx-serving && npm run prepare:python\n');
   }
 
   return 0; // Always return 0 (graceful degradation)

@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
 ```typescript
 // migrated_snake_case.ts
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 async function main() {
   // Initialize engine (async!)
@@ -70,7 +70,7 @@ main().catch(console.error);
 
 ```typescript
 // migrated_camel_case.ts
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 async function main() {
   const engine = await createEngine();
@@ -108,7 +108,7 @@ main().catch(console.error);
 
 | Python (mlx-engine) | TypeScript (kr-serve-mlx) | Notes |
 |---------------------|------------------------|-------|
-| `from mlx_engine import Engine` | `import { createEngine } from '@knowrag/kr-serve-mlx'` | Module import |
+| `from mlx_engine import Engine` | `import { createEngine } from '@defai.digital/mlx-serving'` | Module import |
 | `engine = Engine()` | `const engine = await createEngine()` | Async constructor |
 | `engine.load_model("model")` | `await engine.loadModel({ model: "model" })` | Async + object param |
 | `for token in engine.generate(...)` | `for await (const chunk of engine.createGenerator(...))` | Async generator |

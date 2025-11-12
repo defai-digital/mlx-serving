@@ -1,5 +1,5 @@
 /**
- * Core engine types for kr-serve-mlx
+ * Core engine types for mlx-serving
  * Mirrors mlx-engine Python API for seamless migration
  */
 

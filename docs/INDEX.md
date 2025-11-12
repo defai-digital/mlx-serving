@@ -294,7 +294,7 @@ npm vitest run tests/integration/bridge.test.ts
 ### Project Structure
 
 ```
-kr-serve-mlx/
+mlx-serving/
 ├── docs/                   # Documentation (you are here)
 │   ├── ARCHITECTURE.md     # Complete architecture guide
 │   ├── GUIDES.md          # User guides (migration, outlines, vision)
@@ -357,14 +357,14 @@ MLX Framework (mlx-lm, mlx-vlm, outlines)
 - [mlx-vlm](https://github.com/Blaizzy/mlx-vlm) - Vision-language models (MIT)
 
 **Compatible Projects**:
-- [mlx-engine](https://github.com/lmstudio-ai/mlx-engine) - Original Python engine (kr-serve-mlx is API-compatible)
+- [mlx-engine](https://github.com/lmstudio-ai/mlx-engine) - Original Python engine (mlx-serving is API-compatible)
 
 ### Community
 
-- **Homepage**: https://github.com/defai-digital/kr-serve-mlx
-- **Issues**: [GitHub Issues](https://github.com/defai-digital/kr-serve-mlx/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/defai-digital/kr-serve-mlx/discussions)
-- **NPM Package**: [@knowrag/kr-serve-mlx](https://www.npmjs.com/package/@knowrag/kr-serve-mlx)
+- **Homepage**: https://github.com/defai-digital/mlx-serving
+- **Issues**: [GitHub Issues](https://github.com/defai-digital/mlx-serving/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/defai-digital/mlx-serving/discussions)
+- **NPM Package**: [@defai.digital/mlx-serving](https://www.npmjs.com/package/@defai.digital/mlx-serving)
 
 ---
 
@@ -430,9 +430,9 @@ See [CLAUDE.md](../CLAUDE.md) for complete coding standards.
 ### Getting Help
 
 1. **Check Documentation**: [GUIDES.md](./GUIDES.md), [ARCHITECTURE.md](./ARCHITECTURE.md)
-2. **Search Issues**: [GitHub Issues](https://github.com/defai-digital/kr-serve-mlx/issues)
-3. **Ask Questions**: [GitHub Discussions](https://github.com/defai-digital/kr-serve-mlx/discussions)
-4. **Report Bugs**: [New Issue](https://github.com/defai-digital/kr-serve-mlx/issues/new)
+2. **Search Issues**: [GitHub Issues](https://github.com/defai-digital/mlx-serving/issues)
+3. **Ask Questions**: [GitHub Discussions](https://github.com/defai-digital/mlx-serving/discussions)
+4. **Report Bugs**: [New Issue](https://github.com/defai-digital/mlx-serving/issues/new)
 
 ---
 

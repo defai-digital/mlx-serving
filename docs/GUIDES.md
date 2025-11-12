@@ -379,10 +379,10 @@ const result = await withEngine(async (engine) => {
 
 ### Installation
 
-Outlines is included in kr-serve-mlx:
+Outlines is included in mlx-serving:
 
 ```bash
-npm install @knowrag/kr-serve-mlx
+npm install @defai.digital/mlx-serving
 npm prepare:python
 
 # Verify Outlines
@@ -425,7 +425,7 @@ const result = await engine.generate({
 
 ### Supported JSON Schema Features
 
-kr-serve-mlx supports JSON Schema Draft 7:
+mlx-serving supports JSON Schema Draft 7:
 
 - **Primitive Types**: `string`, `number`, `integer`, `boolean`, `null`
 - **Complex Types**: `object`, `array`

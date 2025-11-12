@@ -73,7 +73,7 @@ interface EngineRuntime {
 const DEFAULT_LOG_LEVEL = process.env.KR_MLX_LOG_LEVEL ?? 'info';
 
 /**
- * High-level facade that exposes the kr-serve-mlx runtime via a TypeScript API.
+ * High-level facade that exposes the mlx-serving runtime via a TypeScript API.
  *
  * The engine hides JSON-RPC and Python bridge details, providing lifecycle
  * management (start/shutdown), model management, tokenization, and generation
@@ -1587,7 +1587,7 @@ export type { EngineOptions };
  *
  * @example
  * ```typescript
- * import { createEngine } from '@knowrag/kr-serve-mlx';
+ * import { createEngine } from '@defai.digital/mlx-serving';
  *
  * const engine = await createEngine();
  * await engine.loadModel({ model: 'llama-3.1-8b' });

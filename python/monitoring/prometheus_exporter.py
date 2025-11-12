@@ -1,10 +1,10 @@
 """
-Prometheus Metrics Exporter for kr-serve-mlx GPU Scheduler.
+Prometheus Metrics Exporter for mlx-serving GPU Scheduler.
 
 Provides HTTP endpoints for metrics export, health checks, and debugging.
 Integrates with MetricsCollector for comprehensive observability.
 
-Part of kr-serve-mlx v1.4.1 upgrade.
+Part of mlx-serving v1.4.1 upgrade.
 """
 
 import json

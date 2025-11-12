@@ -1,5 +1,5 @@
 /**
- * Main type exports for kr-serve-mlx
+ * Main type exports for mlx-serving
  */
 
 export * from './engine.js';

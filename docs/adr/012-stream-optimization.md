@@ -7,7 +7,7 @@
 
 ## Context
 
-Token streaming in kr-serve-mlx is fundamental to LLM inference, enabling real-time output display and handling concurrent generation requests. The initial v0.1.0 implementation had significant limitations:
+Token streaming in mlx-serving is fundamental to LLM inference, enabling real-time output display and handling concurrent generation requests. The initial v0.1.0 implementation had significant limitations:
 
 ### Current State Analysis (v0.1.0)
 

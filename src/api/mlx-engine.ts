@@ -11,9 +11,9 @@
  * text = engine.generate("Hello, world!", max_tokens=100)
  * ```
  *
- * @example TypeScript kr-serve-mlx equivalent
+ * @example TypeScript mlx-serving equivalent
  * ```typescript
- * import { MLXEngine } from '@knowrag/kr-serve-mlx';
+ * import { MLXEngine } from '@defai.digital/mlx-serving';
  * const engine = new MLXEngine("llama-3.1-8b");
  * await engine.init(); // Required in TypeScript (can't be async in constructor)
  * const text = await engine.generate("Hello, world!", { max_tokens: 100 });

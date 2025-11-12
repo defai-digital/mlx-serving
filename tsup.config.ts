@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 /**
- * Build configuration for kr-serve-mlx
+ * Build configuration for mlx-serving
  *
  * This configuration:
  * 1. Generates both ESM and CJS outputs

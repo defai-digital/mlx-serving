@@ -92,7 +92,7 @@ continuous_batching:
 # Python Runtime Process Management
 python_runtime:
   # Path to Python executable (relative to project root)
-  python_path: '.kr-mlx-venv/bin/python'
+  python_path: '.mlx-serving-venv/bin/python'
 
   # Path to runtime script (relative to project root)
   runtime_path: 'python/runtime.py'
@@ -506,7 +506,7 @@ cache:
   enabled: true
 
   # Directory to store cached artifacts (relative to project root)
-  cache_dir: '.kr-mlx-cache'
+  cache_dir: '.mlx-serving-cache'
 
   # Maximum cache size in bytes (default: 100GB)
   # Models are evicted using LRU policy when this limit is exceeded
@@ -574,7 +574,7 @@ telemetry:
   enabled: false  # Set to true to enable metrics
 
   # Service name for metrics (appears in Prometheus)
-  service_name: 'kr-serve-mlx'
+  service_name: 'mlx-serving'
 
   # Prometheus exporter port
   prometheus_port: 9464

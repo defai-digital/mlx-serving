@@ -1,10 +1,10 @@
 """
-Metrics Collector for kr-serve-mlx GPU Scheduler.
+Metrics Collector for mlx-serving GPU Scheduler.
 
 Provides comprehensive metrics tracking including latency percentiles,
 throughput windows, and batch size distributions with minimal overhead.
 
-Part of kr-serve-mlx v1.4.1 upgrade.
+Part of mlx-serving v1.4.1 upgrade.
 
 v1.4.2 Phase 4: Low-Contention Metrics
     - Replaced global RLock with fine-grained per-collection locks

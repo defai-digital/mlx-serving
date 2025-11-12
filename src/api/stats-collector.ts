@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * import { createEngine, GenerationStatsCollector } from '@knowrag/kr-serve-mlx';
+ * import { createEngine, GenerationStatsCollector } from '@defai.digital/mlx-serving';
  *
  * const engine = await createEngine();
  * await engine.loadModel({ model: 'llama-3.2-3b' });

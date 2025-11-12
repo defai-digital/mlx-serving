@@ -1,4 +1,4 @@
-# kr-serve-mlx Architecture
+# mlx-serving Architecture
 
 **Version**: 2.0
 **Date**: 2025-10-28
@@ -19,9 +19,9 @@
 
 ## Executive Summary
 
-### What is kr-serve-mlx?
+### What is mlx-serving?
 
-**kr-serve-mlx** is a **production-grade LLM serving engine** for Apple Silicon M3+ hardware, designed as the **node-level serving layer** in distributed inference clusters.
+**mlx-serving** is a **production-grade LLM serving engine** for Apple Silicon M3+ hardware, designed as the **node-level serving layer** in distributed inference clusters.
 
 **Core Value Proposition**:
 - 🚀 **30-70% throughput improvement** over single-machine deployments
@@ -61,7 +61,7 @@
 
 ### Key Differentiators
 
-| Feature | kr-serve-mlx | Ollama | llama.cpp | vLLM |
+| Feature | mlx-serving | Ollama | llama.cpp | vLLM |
 |---------|-------------|--------|-----------|------|
 | **TypeScript Native** | ✅ | ❌ | ❌ | ❌ |
 | **Distributed Cluster** | ✅ | ❌ | ❌ | ✅ |
@@ -165,7 +165,7 @@
     For optimal performance, upgrade to Apple Silicon M3 or later.
     
     Current system will run in CPU fallback mode (~40% slower).
-    See: https://github.com/defai-digital/kr-serve-mlx/docs/ARCHITECTURE.md#m3-hardware-strategy
+    See: https://github.com/defai-digital/mlx-serving/docs/ARCHITECTURE.md#m3-hardware-strategy
 ```
 
 ---
@@ -178,7 +178,7 @@
 
 **Architecture Layers**:
 1. **Gateway** (TypeScript/Node.js) - Routing orchestrator
-2. **Workers** (kr-serve-mlx) - Node-level serving engine on each Mac
+2. **Workers** (mlx-serving) - Node-level serving engine on each Mac
 3. **Registry** (NATS JetStream / etcd) - Service discovery and control plane
 
 ### System Topology
@@ -198,7 +198,7 @@
 │  Worker 1   │  │  Worker 2   │  │  Worker 3   │  │  Worker 4   │
 │  M3 Ultra   │  │  M3 Ultra   │  │  M4 Max     │  │  M4 Max     │
 │             │  │             │  │             │  │             │
-│ kr-serve-mlx│  │ kr-serve-mlx│  │ kr-serve-mlx│  │ kr-serve-mlx│
+│ mlx-serving │  │ mlx-serving │  │ mlx-serving │  │ mlx-serving │
 │    Core     │  │    Core     │  │    Core     │  │    Core     │
 │             │  │             │  │             │  │             │
 │  Model: 70B │  │  Model: 70B │  │  Model: 32B │  │  Model: 32B │
@@ -339,7 +339,7 @@ GET  /metrics
 - Max throughput: 10,000 req/s (single gateway)
 - Horizontal scaling: Yes (stateless)
 
-#### Worker Layer (kr-serve-mlx)
+#### Worker Layer (mlx-serving)
 
 **Technology**: TypeScript + Python bridge (JSON-RPC over stdio)
 **Responsibilities**:
@@ -351,7 +351,7 @@ GET  /metrics
 
 **Core API**:
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 
@@ -562,4 +562,4 @@ MIT License - See [LICENSE](../LICENSE)
 
 **Document Version**: 2.0
 **Last Updated**: 2025-10-28
-**Maintained By**: KnowRAG Studio - kr-serve-mlx Team
+**Maintained By**: DEFAI Private Limited

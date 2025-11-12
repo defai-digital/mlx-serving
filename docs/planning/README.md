@@ -1,6 +1,6 @@
 # Planning Documentation
 
-This directory contains the core planning documents for the mlx-serving project refactor from kr-serve-mlx v1.4.2.
+This directory contains the core planning documents for the mlx-serving project refactor from mlx-serving v1.4.2.
 
 ---
 
@@ -47,7 +47,7 @@ The `archive/` directory contains completed phase reports and historical plannin
 - PHASE_0_COMPLETION_REPORT.md - Phase 0 summary
 - PHASE_0_FINAL_STATUS.md - Validation results
 - MLX_ENGINE_PHASE0_GUARDRAILS.md - Safety guidelines
-- CODEBASE_COMPARISON.md - kr-serve-mlx comparison
+- CODEBASE_COMPARISON.md - mlx-serving comparison
 - REFACTORING_SUMMARY.md - Refactoring decisions
 
 ### Phase 1 Documents (4 files)
@@ -73,7 +73,7 @@ The `archive/` directory contains completed phase reports and historical plannin
 ## Key Achievements
 
 ### Phase 0 ✅
-- Complete codebase migration from kr-serve-mlx v1.4.2
+- Complete codebase migration from mlx-serving v1.4.2
 - 100% API compatibility maintained
 - 389/391 tests passing
 - Native C++ module preserved

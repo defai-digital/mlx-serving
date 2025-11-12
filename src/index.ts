@@ -13,7 +13,7 @@ export type * from './api/events.js';
 
 // Phase 4: Telemetry & Monitoring
 export { createTelemetryBridge, getMetrics } from './telemetry/bridge.js';
-export { TelemetryManager, type TelemetryConfig, type KrServeMetrics } from './telemetry/otel.js';
+export { TelemetryManager, type TelemetryConfig, type MlxServingMetrics } from './telemetry/otel.js';
 
 export type {
   EngineOptions,

@@ -65,14 +65,14 @@ Phase 3 implements C++ Metal kernel optimizations as an **optional acceleration 
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  @knowrag/kr-serve-mlx (Core Package)                   │
+│  @defai.digital/mlx-serving (Core Package)                   │
 │  - TypeScript API                                        │
 │  - Python Runtime (mlx-lm/mlx-vlm)                      │
 │  - All features work without C++                         │
 └─────────────────────────────────────────────────────────┘
                           ↓ optional dependency
 ┌─────────────────────────────────────────────────────────┐
-│  @knowrag/kr-serve-mlx-metal (Acceleration Package)     │
+│  @defai.digital/mlx-serving-metal (Acceleration Package)     │
 │  - C++ Metal Kernels (Flash Attention, etc.)            │
 │  - Auto-detected and enabled if installed               │
 │  - Graceful fallback to Python if unavailable           │
@@ -82,10 +82,10 @@ Phase 3 implements C++ Metal kernel optimizations as an **optional acceleration 
 **Installation:**
 ```bash
 # Core package (required)
-npm install @knowrag/kr-serve-mlx
+npm install @defai.digital/mlx-serving
 
 # Optional acceleration (opt-in)
-npm install @knowrag/kr-serve-mlx-metal
+npm install @defai.digital/mlx-serving-metal
 ```
 
 **Pros:**
@@ -102,7 +102,7 @@ npm install @knowrag/kr-serve-mlx-metal
 ### Option B: Feature Flag in Core Package
 
 ```
-@knowrag/kr-serve-mlx
+@defai.digital/mlx-serving
 ├── TypeScript API
 ├── Python Runtime
 ├── C++ Metal Kernels (optional, compiled on install)
@@ -112,10 +112,10 @@ npm install @knowrag/kr-serve-mlx-metal
 **Installation:**
 ```bash
 # Installs with C++ compilation (if possible)
-npm install @knowrag/kr-serve-mlx
+npm install @defai.digital/mlx-serving
 
 # Skip C++ compilation
-npm install @knowrag/kr-serve-mlx --no-optional
+npm install @defai.digital/mlx-serving --no-optional
 ```
 
 **Pros:**
@@ -242,7 +242,7 @@ export class MetalAcceleration {
 
     try {
       // Try to load acceleration package
-      await import('@knowrag/kr-serve-mlx-metal');
+      await import('@defai.digital/mlx-serving-metal');
       this.available = true;
       return true;
     } catch {
@@ -253,7 +253,7 @@ export class MetalAcceleration {
 
   static async getVersion(): Promise<string | null> {
     if (!await this.isAvailable()) return null;
-    const metal = await import('@knowrag/kr-serve-mlx-metal');
+    const metal = await import('@defai.digital/mlx-serving-metal');
     return metal.version;
   }
 }
@@ -291,7 +291,7 @@ metal_acceleration:
 
 ```json
 {
-  "name": "@knowrag/kr-serve-mlx-metal",
+  "name": "@defai.digital/mlx-serving-metal",
   "version": "0.1.0-alpha",
   "description": "Optional Metal acceleration for kr-serve-mlx",
   "main": "dist/index.js",
@@ -302,7 +302,7 @@ metal_acceleration:
     "benchmark": "node benchmarks/flash-attention.js"
   },
   "peerDependencies": {
-    "@knowrag/kr-serve-mlx": "^1.1.0"
+    "@defai.digital/mlx-serving": "^1.1.0"
   },
   "optionalDependencies": {
     "node-gyp": "^10.0.0"
@@ -419,13 +419,13 @@ def test_flash_attention_fallback():
 describe('Metal Acceleration Detection', () => {
   it('should detect when acceleration package is installed', async () => {
     const available = await MetalAcceleration.isAvailable();
-    // Depends on whether @knowrag/kr-serve-mlx-metal is installed
+    // Depends on whether @defai.digital/mlx-serving-metal is installed
     expect(typeof available).toBe('boolean');
   });
 
   it('should fallback gracefully when acceleration unavailable', async () => {
     // Mock acceleration package not available
-    jest.mock('@knowrag/kr-serve-mlx-metal', () => {
+    jest.mock('@defai.digital/mlx-serving-metal', () => {
       throw new Error('Module not found');
     });
 
@@ -497,16 +497,16 @@ async function runComparison() {
 **Basic Installation (No C++):**
 ```bash
 # Install core package (TypeScript/Python only)
-npm install @knowrag/kr-serve-mlx
+npm install @defai.digital/mlx-serving
 ```
 
 **With Metal Acceleration:**
 ```bash
 # Install core package
-npm install @knowrag/kr-serve-mlx
+npm install @defai.digital/mlx-serving
 
 # Install optional acceleration (requires C++ toolchain)
-npm install @knowrag/kr-serve-mlx-metal
+npm install @defai.digital/mlx-serving-metal
 
 # Verify installation
 npx kr-serve-mlx info
@@ -533,7 +533,7 @@ Hardware:
 
 ```typescript
 // config.ts
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine({
   metalAcceleration: {

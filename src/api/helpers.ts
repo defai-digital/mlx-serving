@@ -1,5 +1,5 @@
 /**
- * API Helper utilities for kr-serve-mlx
+ * API Helper utilities for mlx-serving
  *
  * Provides convenience functions for common operations with the Engine API.
  */
