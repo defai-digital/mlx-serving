@@ -65,7 +65,7 @@ if (!result.success) {
 Zod is included as a dependency - no additional installation needed:
 
 ```bash
-npm install @defai.digital/mlx-serving
+npm i @defai.digital/mlx-serving
 # Zod v3.22.4 automatically installed
 ```
 

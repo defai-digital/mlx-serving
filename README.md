@@ -147,7 +147,7 @@ Built from the ground up with modern TypeScript practices and enterprise-grade r
 ## Installation
 
 ```bash
-npm install @defai.digital/mlx-serving
+npm i @defai.digital/mlx-serving
 ```
 
 ### System Requirements
