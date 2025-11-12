@@ -23,7 +23,7 @@ export default defineConfig({
   format: ['esm', 'cjs'],
 
   // Generate TypeScript declarations
-  dts: false, // Temporarily disabled due to TypeScript strict mode issues - TODO: Re-enable after fixing
+  dts: true, // Re-enabled - generate .d.ts files for TypeScript users
 
   // Split output into chunks (better for tree-shaking)
   splitting: false,

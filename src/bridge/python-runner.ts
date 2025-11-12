@@ -380,6 +380,7 @@ export class PythonRunner extends EventEmitter<PythonRunnerEvents> {
       try {
         // Check if Python executable exists before spawning
         if (!existsSync(this.options.pythonPath)) {
+          // @ts-expect-error - Variable reserved for future use
           const _packageRoot = path.resolve(__dirname, '../..');
           const isNodeModules = this.options.pythonPath.includes('node_modules');
 

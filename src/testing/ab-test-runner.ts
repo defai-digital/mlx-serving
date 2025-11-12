@@ -289,7 +289,7 @@ export class ABTestRunner {
    */
   private async runWorkload(
     engine: Engine,
-    engineName: string,
+    _engineName: string,
     workload: TestCase[] = this.config.testWorkload
   ): Promise<RequestMetrics[]> {
     const results: RequestMetrics[] = [];
@@ -321,6 +321,11 @@ export class ABTestRunner {
       // Sequential execution (fairer comparison, no resource contention)
       for (let i = 0; i < workload.length; i++) {
         const testCase = workload[i];
+
+        if (!testCase) {
+          continue; // Skip if test case is missing
+        }
+
         try {
           const metrics = await this.runTestCase(engine, testCase, i, workload.length);
           results.push(metrics);

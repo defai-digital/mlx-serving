@@ -366,13 +366,26 @@ export class BatchQueue {
         // Distribute responses back to individual callers
         let successes = 0;
         for (let i = 0; i < requests.length; i++) {
+          const request = requests[i];
           const result = batchResponse.results[i];
+
+          // Guard against undefined request or result
+          if (!request) {
+            continue;
+          }
+
+          if (!result) {
+            const error = new Error('Missing result in batch response');
+            queueMicrotask(() => request.reject(error));
+            continue;
+          }
+
           if (result.success && result.result) {
-            requests[i].resolve(result.result);
+            request.resolve(result.result);
             successes++;
           } else {
             const error = new Error(result.error || 'Batch tokenization failed');
-            queueMicrotask(() => requests[i].reject(error));
+            queueMicrotask(() => request.reject(error));
           }
         }
 
@@ -458,13 +471,26 @@ export class BatchQueue {
         // Distribute responses back to individual callers
         let successes = 0;
         for (let i = 0; i < requests.length; i++) {
+          const request = requests[i];
           const result = batchResponse.results[i];
+
+          // Guard against undefined request or result
+          if (!request) {
+            continue;
+          }
+
+          if (!result) {
+            const error = new Error('Missing result in batch response');
+            queueMicrotask(() => request.reject(error));
+            continue;
+          }
+
           if (result.success && result.result) {
-            requests[i].resolve(result.result);
+            request.resolve(result.result);
             successes++;
           } else {
             const error = new Error(result.error || 'Batch check draft failed');
-            queueMicrotask(() => requests[i].reject(error));
+            queueMicrotask(() => request.reject(error));
           }
         }
 
@@ -649,8 +675,15 @@ export class BatchQueue {
     const upper = Math.ceil(index);
     const weight = index - lower;
 
-    if (lower === upper) return sorted[lower];
-    return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+    const lowerValue = sorted[lower];
+    const upperValue = sorted[upper];
+
+    // Guard against undefined values
+    if (lowerValue === undefined) return 0;
+    if (lower === upper) return lowerValue;
+    if (upperValue === undefined) return lowerValue;
+
+    return lowerValue * (1 - weight) + upperValue * weight;
   }
 
   /**
