@@ -174,6 +174,7 @@ export class ControllerNode extends EventEmitter {
         retryDelayMs: this.config.requestRouting.retry.retryDelayMs,
         exponentialBackoff: true,
         maxDelayMs: 1000,
+        retryOnErrors: this.config.requestRouting.retry.retryOnErrors, // Bug Fix #20
       });
 
       this.logger.info('Retry handler initialized', {
@@ -646,6 +647,15 @@ export class ControllerNode extends EventEmitter {
     } catch (error) {
       // Remove from active requests on error
       this.activeRequests.delete(request.requestId);
+
+      // Bug Fix #20: Extract retry count from error if present
+      const err = error as Error & { retryCount?: number };
+      if (err.retryCount !== undefined) {
+        const metadata = this.requestMetrics.get(request.requestId);
+        if (metadata) {
+          metadata.retryCount = err.retryCount;
+        }
+      }
 
       // Update metrics on failure
       this.finalizeRequestMetadata(request.requestId, '', error as Error);

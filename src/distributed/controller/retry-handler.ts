@@ -20,6 +20,8 @@ export interface RetryConfig {
   exponentialBackoff: boolean;
   /** Maximum delay for exponential backoff (ms) */
   maxDelayMs: number;
+  /** Error codes that trigger retry (Bug Fix #20) */
+  retryOnErrors?: string[];
 }
 
 /**
@@ -75,15 +77,22 @@ export interface RetryContext {
 export class RetryHandler {
   private logger: Logger;
   private config: RetryConfig;
+  private retryableErrors: Set<string>;
 
   constructor(config: RetryConfig) {
     this.config = config;
     this.logger = createLogger('RetryHandler');
 
+    // Bug Fix #20: Use config retryOnErrors if provided, otherwise use defaults
+    this.retryableErrors = new Set(
+      config.retryOnErrors ?? Array.from(RETRYABLE_ERRORS)
+    );
+
     this.logger.info('Retry handler initialized', {
       maxRetries: config.maxRetries,
       retryDelayMs: config.retryDelayMs,
       exponentialBackoff: config.exponentialBackoff,
+      retryableErrors: Array.from(this.retryableErrors),
     });
   }
 
@@ -150,6 +159,8 @@ export class RetryHandler {
             attempts: context.attempts,
             lastError: err.message,
           });
+          // Bug Fix #20: Attach retry count to error for metrics tracking
+          (err as Error & { retryCount?: number }).retryCount = context.attempts - 1; // attempts includes initial try
           throw err;
         }
 
@@ -186,7 +197,8 @@ export class RetryHandler {
       return false;
     }
 
-    return RETRYABLE_ERRORS.has(error.code);
+    // Bug Fix #20: Use configured retryable errors instead of hardcoded set
+    return this.retryableErrors.has(error.code);
   }
 
   /**
