@@ -1,0 +1,119 @@
+# NPM Ignore - Controls what gets excluded from published package
+# Note: package.json "files" array is a whitelist, this further filters
+
+# Source code (not needed - dist/ is published)
+src/
+rescript/
+
+# Tests
+tests/
+*.test.ts
+*.spec.ts
+*.test.js
+*.spec.js
+
+# Benchmarks and examples
+benchmarks/
+examples/
+*.benchmark.ts
+
+# Development files
+.automatosx/
+automatosx/tmp/
+automatosx/PRD/
+
+# Documentation source (keeping only README.md)
+docs/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Development configs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Build artifacts within whitelisted directories
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/build/
+**/.cmake/
+native/build/**/*
+native/.cmake/**/*
+python/__pycache__/**/*
+python/**/__pycache__/
+scripts/test-*.sh
+scripts/bench-*.sh
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+.env
+.env.local
+.env.*.local
+
+# TypeScript build cache
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Node modules (never publish)
+node_modules/
+
+# Virtual environments
+.kr-mlx-venv/
+.venv/
+venv/
+
+# Model cache (too large)
+models/
+.cache/
+
+# Editor configs (not needed in package)
+.editorconfig
+.prettierrc
+.eslintrc.js
+.eslintrc.json
+eslint.config.js
+
+# Test configs
+vitest.config.ts
+jest.config.js
+
+# Build configs (users don't need these)
+tsconfig.json
+tsup.config.ts
+
+# Package manager files
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Misc
+.prettierignore
+.npmrc

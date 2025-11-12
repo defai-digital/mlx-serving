@@ -1,0 +1,23 @@
+# Core MLX dependencies (requires Python 3.11+)
+mlx>=0.29.0
+mlx-lm>=0.28.0
+
+# Vision-language models (Phase 4: Multimodal Support)
+# Using 0.3.5 for latest bug fixes and model support
+# Includes: macOS <15 compatibility, optional dependencies, new models (Qwen3-VL, Deepseek OCR)
+mlx-vlm>=0.3.5
+
+# Structured generation (using latest compatible version)
+outlines>=0.1.14
+
+# Fast JSON serialization
+orjson>=3.10.0
+
+# Schema validation
+pydantic>=2.0.0
+
+# Model downloading from Hugging Face
+huggingface-hub>=0.34.0
+
+# Development
+pytest>=8.0.0

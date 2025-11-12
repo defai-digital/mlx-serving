@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "properties": {
+    "user": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}-\\d{4}$"
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "firstName": {
+              "type": "string"
+            },
+            "lastName": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string",
+              "format": "email"
+            }
+          },
+          "required": ["firstName", "lastName"]
+        }
+      },
+      "required": ["id", "profile"]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "maxItems": 5
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "pending", "inactive"]
+    }
+  },
+  "required": ["user", "status"]
+}

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<company>
+  <name>TechCorp</name>
+  <employees>
+    <employee id="001">
+      <name>Alice</name>
+      <department>Engineering</department>
+    </employee>
+    <employee id="002">
+      <name>Bob</name>
+      <department>Sales</department>
+    </employee>
+  </employees>
+  <location country="US">
+    <city>San Francisco</city>
+    <state>CA</state>
+  </location>
+</company>

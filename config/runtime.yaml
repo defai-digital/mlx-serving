@@ -1,0 +1,916 @@
+# Kr-MLX-LM Runtime Configuration
+# All configurable parameters in one place
+
+# Request Batching Configuration (Week 1 Feature + Week 2 Day 3 Enhancements + Week 7 Phase 7.1.3 Adaptive Sizing)
+# BUGFIX: Disabled to fix intermittent Python crash after 5 requests
+batch_queue:
+  enabled: false                 # DISABLED: Testing if OpsMultiplexer causes race condition
+  max_batch_size: 20            # Initial batch size (adaptive sizing will adjust dynamically)
+  flush_interval_ms: 2          # Maximum wait time before flushing (optimized: 5ms → 2ms)
+
+  # Week 7 Phase 7.1.3: Adaptive Batch Sizing (IMPLEMENTED)
+  # Dynamically adjusts maxBatchSize based on batch processing time metrics
+  # - Increases batch size when processing time < target (underutilized)
+  # - Decreases batch size when processing time > target (overloaded)
+  # - Adjusts at most once per second to prevent thrashing
+  adaptive_sizing: true         # Enable adaptive batch size adjustment (default: true)
+  target_batch_time_ms: 10      # Target batch processing time for adaptive sizing (default: 10ms)
+
+  # Week 2 Day 3: Priority Queue
+  priority_queue: true          # Enable priority queue (high/normal/low) - ENABLED for API server
+
+# Generate Request Batching (v1.3.0 - IPC Reduction Feature)
+# Batches multiple generate() requests into a single batch_generate() RPC call
+# Target: ≥90% IPC reduction under concurrent load
+# BUGFIX: Disabled to fix intermittent race condition causing stream cancellations
+generate_batcher:
+  enabled: false                       # DISABLED: Race condition in batching logic
+  min_batch_size: 2                    # Minimum requests before dispatch
+  max_batch_size: 16                   # Maximum requests per batch
+  min_hold_ms: 0.75                    # Minimum hold window (ms)
+  max_hold_ms: 3                       # Maximum hold window (ms)
+  background_hold_extension_ms: 2      # Extra hold time for background priority requests
+  target_batch_time_ms: 12             # Target batch processing time for adaptive sizing
+  pause_on_backpressure_ms: 20         # Pause duration when StreamRegistry signals backpressure
+
+# Phase 1: Request Deduplication (Performance Optimization v0.1.0-alpha.1)
+# Collapses identical concurrent requests into shared Promise
+# Target: +10-30% throughput for duplicate-heavy workloads
+request_deduplication:
+  enabled: true                     # ENABLED for benchmark
+  ttl_ms: 1000                      # Time-to-live for dedupe cache (1 second)
+  max_entries: 1000                 # Maximum dedupe cache entries
+  max_payload_bytes: 10240          # Maximum payload size (10KB)
+
+# Phase 1: Prompt Cache (Performance Optimization v0.1.0-alpha.1)
+# LRU cache for prompt responses with size-aware eviction
+# Target: >80% cache hit rate for repeated prompts
+prompt_cache:
+  enabled: true                     # ENABLED for benchmark
+  max_entries: 10000                # Maximum cache entries (LRU eviction)
+  max_total_tokens: 1000000         # Maximum total tokens cached
+  max_total_bytes: 104857600        # Maximum total bytes (100MB)
+  ttl_ms: 300000                    # Time-to-live for cache entries (5 minutes)
+  cleanup_interval_ms: 60000        # Cleanup interval (1 minute)
+
+  # Optional disk persistence
+  persistence:
+    enabled: false                  # DISABLED: Enable for persistent cache
+    path: 'automatosx/tmp/prompt-cache.json'
+    save_interval_ms: 300000        # Save every 5 minutes
+
+# Phase 1: Request Coalescing (Performance Optimization v0.1.0-alpha.1)
+# Merges identical concurrent requests (N→1 inference, N responses)
+# Target: >50% request reduction for concurrent duplicates
+request_coalescing:
+  enabled: true                     # ENABLED for benchmark
+  max_subscribers: 100              # Maximum subscribers per coalesced request
+  timeout_ms: 5000                  # Coalescing window timeout (5 seconds)
+
+# Continuous Batching (Week 2 Feature)
+# Dynamic batch composition - requests join/leave independently
+# No head-of-line blocking, continuous GPU utilization
+# Target: 3-5x throughput improvement over static batching
+continuous_batching:
+  # Maximum requests in a single batch
+  max_batch_size: 8
+
+  # How long to wait for more requests before starting generation (ms)
+  # Lower = better latency, Higher = better throughput
+  batch_window_ms: 10.0
+
+  # Dynamically adjust batch size based on GPU utilization
+  adaptive_sizing: true
+
+  # Target GPU utilization (%) for adaptive sizing
+  target_gpu_utilization: 85
+
+  # Minimum batch size (even if no requests waiting)
+  # Set to 1 to never wait for full batches
+  min_batch_size: 1
+
+# Python Runtime Process Management
+python_runtime:
+  # Path to Python executable (relative to project root)
+  python_path: '.kr-mlx-venv/bin/python'
+
+  # Path to runtime script (relative to project root)
+  runtime_path: 'python/runtime.py'
+
+  # Maximum restart attempts on crash
+  max_restarts: 3
+
+  # Process startup timeout (milliseconds)
+  startup_timeout_ms: 30000  # 30 seconds
+
+  # Graceful shutdown timeout (milliseconds)
+  shutdown_timeout_ms: 5000  # 5 seconds
+
+  # Fallback probe timeout for Python initialization (milliseconds)
+  # Primary trigger is event-driven (Python "ready" signal)
+  # This timeout only fires if Python fails to emit ready signal
+  # OPTIMIZATION: Increased from 500ms to 3000ms as this is now a safety fallback only
+  init_probe_fallback_ms: 3000  # 3 seconds (fallback only)
+
+  # Base delay for restart exponential backoff (milliseconds)
+  restart_delay_base_ms: 1000  # 1 second
+
+# JSON-RPC Transport Configuration
+json_rpc:
+  # Default request timeout (milliseconds)
+  default_timeout_ms: 300000  # 300 seconds (5 minutes) for large models like Gemma 27B
+
+  # Maximum line buffer size for incomplete JSON (bytes)
+  max_line_buffer_size: 65536  # 64KB
+
+  # Maximum pending requests before backpressure
+  max_pending_requests: 100
+
+  # Retry policy for idempotent JSON-RPC calls
+  retry:
+    max_attempts: 3
+    initial_delay_ms: 100
+    max_delay_ms: 5000
+    backoff_multiplier: 2.0
+    jitter: 0.25
+    retryable_errors:
+      - TIMEOUT
+      - ECONNRESET
+
+  # Circuit breaker to guard Python runtime availability
+  circuit_breaker:
+    failure_threshold: 5
+    recovery_timeout_ms: 10000
+    half_open_max_calls: 1
+    half_open_success_threshold: 2
+    failure_window_ms: 60000
+
+# Stream Registry Configuration
+stream_registry:
+  # Default stream timeout (milliseconds)
+  default_timeout_ms: 300000  # 5 minutes
+
+  # Maximum concurrent active streams
+  max_active_streams: 10
+
+  # Cleanup interval for expired streams (milliseconds)
+  cleanup_interval_ms: 60000  # 1 minute
+
+  # Phase 4: Stream Optimization (v0.2.0)
+  # Adaptive stream limits
+  # BUGFIX: Disabled adaptive limits to prevent premature stream rejection
+  # The min_streams: 5 was causing stream registration failures in sequential workloads
+  # where completed streams may not be cleaned up before the next request arrives
+  adaptive_limits:
+    enabled: false  # Disabled until stream cleanup timing is fixed
+    min_streams: 1  # Changed from 5 to 1 to allow single-stream workloads
+    max_streams: 50
+    target_ttft_ms: 1000  # Target time to first token
+    target_latency_ms: 100  # Target queue latency
+    adjustment_interval_ms: 5000  # How often to adjust limits
+    scale_up_threshold: 0.8  # Scale up when utilization > 80%
+    scale_down_threshold: 0.3  # Scale down when utilization < 30%
+
+  # Chunk pooling for memory efficiency
+  chunk_pooling:
+    enabled: true
+    pool_size: 1000  # Max pooled chunk objects
+    pool_cleanup_interval_ms: 30000  # Clean pool every 30s
+
+  # Backpressure control (ACK/credit flow)
+  backpressure:
+    enabled: true
+    max_unacked_chunks: 100  # Max chunks before blocking
+    ack_timeout_ms: 5000  # Timeout waiting for ACK
+    slow_consumer_threshold_ms: 1000  # Warn if consumer is slow
+
+  # Per-stream metrics tracking
+  metrics:
+    enabled: true
+    track_ttft: true  # Time to first token
+    track_throughput: true  # Tokens per second
+    track_cancellations: true  # Cancellation rates
+    export_interval_ms: 10000  # Export metrics every 10s
+
+# Phase 5 Week 3: Model-Size-Aware Concurrency Limiter
+# Prevents Metal GPU crashes from concurrent command buffer overflow
+# Automatically limits concurrent streams based on model size
+# OPTIMIZED: Hardware-adaptive limits for M3 Max (40 GPU cores, 128GB RAM)
+model_concurrency_limiter:
+  enabled: true  # ENABLED: Critical for Metal GPU stability
+
+  # Per-tier concurrency limits (based on model parameter count)
+  # Hardware: M3 Max - High Performance Tier
+  tier_limits:
+    '30B+':  # Tier 1: 30B+ models (e.g., Qwen3-30B, Llama-70B)
+      max_concurrent: 3  # OPTIMIZED: M3 Max can handle 3 concurrent (was 2)
+      queue_depth: 25    # Increased queue depth for higher throughput
+      queue_timeout_ms: 60000  # 1-minute queue timeout
+
+    '13-27B':  # Tier 2: 13-27B models (e.g., Gemma-27B, Llama-13B)
+      max_concurrent: 8  # OPTIMIZED: M3 Max supports 8 concurrent (was 4)
+      queue_depth: 50    # Increased queue depth
+      queue_timeout_ms: 45000  # 45 seconds
+
+    '7-13B':  # Tier 3: 7-13B models (e.g., Mistral-7B, Qwen-7B)
+      max_concurrent: 15  # OPTIMIZED: M3 Max supports 15 concurrent (was 6)
+      queue_depth: 75     # Increased queue depth
+      queue_timeout_ms: 30000  # 30 seconds
+
+    '3-7B':  # Tier 4: 3-7B models (e.g., Phi-3, SmolLM-3B)
+      max_concurrent: 20  # OPTIMIZED: M3 Max supports 20 concurrent (was 8)
+      queue_depth: 100    # Increased queue depth
+      queue_timeout_ms: 30000
+
+    '<3B':  # Tier 5: Small models < 3B
+      max_concurrent: 25  # OPTIMIZED: M3 Max supports 25 concurrent (was 10)
+      queue_depth: 120    # Increased queue depth
+      queue_timeout_ms: 30000
+
+streaming:
+  phase4:
+    adaptive_governor:
+      enabled: false
+      target_ttft_ms: 550
+      max_concurrent: 80
+      min_concurrent: 16
+      pid:
+        kp: 0.35
+        ki: 0.08
+        kd: 0.15
+        integral_saturation: 200
+        sample_interval_ms: 200
+      cleanup:
+        sweep_interval_ms: 100
+        max_stale_lifetime_ms: 500
+      tenant_budgets:
+        default:
+          tenant_id: default
+          hard_limit: 20
+          burst_limit: 32
+          decay_ms: 60000
+
+# Week 7 Phase 7.1.4: Model Preloading Configuration
+# Preload and warmup models during engine startup for 0ms first-request latency
+# Default: disabled (empty models list)
+model_preload:
+  enabled: true                 # Enable model preloading ✅ ENABLED FOR ZERO LATENCY
+  parallel: false               # Load models in parallel (faster but higher memory pressure)
+  max_parallel: 2               # Maximum parallel loads (if parallel: true)
+  fail_fast: false              # Stop preloading on first failure
+  models:
+    # Llama 3.2 3B - Fast warmup for common use cases
+    - model_id: "mlx-community/Llama-3.2-3B-Instruct-4bit"
+      warmup_requests: 3        # Number of warmup generations
+      max_tokens: 10            # Tokens per warmup request
+      warmup_prompts:
+        - "Hello, world!"
+        - "Test generation"
+        - "Quick warmup"
+    # Example configuration:
+    # - model_id: "mlx-community/Qwen2.5-7B-Instruct-4bit"
+    #   warmup_requests: 5      # Number of warmup generation requests
+    #   max_tokens: 10          # Max tokens per warmup request
+    #   warmup_prompts:         # Custom prompts (optional, defaults to standard warmup prompts)
+    #     - "Hello, world!"
+    #     - "Test generation"
+    #   options:                # Optional LoadModelOptions
+    #     quantization: "4bit"
+    # - model_id: "mlx-community/Llama-3.2-3B-Instruct-4bit"
+    #   warmup_requests: 3
+    #   max_tokens: 10
+
+# Model Configuration
+model:
+  # Default context length when not specified
+  default_context_length: 8192
+
+  # Default max tokens for generation
+  default_max_tokens: 512
+
+  # Maximum number of loaded models (memory management)
+  max_loaded_models: 5
+
+  # Supported model dtypes
+  supported_dtypes:
+    - 'float16'
+    - 'bfloat16'
+    - 'float32'
+
+  # Default quantization mode
+  default_quantization: 'none'  # Options: none, int8, int4
+
+  # Default dtype
+  default_dtype: 'unknown'
+
+  # Security: Trusted model directories (optional)
+  # If specified, local_path must be within one of these directories
+  # If empty/null, all absolute paths are allowed (less secure but more flexible)
+  # Example: ['/Users/username/models', '/opt/mlx-models']
+  trusted_model_directories: null
+
+  # Security: Maximum generation tokens (prevents DoS)
+  max_generation_tokens: 4096
+
+  # Security: Maximum temperature value
+  max_temperature: 2.0
+
+  # Phase 2: In-Memory Model Caching (v0.2.0)
+  # Keep loaded models in RAM for instant reuse
+  # Provides 50-70% load time reduction for warm loads
+  memory_cache:
+    # Enable in-memory model caching
+    enabled: true
+
+    # Maximum models to keep loaded in memory
+    # Uses LRU (Least Recently Used) eviction when limit reached
+    # Each model ~3-4GB RAM (4-bit quantized), adjust based on available memory
+    max_cached_models: 5
+
+    # Eviction strategy: 'lru' (least-recently-used)
+    eviction_strategy: 'lru'
+
+    # Models to warmup on engine startup (optional)
+    # These models will be preloaded into memory during engine.start()
+    # Format: ['model-id', 'org/model-name', ...]
+    warmup_on_start: []
+
+    # Track cache statistics for observability
+    track_stats: true
+
+# LAYER 4 FIX: MLX Concurrency Configuration
+# Controls concurrent MLX operations to prevent Metal GPU crashes
+mlx:
+  # Maximum concurrent MLX operations (CRITICAL for stability)
+  # - 1 (REQUIRED): 30B+ models (e.g., Qwen3-30B, Llama-70B) → Prevents SIGTRAP
+  # - 2: 13B-27B models (may work with adequate GPU memory)
+  # - 4: 7B-13B models (higher throughput if stable)
+  # Default: 1 (safest, prevents concurrent Metal GPU command buffer conflicts)
+  concurrency_limit: 1
+
+  # Force Metal GPU synchronization after each generation (stability)
+  # Setting to false may improve performance but risks GPU state corruption
+  # Default: true (required for 100% reliability)
+  force_metal_sync: true
+
+# Phase 5 Week 1: Metal Memory & Command Buffer Optimizations
+# Native C++ optimizations for Metal GPU resource management
+# Target: 15-25% performance improvement through memory pooling and command buffer reuse
+metal_optimizations:
+  # Master switch for all Metal optimizations
+  # DEFAULT: disabled for production safety (enable after Week 1 testing)
+  enabled: true
+
+  # Metal Memory Pool Configuration
+  # Pre-allocated Metal heaps for zero-allocation buffer creation
+  # Reduces Metal runtime overhead and improves memory locality
+  memory_pool:
+    enabled: false              # Individual feature flag (requires master enabled: true)
+    heap_size_mb: 256           # Size of each pre-allocated heap (MB)
+    num_heaps: 4                # Number of heaps in the pool (total = heap_size_mb * num_heaps)
+    warmup_sizes: [32, 64, 128] # Buffer sizes (MB) to warmup on initialization
+    track_statistics: true      # Enable memory pool statistics tracking
+    log_exhaustion: true        # Log warnings when pool is exhausted (fallback to on-demand allocation)
+
+  # Blit Queue I/O Overlap Configuration
+  # Dedicated Metal Blit Command Queue for async CPU↔GPU transfers
+  # Overlaps memory transfers with compute operations
+  blit_queue:
+    enabled: false              # Individual feature flag (requires master enabled: true)
+    use_shared_events: true     # Use MTLSharedEvent for fine-grained synchronization
+    staging_buffer_size_mb: 64  # Size of staging buffer for CPU→GPU transfers (MB)
+    max_concurrent_ops: 8       # Maximum concurrent blit operations
+    verbose_logging: false      # Enable verbose logging for blit operations (debug only)
+    track_metrics: true         # Track blit queue performance metrics
+
+  # Command Buffer Ring Configuration
+  # Triple-buffered Metal Command Buffers for GPU pipeline parallelism
+  # Prevents stalls by reusing command buffers in a ring
+  command_buffer_ring:
+    enabled: false              # Individual feature flag (requires master enabled: true)
+    ring_size: 3                # Ring buffer size (2=double buffer, 3=triple buffer, 4=quad buffer)
+    timeout_ms: 0               # Command buffer wait timeout (0=infinite, >0=fail-fast on stalls)
+    log_wait_events: false      # Log when waiting for command buffer completion (debug only)
+    track_statistics: true      # Track command buffer reuse statistics
+
+  # Graceful Fallback Behavior
+  # Automatically disable optimizations on initialization errors
+  graceful_fallback: true       # Auto-disable features that fail to initialize
+  fallback_log_level: 'warn'    # Log level for fallback events ('error', 'warn', 'info', 'debug')
+
+# Week 2: CPU Optimizations
+# CPU-parallelized tokenization with SIMD acceleration and async thread pools
+# Target: 30-50% tokenization speedup for long prompts (>512 tokens)
+cpu_optimizations:
+  enabled: true  # Master switch - disabled by default for production safety
+
+  # CPU-Parallelized Tokenizer (Week 2 Day 1)
+  # OpenMP parallel processing + Apple Accelerate SIMD + async thread pool
+  parallel_tokenizer:
+    enabled: false                  # Individual feature flag (requires master enabled: true)
+    num_threads: 8                  # Number of OpenMP threads (adjust based on CPU cores)
+    use_accelerate: true            # Use Apple Accelerate framework for SIMD operations
+    batch_mode: true                # Enable batch tokenization for multiple prompts
+    thread_pool_size: 8             # Async thread pool size for non-blocking operations
+    track_statistics: true          # Enable performance statistics tracking
+    log_operations: false           # Log tokenization operations (debug only)
+
+# Week 2: Production Infrastructure
+# Canary deployment, A/B testing, and automated regression detection
+production_infrastructure:
+  enabled: false  # Master switch - disabled by default
+
+  # Canary Deployment System (Week 2 Day 2)
+  # Progressive rollout with hash-based routing and automatic rollback on violations
+  canary_deployment:
+    enabled: false                      # Enable canary deployment system
+    initial_stage: 'off'                # Initial rollout stage: 'off', '10%', '25%', '50%', '100%'
+    auto_advance: false                 # Automatic stage progression based on health metrics
+
+    # Traffic Router Configuration
+    router:
+      enabled: true                     # Enable traffic routing (requires canary_deployment.enabled)
+      rollout_percentage: 0.0           # Canary traffic percentage (0.0 to 1.0)
+      strategy: 'hash'                  # Routing strategy: 'hash' (deterministic) or 'random'
+      hash_key: 'user_id'               # Request key for hash-based routing (e.g., user_id, session_id)
+
+    # Health Check Configuration
+    health_check:
+      enabled: true                     # Enable continuous health monitoring
+      interval_seconds: 30              # Health check interval (seconds)
+      window_size_seconds: 60           # Rolling window size for metrics (seconds)
+
+    # Automatic Rollback Configuration
+    rollback:
+      enabled: true                     # Enable automatic rollback on SLO violations
+      error_rate_threshold: 2.0         # Rollback if error rate > 2x baseline
+      latency_threshold_p95: 1.5        # Rollback if P95 latency > 1.5x baseline
+      cooldown_minutes: 5               # Cooldown period after rollback (minutes)
+
+  # A/B Testing Framework (Week 2 Day 3)
+  # Statistical significance testing with confidence intervals
+  ab_testing:
+    enabled: false                      # Enable A/B testing framework
+    min_sample_size: 30                 # Minimum samples per variant for valid test
+    confidence_level: 0.95              # Statistical confidence level (95%)
+    warmup_runs: 3                      # Warmup runs to exclude from analysis
+    timeout_ms: 30000                   # Test execution timeout (30 seconds)
+
+  # Automated Regression Detection (Week 2 Day 4)
+  # Real-time performance monitoring with alerting and auto-rollback
+  regression_detection:
+    enabled: false                      # Enable regression detection system
+
+    # Monitoring Configuration
+    monitoring:
+      enabled: true                     # Enable continuous metric monitoring
+      window_size_seconds: 60           # Rolling window for metric aggregation (seconds)
+      check_interval_seconds: 30        # Check interval for regression detection (seconds)
+
+    # Regression Thresholds
+    thresholds:
+      throughput_drop_percent: 5.0      # Critical alert if throughput drops >5%
+      ttft_increase_percent: 10.0       # Warning if TTFT increases >10%
+      error_rate_percent: 1.0           # Critical alert if error rate >1% absolute
+      p99_latency_increase_percent: 20.0  # Warning if P99 latency increases >20%
+
+    # Alerting Configuration
+    alerting:
+      enabled: true                     # Enable alerting on regression detection
+      channels: []                      # Alert channels: 'slack', 'pagerduty', 'webhook'
+      slack_webhook_url: ''             # Slack webhook URL (if slack channel enabled)
+      pagerduty_integration_key: ''     # PagerDuty integration key (if pagerduty channel enabled)
+      generic_webhook_url: ''           # Generic webhook URL (if webhook channel enabled)
+
+    # Rollback Configuration
+    rollback:
+      auto_rollback: true               # Automatically trigger rollback on critical alerts
+
+# KV Cache Pool (Week 2 Day 5)
+# LRU cache pool for KV caches with prefix sharing and TTL-based eviction
+# Target: 20-30% generation speedup for repeated/similar prompts
+kv_cache_pool:
+  enabled: false                        # Enable KV cache pooling
+  max_size: 100                         # Maximum number of cached KV entries
+  ttl_seconds: 300.0                    # Cache entry TTL (5 minutes)
+  enable_prefix_sharing: true           # Enable prefix-based cache sharing
+  prefix_length_ratio: 0.6              # Minimum prefix match ratio (60%)
+  enable_statistics: true               # Track cache hit rate and eviction stats
+  log_operations: false                 # Log cache operations (debug only)
+
+# Model Artifact Cache Configuration (v0.2.0 Phase 2)
+# Persistent disk cache for model weights, tokenizers, and configs
+# Provides 90%+ load time reduction by caching HuggingFace downloads
+cache:
+  # Enable persistent artifact cache
+  enabled: true
+
+  # Directory to store cached artifacts (relative to project root)
+  cache_dir: '.kr-mlx-cache'
+
+  # Maximum cache size in bytes (default: 100GB)
+  # Models are evicted using LRU policy when this limit is exceeded
+  max_size_bytes: 107374182400  # 100GB
+
+  # Maximum age of cache entries in days
+  # Entries older than this are eligible for eviction
+  max_age_days: 30
+
+  # Eviction policy when cache is full
+  # Options: 'lru' (least-recently-used), 'lfu' (least-frequently-used), 'fifo' (first-in-first-out)
+  eviction_policy: 'lru'
+
+  # Models to preload on startup (optional)
+  # These models will be loaded into cache during engine initialization
+  # Format: ['model-id', 'org/model-name', ...]
+  preload_models: []
+
+  # Enable cache validation on startup
+  # Checks for corrupted entries and removes them from index
+  validate_on_startup: true
+
+  # Enable cache compression (future feature - not yet implemented)
+  enable_compression: false
+
+# Python Bridge IPC Configuration
+python_bridge:
+  # stdin buffer overflow limit (bytes)
+  max_buffer_size: 1048576  # 1MB
+
+  # asyncio.Queue maxsize for token streaming
+  stream_queue_size: 100
+
+  # Maximum retries for queue.put backpressure
+  queue_put_max_retries: 100
+
+  # Backoff delay for queue.put retry (milliseconds)
+  queue_put_backoff_ms: 10  # 10ms
+
+# Outlines Adapter Configuration
+outlines:
+  # Maximum schema size (bytes) - prevents compile overhead
+  max_schema_size_bytes: 32768  # 32KB
+
+# Performance Tuning
+performance:
+  # Enable aggressive garbage collection after model operations
+  aggressive_gc: false
+
+  # Enable IPC message batching (future feature)
+  enable_batching: false
+
+  # Batch size for IPC messages
+  batch_size: 10
+
+  # Batch timeout (milliseconds)
+  batch_timeout_ms: 50
+
+  # Use MessagePack instead of JSON for IPC (future feature)
+  use_messagepack: false
+
+# Telemetry & Monitoring (Phase 4)
+telemetry:
+  # Enable OpenTelemetry metrics collection
+  enabled: false  # Set to true to enable metrics
+
+  # Service name for metrics (appears in Prometheus)
+  service_name: 'kr-serve-mlx'
+
+  # Prometheus exporter port
+  prometheus_port: 9464
+
+  # Metrics export interval (milliseconds)
+  export_interval_ms: 60000  # 60 seconds
+
+# Development & Debugging
+development:
+  # Enable verbose logging
+  verbose: false
+
+  # Enable debug mode
+  debug: false
+
+  # Log all IPC messages
+  log_ipc: false
+
+  # Enable performance profiling
+  enable_profiling: false
+
+# Phase 2: Multi-Worker Routing (Performance Optimization v0.2.0)
+# Enables multiple Python worker processes with intelligent routing
+runtime_router:
+  enabled: false                      # DISABLED: Enable after testing
+  worker_count: 3                     # Number of Python workers
+  routing_strategy: 'round-robin'     # Options: 'round-robin', 'least-busy'
+  health_check_interval_ms: 5000      # Health check interval (5 seconds)
+  worker_restart_delay_ms: 1000       # Base delay for worker restart
+  sticky_session_enabled: true        # Enable sticky sessions for streaming
+  sticky_session_ttl_ms: 300000       # Sticky session TTL (5 minutes)
+
+# Python Runtime Manager (Phase 2: Multi-Worker)
+python_runtime_manager:
+  enabled: false                      # DISABLED: Enable after testing
+  worker_count: 3                     # Number of Python workers
+  heartbeat_interval_ms: 5000         # Worker heartbeat interval (5 seconds)
+  heartbeat_timeout_ms: 10000         # Heartbeat timeout (10 seconds)
+
+# Adaptive Batch Coordinator (Phase 2: Smart Batching)
+adaptive_batch_coordinator:
+  enabled: false                      # DISABLED: Enable after testing
+  python_rpc_method: 'adaptive_batch.update_metrics'
+  update_interval_ms: 1000            # Metric update frequency (1 second)
+  default_batch_size: 4               # Fallback batch size
+  min_batch_size: 2                   # Minimum batch size
+  max_batch_size: 16                  # Maximum batch size
+  rpc_timeout_ms: 100                 # RPC timeout (100ms)
+
+# Retry Policy (Phase 2: Fault Tolerance)
+retry_policy:
+  enabled: false                      # DISABLED: Enable after testing
+  max_attempts: 3                     # Maximum retry attempts
+  initial_delay_ms: 100               # Initial backoff delay
+  max_delay_ms: 5000                  # Maximum backoff delay
+  backoff_multiplier: 2.0             # Exponential multiplier
+  jitter: 0.25                        # Jitter factor (±25%)
+  retryable_errors:
+    - 'TIMEOUT'
+    - 'ECONNRESET'
+    - 'EPIPE'
+    - 'WORKER_RESTART'
+
+# Circuit Breaker (Phase 2: Fault Tolerance)
+circuit_breaker:
+  enabled: false                      # DISABLED: Enable after testing
+  failure_threshold: 5                # Failures to trigger OPEN
+  recovery_timeout_ms: 10000          # Time in OPEN before HALF_OPEN (10 seconds)
+  half_open_max_calls: 1              # Max calls in HALF_OPEN
+  half_open_success_threshold: 2      # Successes to return to CLOSED
+  failure_window_ms: 60000            # Rolling window for failures (1 minute)
+
+# Phase 3: Production Hardening (Performance Optimization v0.2.0)
+# Connection pooling, streaming optimization, model lifecycle management, zero-downtime restarts
+
+# Connection Pool (Phase 3.1)
+connection_pool:
+  enabled: false                      # DISABLED: Enable after testing
+  min_connections: 2                  # Minimum warm connections per worker
+  max_connections: 10                 # Maximum connections per worker
+  acquire_timeout_ms: 5000            # Timeout to acquire connection (5 seconds)
+  idle_timeout_ms: 60000              # Idle connection timeout (1 minute)
+  health_check_interval_ms: 30000     # Health check interval (30 seconds)
+  warmup_on_start: true               # Pre-create connections on startup
+
+# Streaming Controller (Phase 3.2)
+streaming_controller:
+  enabled: false                      # DISABLED: Enable after testing
+  chunk_size_bytes: 65536             # Aggregation boundary (64KB)
+  chunk_timeout_ms: 100               # Max wait for chunk (100ms)
+  max_unacked_chunks: 100             # Backpressure threshold
+  ack_timeout_ms: 5000                # Timeout waiting for ACK (5 seconds)
+  slow_consumer_threshold_ms: 1000    # Warn if latency > 1 second
+  metrics_export_interval_ms: 10000   # Metric export frequency (10 seconds)
+
+# Model Lifecycle Manager (Phase 3.3)
+model_lifecycle_manager:
+  enabled: false                      # DISABLED: Enable after testing
+  idle_timeout_ms: 300000             # Unload if unused > 5 minutes
+  max_loaded_models: 5                # Max models in memory (LRU eviction)
+  prefetch_enabled: true              # Enable predictive prefetch
+  prefetch_min_confidence: 0.7        # Min confidence to prefetch (70%)
+  warmups_on_startup: []              # Models to preload on engine start
+  pinned_models: []                   # Models never to unload
+  drain_timeout_ms: 30000             # Max time to drain requests (30 seconds)
+
+# Rolling Restart Coordinator (Phase 3.4)
+rolling_restart_coordinator:
+  enabled: false                      # DISABLED: Enable after testing
+  drain_timeout_ms: 30000             # Max drain time per worker (30 seconds)
+  min_active_workers: 1               # Safety minimum (circuit breaker)
+  preflight_check_enabled: true       # Health check before removing old worker
+  preflight_timeout_ms: 5000          # Preflight deadline (5 seconds)
+  request_replay_enabled: true        # Replay on new worker if timeout
+  max_replay_attempts: 1              # Replay retry limit
+  watchdog_interval_ms: 5000          # Enforce min workers (5 seconds)
+
+# Environment-specific overrides
+# These can be loaded based on NODE_ENV or PYTHON_ENV
+
+environments:
+  production:
+    python_runtime:
+      startup_timeout_ms: 60000  # 60 seconds for large models
+      max_restarts: 5
+    stream_registry:
+      max_active_streams: 50
+
+  development:
+    python_runtime:
+      startup_timeout_ms: 15000  # 15 seconds for faster iteration
+
+  test:
+    python_runtime:
+      startup_timeout_ms: 15000  # 15 seconds for model loading
+      max_restarts: 1
+    json_rpc:
+      default_timeout_ms: 30000  # 30 seconds for model operations
+    stream_registry:
+      default_timeout_ms: 30000  # 30 seconds for streaming tests
+
+# Phase 4.2: HTTP/2 Transport Multiplexing (Performance Optimization v0.2.0)
+# Replaces per-request HTTP/1.1 connections with multiplexed HTTP/2 sessions
+# Target: 15-20% faster TTFT, 20% lower CPU, 40% reduction in connection overhead
+
+# HTTP/2 Session Pool
+transport:
+  http2:
+    enabled: false                      # DISABLED: Enable after testing
+    max_sessions: 16                    # Maximum HTTP/2 sessions
+    max_streams_per_session: 100        # Max streams per session (HTTP/2 spec: 100-256)
+    ping_interval_ms: 15000             # Ping interval (15 seconds)
+    connect_timeout_ms: 200             # Connection timeout (200ms)
+    tls:
+      ca_file: config/certs/ca.pem      # TLS CA certificate
+      cert_file: config/certs/service.pem  # TLS service certificate
+      key_file: config/certs/service.key   # TLS private key
+      reject_unauthorized: true         # Enforce certificate validation
+
+  # WebSocket Gateway (Bidirectional fallback)
+  websocket:
+    enabled: false                      # DISABLED: Enable after testing
+    max_connections: 200                # Maximum WebSocket connections
+    max_frame_size_bytes: 1048576       # Max frame size (1MB)
+    idle_timeout_ms: 600000             # Idle timeout (10 minutes)
+    heartbeat_interval_ms: 30000        # Heartbeat interval (30 seconds)
+
+  # SSE Writer Configuration (Zero-copy optimization)
+  sse_writer:
+    chunk_pool:
+      max_pool_size: 1000               # Maximum chunk pool size
+      chunk_size: 65536                 # Chunk size (64KB)
+    backpressure_threshold: 1048576     # Backpressure threshold (1MB)
+    max_buffered_chunks: 100            # Max buffered chunks before backpressure
+
+
+# Phase 4.3: TTFT Accelerator Pipeline (Performance Optimization v0.2.0)
+# Warm queue, speculation, and KV cache prefetch for 30-40% TTFT reduction
+
+ttft_accelerator:
+  enabled: false                      # DISABLED: Causes crashes with concurrency
+  warm_queue:
+    max_size: 100                     # Maximum queue size
+    ttl_ms: 800                       # Item TTL (800ms)
+    priority_by_tokens: true          # Prioritize by estimated tokens
+
+  speculation:
+    enabled: false                    # DISABLED: Too aggressive for fair comparison
+    allowlist_only: true              # Only allow allowlisted prompts
+    max_candidates: 1000              # Maximum speculation candidates
+    min_confidence: 0.85              # Minimum confidence threshold (85%)
+    decay_factor: 0.8                 # Confidence decay on failure
+
+  kv_prep:
+    enabled: false                    # DISABLED: Requires external coordinator
+    prefetch_enabled: true            # Enable KV cache prefetch
+    cache_warmup_ms: 50               # Cache warmup time (50ms)
+
+
+# Phase 4.4: Stream QoS Telemetry (SLO Monitoring & Remediation)
+# Automatic SLO violation detection and remediation with loop prevention
+
+qos_monitor:
+  enabled: false                      # DISABLED: Enable after testing
+
+  # QoS Evaluator (SLO monitoring with TDigest percentiles)
+  evaluator:
+    enabled: false                    # DISABLED: Enable after testing
+    evaluation_interval_ms: 5000      # Evaluate SLOs every 5 seconds
+    window_ms: 60000                  # 1-minute rolling window
+    tdigest_compression: 100          # TDigest compression factor
+
+  # Remediation Executor (Auto-remediation with loop detection)
+  executor:
+    enabled: false                    # DISABLED: Enable after testing
+    cooldown_ms: 60000                # 1-minute cooldown between same remediation
+    max_executions_per_window: 5      # Max 5 executions per window
+    execution_window_ms: 300000       # 5-minute rolling window
+    loop_detection_window: 6          # Check last 6 actions for loops
+
+  # Policy Store (YAML-driven SLO policies)
+  policy_store:
+    policies:
+      - id: default_ttft_policy
+        name: Default TTFT SLO
+        description: Enforce 550ms TTFT target
+        enabled: true
+        priority: 100
+        slos:
+          - name: ttft_p95
+            metric: ttft
+            threshold: 550            # 550ms P95 TTFT
+            window_ms: 60000          # 1-minute window
+            severity: critical
+        remediations:
+          - type: scale_up
+            target: governor
+            params:
+              delta: 5
+            reason: TTFT SLO violated - scaling up concurrency
+
+      - id: error_rate_policy
+        name: Error Rate SLO
+        description: Enforce < 1% error rate
+        enabled: true
+        priority: 90
+        slos:
+          - name: error_rate
+            metric: error_rate
+            threshold: 0.01           # 1% error rate
+            window_ms: 60000          # 1-minute window
+            severity: warning
+        remediations:
+          - type: alert
+            target: stream_registry
+            params:
+              channel: slack
+            reason: Error rate SLO violated - alerting team
+
+# Week 3: Advanced Optimizations (v0.11.0)
+# Enterprise-grade features: weight management, priority scheduling, multi-model serving, horizontal scaling
+# All features disabled by default for production safety
+advanced_optimizations:
+  enabled: true  # Master switch (disabled by default)
+
+  # Weight Management (Memory Pinning & Prefetching)
+  # Lock critical model weights in fast memory and prefetch in background
+  # Target: 10-15% TTFT improvement for large models (30B+)
+  weight_management:
+    enabled: true  # ✅ Re-enabled after fixing stdout pollution (std::cout → std::cerr)
+    pin_critical_weights: true    # Pin first N layers
+    pin_all_weights: false        # Pin entire model (high memory)
+    prefetch_enabled: true        # Background prefetching
+    prefetch_threads: 2           # Prefetch thread count
+    warmup_on_load: true          # Warm up on model load
+    warmup_buffer_mb: 512         # Memory to pre-warm
+    use_mmap: true                # Memory-mapped loading
+    critical_layers: 3            # Number of layers to pin
+
+  # Priority Scheduling (Fair Queuing with SLO-Aware Prioritization)
+  # Hierarchical queue with aging to prevent starvation
+  # Target: 5-10% improvement in P99 latency for bursty workloads
+  priority_scheduling:
+    enabled: false
+    max_queue_size: 1000
+    max_concurrent: 10
+    enable_metrics: true
+    policy:
+      shortest_job_first: true
+      fairness_weight: 0.1
+      aging_enabled: true
+      aging_interval_ms: 5000
+      aging_boost: 1
+    sla:
+      high_priority_target_ms: 50
+      high_priority_max_ms: 100
+      normal_priority_target_ms: 200
+      normal_priority_max_ms: 500
+      low_priority_target_ms: 1000
+      low_priority_max_ms: 2000
+
+  # Multi-Model Serving (Concurrent Model Loading & Switching)
+  # Load multiple models simultaneously with intelligent eviction
+  # Target: 30-40% faster model switching for workloads with model diversity
+  multi_model:
+    enabled: false
+    max_cached_models: 3
+    eviction_strategy: 'lru'  # lru, lfu, access_time
+    memory_threshold_gb: 16
+    enable_pinning: true
+    preload_on_startup: []
+    preload_parallel: 2
+
+  # Horizontal Scaling (Multi-Instance Coordination)
+  # Load balancing, distributed caching, and auto-scaling for multi-machine setups
+  # Target: Linear throughput scaling with N instances
+  horizontal_scaling:
+    enabled: false
+    load_balancer:
+      strategy: 'least_loaded'  # round_robin, least_loaded, latency_aware, consistent_hash
+      health_check_interval_ms: 10000
+      unhealthy_threshold: 3
+      circuit_breaker:
+        failure_threshold: 5
+        timeout_ms: 30000
+        half_open_requests: 3
+    distributed_cache:
+      enabled: false
+      redis_url: 'redis://localhost:6379'
+      default_ttl_ms: 300000
+      compression_threshold: 10240
+      local_fallback: true
+    instance_registry:
+      auto_scaling: false
+      scale_up_threshold: 0.8
+      scale_down_threshold: 0.3
+      min_instances: 1
+      max_instances: 10
+      prometheus_enabled: false

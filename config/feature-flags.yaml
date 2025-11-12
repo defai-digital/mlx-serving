@@ -1,0 +1,85 @@
+# Phase 5: Feature Flags for Gradual Rollout
+# Hash-based deterministic routing ensures consistent feature assignment per request
+
+# Global Phase 4/5 Rollout Configuration
+phase4_rollout:
+  enabled: false                              # DISABLED: Causes Metal GPU crashes with concurrency
+  percentage: 0                               # Off for safety
+  hash_seed: "phase4-rollout-2025-01-08"     # Seed for deterministic hash routing
+
+  # Rollout schedule (for reference - updated manually)
+  # Week 3 Day 5: 1% canary
+  # Week 4 Day 1-2: 10% (48 hours)
+  # Week 4 Day 3-5: 50% (72 hours)
+  # Week 4 Day 6+: 100% (7+ days)
+
+# Phase 4.1: Adaptive Stream Governor (PID-based admission control)
+adaptive_governor:
+  enabled: false                              # Enable PID-based admission control
+  rollout_percentage: 0                       # Separate rollout control (0-100)
+  hash_seed: "adaptive-governor-2025-01-08"  # Independent hash seed
+
+  # When disabled, falls back to StreamRegistry.adaptive_limits heuristic
+  # When enabled at 100%, replaces heuristic with PID controller
+
+# Phase 4.2: HTTP/2 Transport Multiplexing
+http2_transport:
+  enabled: false                              # Enable HTTP/2 multiplexed transport
+  rollout_percentage: 0                       # Separate rollout control (0-100)
+  hash_seed: "http2-transport-2025-01-08"    # Independent hash seed
+
+  # When disabled, falls back to HTTP/1.1 per-request connections
+  # When enabled, uses HTTP/2 session pool for lower overhead
+
+# Phase 4.3: TTFT Acceleration Pipeline
+ttft_pipeline:
+  enabled: true                               # ENABLED for benchmark
+  rollout_percentage: 100                     # Full rollout
+  hash_seed: "ttft-pipeline-2025-01-08"      # Independent hash seed
+
+  # Sub-features (can be toggled independently when ttft_pipeline.enabled = true)
+  warmup_queue:
+    enabled: true                             # ENABLED: Tokenizer warmup queue
+  speculation:
+    enabled: false                            # DISABLED: Too aggressive for benchmark
+    allowlist_only: true                      # Only speculate on allowlisted prompts
+  kv_prep:
+    enabled: false                            # DISABLED: Requires external coordinator
+
+# Phase 4.4: QoS Monitor (SLO monitoring + auto-remediation)
+qos_monitor:
+  enabled: false                              # Enable QoS monitoring
+  rollout_percentage: 0                       # Separate rollout control (0-100)
+  hash_seed: "qos-monitor-2025-01-08"        # Independent hash seed
+
+  # Sub-features
+  evaluator:
+    enabled: false                            # Enable SLO evaluation
+  executor:
+    enabled: false                            # Enable auto-remediation
+    dry_run: true                             # Dry-run mode (log only, no actions)
+  policy_store:
+    enabled: false                            # Enable YAML-driven policies
+
+# Phase 4.5: QoS Integration (Event-driven integration layer)
+qos_integration:
+  enabled: false                              # Enable QoS integration layer
+  rollout_percentage: 0                       # Separate rollout control (0-100)
+  hash_seed: "qos-integration-2025-01-08"    # Independent hash seed
+
+# Emergency Controls
+emergency:
+  kill_switch: false                          # Emergency kill switch (disables ALL Phase 4/5 features)
+  rollback_to_baseline: false                 # Rollback to pre-Phase 4 baseline behavior
+
+# Observability
+observability:
+  log_feature_decisions: false                # Log feature flag routing decisions
+  export_metrics: true                        # Export feature flag metrics to Prometheus
+  metric_prefix: "mlx_serving_feature_flags"  # Prometheus metric prefix
+
+# Configuration Reload
+config_reload:
+  enabled: true                               # Enable zero-downtime config reload via SIGHUP
+  validate_on_reload: true                    # Validate config before applying
+  rollback_on_error: true                     # Rollback to previous config if validation fails

@@ -1,0 +1,79 @@
+# Cluster Configuration for mlx-serving Distributed Inference
+# This file configures the distributed inference system across multiple Mac workers.
+
+# Node Mode: "controller", "worker", or "both"
+# - controller: This node manages the cluster and routes requests
+# - worker: This node only processes inference requests
+# - both: This node acts as both controller and worker (default for single-node)
+mode: both
+
+# NATS Messaging Configuration
+nats:
+  # Mode: "embedded" or "external"
+  # - embedded: Start NATS server as child process (simple, local development)
+  # - external: Connect to existing NATS server (production)
+  mode: embedded
+
+  # External server settings (only used if mode = external)
+  serverUrl: nats://localhost:4222
+  user: null
+  password: null
+
+  # Embedded server settings (only used if mode = embedded)
+  embedded:
+    port: 4222
+    httpPort: 8222  # HTTP monitoring endpoint
+    jetstream:
+      enabled: false
+      storeDir: .nats/jetstream
+    logLevel: info
+
+  # Client connection settings
+  reconnect: true
+  maxReconnectAttempts: 10
+  reconnectTimeWait: 2000  # milliseconds
+
+# Controller Settings (only if mode = controller or both)
+controller:
+  enabled: false  # Disabled by default - enable when running as controller
+  bindAddress: 0.0.0.0
+  port: 8080
+  dashboardPort: 8081
+
+# Worker Settings (only if mode = worker or both)
+worker:
+  port: 8080
+  workerId: null  # Auto-generated UUID if not provided
+
+# Discovery Settings
+discovery:
+  controllerIp: null  # IP address of controller (for worker nodes to discover)
+  enabled: true
+  heartbeatIntervalMs: 5000   # Worker heartbeat interval
+  offlineTimeoutMs: 15000     # Mark worker offline after this timeout
+
+# Static Workers (pre-configured workers, optional)
+workers:
+  static: []
+  # Example static worker configuration:
+  # - ip: 192.168.1.100
+  #   port: 8080
+  #   name: mac-studio-1
+  #   priority: 100
+
+# Load Balancing Strategy
+load_balancing:
+  # Strategy: "round_robin", "least_loaded", or "smart"
+  # - round_robin: Simple round-robin across all workers
+  # - least_loaded: Route to worker with lowest load
+  # - smart: Hardware-aware routing (considers GPU, memory, model capabilities)
+  strategy: smart
+
+  # Sticky Sessions: Route requests from same session to same worker
+  stickySession: false
+
+# Logging Configuration
+logging:
+  level: info  # debug, info, warn, error
+  format: json  # json or text
+  file: null  # Optional log file path
