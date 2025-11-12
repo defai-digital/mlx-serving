@@ -1,0 +1,524 @@
+{
+  "config": {
+    "model": "mlx-community/Qwen2.5-32B-Instruct-4bit",
+    "questionCount": 20,
+    "maxTokens": 100,
+    "temperature": 0.7,
+    "compareMode": "both",
+    "outputPath": "results/m3max-qwen3-30b-comparison.json",
+    "verbose": false,
+    "sequential": true
+  },
+  "timestamp": "2025-11-10T04:21:45.615Z",
+  "systemInfo": {
+    "nodeVersion": "v25.1.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpus": 16,
+    "totalMemoryMB": 131072
+  },
+  "mlxServing": {
+    "engineName": "mlx-serving",
+    "modelId": "mlx-community/Qwen2.5-32B-Instruct-4bit",
+    "modelLoadTimeMs": 65619,
+    "totalTimeMs": 109908,
+    "totalTokens": 1975,
+    "completed": 20,
+    "failed": 0,
+    "questions": [
+      {
+        "questionIndex": 0,
+        "question": "What is quantum computing?",
+        "ttftMs": 400,
+        "latencyMs": 5529,
+        "tokens": 96,
+        "tokensPerSec": 17.362995116657622,
+        "output": "Quantum computing is a type of computing that uses quantum-mechanical phenomena, such as superposition and entanglement, to perform operations on data. Unlike classical computers, which use bits (0s and 1s) to store and process information, quantum computers use quantum bits or qubits.Qubits can be in a state of 0, 1, or both at the same time, thanks to a principle called superposition. Additionally, qubits can be entangled, meaning",
+        "success": true
+      },
+      {
+        "questionIndex": 1,
+        "question": "What is artificial intelligence?",
+        "ttftMs": 247,
+        "latencyMs": 5373,
+        "tokens": 99,
+        "tokensPerSec": 18.425460636515915,
+        "output": "And how can it be used to improve our lives?\nArtificial intelligence (AI) refers to the simulation of human intelligence in machines that are programmed to think, learn, and make decisions like humans. AI can be used to automate tasks, analyze large amounts of data, and improve decision-making. It can be used in a variety of fields such as healthcare, finance, transportation, and more.AI can be used to improve our lives in many ways, such as:\n\n1. Healthcare: AI",
+        "success": true
+      },
+      {
+        "questionIndex": 2,
+        "question": "What is machine learning?",
+        "ttftMs": 253,
+        "latencyMs": 5355,
+        "tokens": 100,
+        "tokensPerSec": 18.674136321195146,
+        "output": "And how is it related to AI? Machine learning is a subfield of artificial intelligence (AI) that focuses on developing algorithms and statistical models that enable computer systems to improve their performance on a specific task over time, based on data and experience, without being explicitly programmed.\n\nIn other words, machine learning is a way to teach computers to learn from data and make predictions or decisions based on that learning. This can include tasks like recognizing patterns, making predictions, classifying data, and more. Machine learning",
+        "success": true
+      },
+      {
+        "questionIndex": 3,
+        "question": "What is deep learning?",
+        "ttftMs": 251,
+        "latencyMs": 5354,
+        "tokens": 100,
+        "tokensPerSec": 18.67762420620097,
+        "output": "Deep learning is a subset of machine learning, which is a type of artificial intelligence (AI). It is based on artificial neural networks, where layers of algorithms work in tandem to create an output, such as a decision or prediction. These algorithms are designed to mimic the structure and function of the human brain, enabling them to learn from and make decisions based on data. Deep learning models can automatically extract features from raw data and learn complex patterns, which makes them very effective for tasks such as image and speech",
+        "success": true
+      },
+      {
+        "questionIndex": 4,
+        "question": "What is neural networks?",
+        "ttftMs": 251,
+        "latencyMs": 5363,
+        "tokens": 100,
+        "tokensPerSec": 18.646280067126607,
+        "output": "Neural networks are a type of machine learning model inspired by the structure and function of the human brain. They consist of layers of interconnected nodes, or \"neurons,\" that process and transmit information.\n\nAt a high level, a neural network can be thought of as a mathematical function that takes in input data, processes it through a series of transformations, and produces an output. The transformations are defined by the connections between neurons, which have adjustable weights that the network learns from training data. The layers of neurons",
+        "success": true
+      },
+      {
+        "questionIndex": 5,
+        "question": "What is natural language processing?",
+        "ttftMs": 275,
+        "latencyMs": 5385,
+        "tokens": 100,
+        "tokensPerSec": 18.570102135561743,
+        "output": "Natural language processing (NLP) is a subfield of artificial intelligence and linguistics that focuses on the interaction between humans and computers using natural language. The ultimate goal of NLP is to read, decipher, understand, and make sense of human language in a valuable and meaningful way. This enables the development of systems that can analyze, understand, and generate human language, including speech and text.\n\nNLP combines computational linguistics—rules and approaches to language processing—with machine learning and deep learning models to",
+        "success": true
+      },
+      {
+        "questionIndex": 6,
+        "question": "What is computer vision?",
+        "ttftMs": 251,
+        "latencyMs": 5377,
+        "tokens": 100,
+        "tokensPerSec": 18.59773107680863,
+        "output": "How does it work? And how can it help your business?\nComputer vision is a branch of artificial intelligence that helps computers understand and interpret the visual world. It involves training computers to process and analyze digital images and videos, just as human vision does.\nComputer vision can be used for a variety of applications, including image recognition, object detection, facial recognition, and more. It can be used to identify objects in images and videos, track movement, and even understand the context of a scene.\nIn recent",
+        "success": true
+      },
+      {
+        "questionIndex": 7,
+        "question": "What is reinforcement learning?",
+        "ttftMs": 286,
+        "latencyMs": 5455,
+        "tokens": 98,
+        "tokensPerSec": 17.965169569202565,
+        "output": "Reinforcement learning is a type of machine learning where an agent learns to make decisions by interacting with an environment. The goal of the agent is to maximize some notion of cumulative reward over time.In reinforcement learning, the agent takes actions in an environment and receives rewards or penalties in response. The agent learns from these rewards and penalties, and adjusts its behavior accordingly, with the ultimate goal of finding the best sequence of actions that will lead to the highest cumulative reward.This type of learning is called",
+        "success": true
+      },
+      {
+        "questionIndex": 8,
+        "question": "What is blockchain?",
+        "ttftMs": 250,
+        "latencyMs": 5453,
+        "tokens": 99,
+        "tokensPerSec": 18.155143957454612,
+        "output": "The beginner’s guide to distributed ledger technologyBlockchain technology has been gaining widespread attention. But what is blockchain and why is it important? In this article, we break down the basics of blockchain for beginners.\nWhat is blockchain?\nBlockchain is a digital ledger of transactions, agreements, or contracts that are duplicated and saved on multiple computers across a network. Each block contains several transactions, and every time a new transaction occurs on the blockchain, a record of that transaction is added to every participant’s ledger. Blockchain",
+        "success": true
+      },
+      {
+        "questionIndex": 9,
+        "question": "What is cryptography?",
+        "ttftMs": 256,
+        "latencyMs": 5468,
+        "tokens": 98,
+        "tokensPerSec": 17.922457937088513,
+        "output": "What are the applications of cryptography?\nWhat are the applications of cryptography?\n\nMulti-choice problem: Are these two questions inquiring about the same information?\nChoose your answer from: a. no b. yesb. yesBoth questions are essentially asking about the same information - they want to know about the applications of cryptography. The first question asks for a definition of cryptography and its applications, while the second question specifically asks for the applications of cryptography. Since the application part of both questions is the same",
+        "success": true
+      },
+      {
+        "questionIndex": 10,
+        "question": "What is cloud computing?",
+        "ttftMs": 279,
+        "latencyMs": 5491,
+        "tokens": 100,
+        "tokensPerSec": 18.21161901293025,
+        "output": "Cloud computing is a technology that allows users to access and store data and applications on remote servers, which are connected to the internet, rather than on local servers or personal computers. This means that users can access their data and applications from anywhere with an internet connection, and data can be stored and processed in a more efficient and scalable manner.\n\nCloud computing offers several benefits, including:\n\n1. Scalability: Users can easily scale their resources up or down based on their needs, which can help to reduce costs",
+        "success": true
+      },
+      {
+        "questionIndex": 11,
+        "question": "What is edge computing?",
+        "ttftMs": 275,
+        "latencyMs": 5491,
+        "tokens": 97,
+        "tokensPerSec": 17.665270442542344,
+        "output": "How does it work and who will use it?\nA new kind of computing technology is on the rise, and it’s set to change the way we access services and information. Edge computing is a new approach to the way we use and deliver IT resources. In fact, Gartner predicts that by 2025, 75% of enterprise-generated data will be created and processed outside of the public cloud, in the data center. And that’s a big jump from the 10",
+        "success": true
+      },
+      {
+        "questionIndex": 12,
+        "question": "What is distributed systems?",
+        "ttftMs": 265,
+        "latencyMs": 5473,
+        "tokens": 100,
+        "tokensPerSec": 18.27151470856934,
+        "output": "A distributed system is a network of computers or nodes that work together to achieve a common goal, appearing to the user as a single coherent system. In a distributed system, components located on networked computers communicate and coordinate their actions by passing messages. These systems are designed to handle large-scale tasks, such as data processing, by breaking them into smaller pieces that can be processed in parallel across multiple machines.\n\nKey characteristics of distributed systems include:\n\n1. **Concurrency**: Multiple processes can run simultaneously, enabling parallel",
+        "success": true
+      },
+      {
+        "questionIndex": 13,
+        "question": "What is microservices?",
+        "ttftMs": 264,
+        "latencyMs": 5484,
+        "tokens": 98,
+        "tokensPerSec": 17.87016776075857,
+        "output": "Are there any advantages of microservices over monolithic architecture?\nMicroservices is an architectural style that structures an application as a collection of loosely coupled services, which implement business capabilities. In other words, microservices architecture is a method of developing software systems that structures an application as a collection of small, independent services, which communicate with each other using well-defined APIs.\n\nThere are several advantages of microservices over monolithic architecture:\n\n  1. Scalability: Microservices allow you to scale only the parts",
+        "success": true
+      },
+      {
+        "questionIndex": 14,
+        "question": "What is containerization?",
+        "ttftMs": 259,
+        "latencyMs": 5507,
+        "tokens": 100,
+        "tokensPerSec": 18.158707100054475,
+        "output": "Containerization is a method of software packaging that allows applications to run consistently across different computing environments. This is achieved by encapsulating the application and its dependencies into a single container, which can then be run on any compatible system, regardless of differences in the underlying infrastructure.\n\nKey aspects of containerization include:\n\n1. **Isolation**: Containers provide a level of isolation from the host system and other containers, ensuring that applications do not interfere with each other.\n\n2. **Portability**: Containers can be easily",
+        "success": true
+      },
+      {
+        "questionIndex": 15,
+        "question": "What is kubernetes?",
+        "ttftMs": 260,
+        "latencyMs": 5523,
+        "tokens": 100,
+        "tokensPerSec": 18.106101756291867,
+        "output": "Kubernetes is an open-source platform for managing containerized applications. It automates the deployment, scaling, and management of containerized applications across a cluster of nodes. Here are some key points about Kubernetes:\n\n1. Container orchestration: Kubernetes automates the deployment and scaling of containerized applications.\n\n2. Scalability: It can manage applications across multiple nodes and clusters, scaling up or down as needed.\n\n3. Resilience: Kubernetes ensures high availability and fault tolerance by automatically restarting failed containers and redistrib",
+        "success": true
+      },
+      {
+        "questionIndex": 16,
+        "question": "What is serverless computing?",
+        "ttftMs": 296,
+        "latencyMs": 5593,
+        "tokens": 99,
+        "tokensPerSec": 17.700697300196673,
+        "output": "How it works and its advantagesServerless computing is not a new technology, but a new way of using existing technology to build and run applications and services. In this model, cloud providers manage all the infrastructure, enabling developers to quickly and easily build and deploy applications. Serverless architectures can also help you save money by scaling your applications automatically based on usage.\n\nWhat is serverless computing?\n\nServerless computing is a cloud computing model that allows developers to build and run applications and services without having to manage",
+        "success": true
+      },
+      {
+        "questionIndex": 17,
+        "question": "What is DevOps?",
+        "ttftMs": 274,
+        "latencyMs": 5661,
+        "tokens": 98,
+        "tokensPerSec": 17.31142907613496,
+        "output": "Understanding the DevOps Process in 2020DevOps is a hot topic in the world of technology, business, and IT. But what is DevOps? And how can it help your business?\n\nDevOps is a set of practices that emphasize the collaboration and communication of both software developers and other IT professionals while automating the process of software delivery and infrastructure changes.\n\nIn this article, we’ll go over the basics of DevOps, as well as some of the core concepts and practices",
+        "success": true
+      },
+      {
+        "questionIndex": 18,
+        "question": "What is continuous integration?",
+        "ttftMs": 285,
+        "latencyMs": 5728,
+        "tokens": 93,
+        "tokensPerSec": 16.23603351955307,
+        "output": "____\nA. A method to improve software quality and reduce the time to marketB. A method to improve software qualityC. A method to reduce the time to marketD. None of the aboveAnswer: AFor the JZ-7 air brake system, when the master handle is in the emergency braking position, the main air supply charges the main air cut-off valve to close the main air cut-off valve.\nA. CorrectB. IncorrectAnswer: A",
+        "success": true
+      },
+      {
+        "questionIndex": 19,
+        "question": "What is test-driven development?",
+        "ttftMs": 321,
+        "latencyMs": 5845,
+        "tokens": 100,
+        "tokensPerSec": 17.108639863130882,
+        "output": "Test-driven development (TDD) is a software development approach where tests are written before writing the code to implement a feature or functionality. The process involves writing a small test case that defines the desired functionality, running the test and seeing it fail, then writing the minimum amount of code to make the test pass, and repeating the process for the next small unit of functionality. The goal of TDD is to ensure that the code is thoroughly tested and that it meets the desired requirements, while also promoting clean",
+        "success": true
+      }
+    ],
+    "statistics": {
+      "latency": {
+        "mean": 5495.4,
+        "median": 5478.5,
+        "p95": 5733.85,
+        "p99": 5822.77,
+        "min": 5354,
+        "max": 5845,
+        "stdDev": 126.20871602230964
+      },
+      "ttft": {
+        "mean": 274.9,
+        "median": 264.5,
+        "p95": 324.95000000000005,
+        "p99": 384.9899999999999,
+        "min": 247,
+        "max": 400,
+        "stdDev": 33.98808614794308
+      },
+      "tokensPerSec": {
+        "mean": 17.98186407819874,
+        "median": 18.130622856873238,
+        "p95": 18.674310715445436,
+        "p99": 18.676961508049864,
+        "min": 16.23603351955307,
+        "max": 18.67762420620097,
+        "stdDev": 0.6074035640341013
+      },
+      "tokensPerRequest": {
+        "mean": 98.75,
+        "median": 99.5,
+        "p95": 100,
+        "p99": 100,
+        "min": 93,
+        "max": 100,
+        "stdDev": 1.7571283390805579
+      }
+    }
+  },
+  "mlxEngine": {
+    "engineName": "mlx-engine",
+    "modelId": "mlx-community/Qwen2.5-32B-Instruct-4bit",
+    "questions": [
+      {
+        "questionIndex": 0,
+        "question": "What is quantum computing?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6185.619831085205,
+        "tokens": 101,
+        "tokensPerSec": 16.32819390102747,
+        "output": "Quantum computing is a type of computing that uses quantum-mechanical phenomena, such as superposition and entanglement, to perform operations on data. Unlike classical computers, which use bits to represent and process information, quantum computers use quantum bits, or qubits. \n\nIn classical computing, a bit can have a value of either 0 or 1, but a qubit can exist in multiple states simultaneously, thanks to superposition. This allows quantum computers to perform certain calculations much faster than classical"
+      },
+      {
+        "questionIndex": 1,
+        "question": "What is artificial intelligence?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6190.692901611328,
+        "tokens": 100,
+        "tokensPerSec": 16.153280672987634,
+        "output": "Please give a brief description.\nArtificial intelligence (AI) is a field of computer science and engineering that focuses on creating intelligent machines capable of performing tasks that typically require human intelligence, such as understanding natural language, recognizing patterns, learning from experience, and making decisions. AI systems use algorithms and statistical models to process and analyze large amounts of data, and they can be designed to operate autonomously or to assist humans in various tasks. AI has many applications, including image and speech recognition, natural language processing"
+      },
+      {
+        "questionIndex": 2,
+        "question": "What is machine learning?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6452.304124832153,
+        "tokens": 100,
+        "tokensPerSec": 15.498339517993712,
+        "output": "Machine learning is a subset of artificial intelligence (AI) that focuses on the development of algorithms and statistical models that enable computer systems to improve their performance on a specific task over time without being explicitly programmed. In other words, it is the process of training a computer system to make predictions or decisions based on data, and then refining those predictions or decisions as more data becomes available.\n\nMachine learning algorithms can be categorized into three main types: supervised learning, unsupervised learning, and reinforcement learning. \n\nIn"
+      },
+      {
+        "questionIndex": 3,
+        "question": "What is deep learning?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6783.160924911499,
+        "tokens": 100,
+        "tokensPerSec": 14.742389441586884,
+        "output": "Deep learning is a subfield of machine learning that is concerned with algorithms inspired by the structure and function of the brain called artificial neural networks. These networks are composed of layers of interconnected nodes or neurons, which can learn to recognize patterns in data, such as images, sounds, or text. The \"deep\" in deep learning refers to the number of layers in the neural network, with deeper networks having more layers and thus being able to learn more complex patterns. Deep learning has been successful in a wide"
+      },
+      {
+        "questionIndex": 4,
+        "question": "What is neural networks?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6973.832130432129,
+        "tokens": 100,
+        "tokensPerSec": 14.339318487983675,
+        "output": "How are they used to solve complex problems?\n\nNeural networks are a type of machine learning algorithm that are modeled after the structure and function of the human brain. They consist of a large number of interconnected nodes (or \"neurons\") that work together to process and analyze data.\n\nNeural networks are particularly useful for solving complex problems that are difficult or impossible to solve using traditional programming techniques. They are often used for tasks such as image and speech recognition, natural language processing, and predictive analytics.\n\nThe"
+      },
+      {
+        "questionIndex": 5,
+        "question": "What is natural language processing?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 7104.159832000732,
+        "tokens": 100,
+        "tokensPerSec": 14.076259876579545,
+        "output": "Natural language processing (NLP) is a field of artificial intelligence that focuses on the interaction between computers and humans using natural language. It involves developing algorithms and statistical models that enable computers to understand, interpret, and generate human language in a way that is useful and meaningful to humans. NLP encompasses a wide range of tasks, such as language translation, sentiment analysis, speech recognition, and text summarization. The goal of NLP is to bridge the gap between human communication and computer processing, making it"
+      },
+      {
+        "questionIndex": 6,
+        "question": "What is computer vision?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6870.234966278076,
+        "tokens": 101,
+        "tokensPerSec": 14.701098360645497,
+        "output": "Explain with an example\n\nComputer vision is a field of study that enables computers to interpret and understand the visual world. It involves developing algorithms and models that can process, analyze, and make sense of digital images and videos, similar to how humans perceive and understand visual information.\nOne example of computer vision is object detection. Object detection is a technique that enables computers to identify and locate objects within an image or video. For instance, a self-driving car can use object detection to detect and recognize pedestrians, vehicles"
+      },
+      {
+        "questionIndex": 7,
+        "question": "What is reinforcement learning?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6938.040733337402,
+        "tokens": 101,
+        "tokensPerSec": 14.557423901346285,
+        "output": "Reinforcement learning is a type of machine learning where an agent learns to make decisions by taking actions in an environment to achieve a goal. The agent receives rewards or penalties based on the actions it takes, and it learns to maximize the cumulative reward over time. The goal of the agent is to learn a policy that maps situations to actions, which maximizes the expected cumulative reward. Reinforcement learning has been successfully applied to a wide range of problems, including game playing, robotics, and autonomous systems. It"
+      },
+      {
+        "questionIndex": 8,
+        "question": "What is blockchain?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6835.96396446228,
+        "tokens": 100,
+        "tokensPerSec": 14.628514796137614,
+        "output": "Definition, examples, and how it works\n\nHow does blockchain work, and why is it so important? Here’s the lowdown\n\nBlockchain technology\n(Image credit: Pixabay)\n\nBlockchain is one of those terms that crops up a lot in tech, finance, and business circles, but it may not be an idea that you’re familiar with. But now that the technology has a proven track record, and it’s been adopted by more and more companies, it’s time to explain what it actually is"
+      },
+      {
+        "questionIndex": 9,
+        "question": "What is cryptography?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6727.37193107605,
+        "tokens": 100,
+        "tokensPerSec": 14.864645663199552,
+        "output": "Cryptography is the practice and study of techniques for secure communication in the presence of third parties known as adversaries. It involves creating and analyzing protocols that prevent third parties from reading private messages. Cryptography ensures confidentiality, integrity, authentication, and non-repudiation of information. It is used in various fields, including secure communications, data protection, and digital signatures. The field combines mathematics, computer science, and electrical engineering. Examples of cryptographic techniques include encryption, hashing, and digital signatures. Modern cryptography"
+      },
+      {
+        "questionIndex": 10,
+        "question": "What is cloud computing?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6475.390911102295,
+        "tokens": 100,
+        "tokensPerSec": 15.443083108472468,
+        "output": "And why is it important?\nCloud computing is a technology that allows you to access and use computing resources, such as servers, storage, databases, software, and networking, over the internet. Instead of owning and maintaining your own physical infrastructure, you can rent or lease these resources from a cloud service provider, and pay only for what you use.\n\nCloud computing is important for several reasons:\n\n1. Cost savings: Cloud computing eliminates the need for upfront investment in hardware and infrastructure, reducing costs and improving flexibility"
+      },
+      {
+        "questionIndex": 11,
+        "question": "What is edge computing?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6442.221879959106,
+        "tokens": 100,
+        "tokensPerSec": 15.522594822616506,
+        "output": "Definition, how it works, and benefits\nBy: Ryan Bunge, Staff Writer\nPublished: September 16, 2022\nHave you ever wondered how self-driving cars and virtual reality work? The answer is edge computing, a cutting-edge technology that is transforming the way we live and work.\nEdge computing is a distributed computing paradigm that brings compute and storage resources closer to the data source, reducing latency and improving performance. This approach reduces the distance data must travel, enabling real"
+      },
+      {
+        "questionIndex": 12,
+        "question": "What is distributed systems?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6203.233003616333,
+        "tokens": 100,
+        "tokensPerSec": 16.12062612216927,
+        "output": "A distributed system is a collection of autonomous computers that communicate over a network to coordinate and achieve a common goal. These systems are designed to enable a group of computers to work together to perform tasks that would be difficult, if not impossible, to accomplish with a single computer. Key characteristics of distributed systems include:\n\n1. **Concurrency**: Multiple processes run simultaneously on different nodes (computers) and can interact with each other.\n2. **Location Transparency**: The system abstracts away the physical location of processes"
+      },
+      {
+        "questionIndex": 13,
+        "question": "What is microservices?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 6144.10924911499,
+        "tokens": 100,
+        "tokensPerSec": 16.27575226049312,
+        "output": "Microservices is an architectural style that structures an application as a collection of loosely coupled services, which implement business capabilities. These services are independently deployable, scalable, and maintainable. Each service is a small, independent process that communicates with other services through well-defined APIs, usually over a network using protocols like HTTP, REST, or gRPC. Microservices can be developed and deployed independently, which allows for faster and more flexible development and deployment cycles.\n\nKey characteristics of microservices include:\n\n1. **"
+      },
+      {
+        "questionIndex": 14,
+        "question": "What is containerization?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 5976.676940917969,
+        "tokens": 100,
+        "tokensPerSec": 16.7317057603319,
+        "output": "How it helps?\nTraditional application deployment model is where the applications and its dependencies are installed directly on the host operating system. This model causes problems in a number of ways. The applications and its dependencies are tightly coupled with the operating system and it is difficult to move the application from one machine to another.\nThe issue with this model is that the application and the infrastructure are tightly coupled. This causes a lot of problems. This is where Containerization comes into picture.\nContainerization is a method of software packaging"
+      },
+      {
+        "questionIndex": 15,
+        "question": "What is kubernetes?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 5979.397773742676,
+        "tokens": 101,
+        "tokensPerSec": 16.89133317798679,
+        "output": "Kubernetes is an open-source container orchestration platform designed to automate the deployment, scaling, and management of containerized applications. Here are some key points about Kubernetes:\n\n1. Purpose: Kubernetes helps manage containerized applications across multiple hosts, providing scaling, maintenance, and load balancing.\n\n2. Origin: Developed by Google and later donated to the Cloud Native Computing Foundation.\n\n3. Key concepts:\n   - Pods: Smallest deployable units in Kubernetes\n   - Nodes: Physical or virtual machines running Kubernetes\n"
+      },
+      {
+        "questionIndex": 16,
+        "question": "What is serverless computing?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 5936.201095581055,
+        "tokens": 100,
+        "tokensPerSec": 16.845790496289055,
+        "output": "And why should businesses switch to it? At first glance, the term serverless might lead you to believe that the cloud services that operate on a serverless infrastructure don’t use any server at all. But that’s not the case. Serverless computing is a cloud service that executes code in response to requests or events without the need of setting up and managing servers.\nServerless computing is a method of operating an application where the cloud service provider is responsible for handling all the server-related tasks, like maintenance"
+      },
+      {
+        "questionIndex": 17,
+        "question": "What is DevOps?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 5870.705842971802,
+        "tokens": 100,
+        "tokensPerSec": 17.033726893285994,
+        "output": "Definition and examples\nDevOps is a set of practices that emphasizes collaboration and communication between development and operations teams to improve the quality and speed of software deployment. The term \"DevOps\" is a combination of \"development\" and \"operations.\" DevOps practices include continuous integration, continuous delivery, and infrastructure as code. These practices aim to improve the efficiency and effectiveness of software development and deployment by breaking down silos between development and operations teams, and by automating many of the tasks involved in the software"
+      },
+      {
+        "questionIndex": 18,
+        "question": "What is continuous integration?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 5804.475784301758,
+        "tokens": 100,
+        "tokensPerSec": 17.22808462229279,
+        "output": "Continuous integration is a software development practice where members of a team integrate their work frequently, usually by merging all changes to a shared repository several times a day. Each integration can then be verified by an automated build and possibly an automated test to detect integration errors as quickly as possible. This approach helps to prevent integration problems, reduces rework, and allows teams to identify and resolve defects early, leading to more reliable and maintainable software. \n\nKey practices in continuous integration include:\n\n1. **Automated Builds"
+      },
+      {
+        "questionIndex": 19,
+        "question": "What is test-driven development?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 5815.932273864746,
+        "tokens": 100,
+        "tokensPerSec": 17.194147952749283,
+        "output": "Test-driven development (TDD) is a software development process that relies on software requirements being converted to test cases before software is fully developed. A test-driven approach has both advantages and disadvantages. The following sections describe them in detail.\n\nAdvantages of TDD:\n1. Better Design: TDD helps to design better software. Writing tests first encourages developers to think about the desired functionality and the APIs before writing the actual code. This can lead to better-designed, more modular code.\n\n2. Early and"
+      }
+    ],
+    "totalTokens": 2004,
+    "completed": 20,
+    "failed": 0,
+    "modelLoadTimeMs": 898.1869220733643,
+    "totalTimeMs": 127720.2570438385,
+    "statistics": {
+      "latency": {
+        "mean": 6385.486304759979,
+        "median": 6322.72744178772,
+        "p95": 6980.34851551056,
+        "p99": 7079.397568702698,
+        "min": 5804.475784301758,
+        "max": 7104.159832000732,
+        "stdDev": 419.9340341893755
+      },
+      "ttft": {
+        "mean": 0,
+        "median": 0,
+        "p95": 0,
+        "p99": 0,
+        "min": 0,
+        "max": 0,
+        "stdDev": 0
+      },
+      "tokensPerSec": {
+        "mean": 15.758815491808752,
+        "median": 15.821610472392887,
+        "p95": 17.19584478622646,
+        "p99": 17.22163665507952,
+        "min": 14.076259876579545,
+        "max": 17.22808462229279,
+        "stdDev": 1.0216293419283038
+      },
+      "tokensPerRequest": {
+        "mean": 100.2,
+        "median": 100,
+        "p95": 101,
+        "p99": 101,
+        "min": 100,
+        "max": 101,
+        "stdDev": 0.4
+      }
+    }
+  },
+  "comparison": {
+    "speedup": 1.1410669848597124,
+    "ttftSpeedup": 1,
+    "latencySpeedup": 1.1619693388579502,
+    "winner": "mlx-serving"
+  }
+}

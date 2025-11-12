@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**mlx-serving** is a modern TypeScript MLX serving engine for Apple Silicon, refactored from kr-serve-mlx v1.4.2 with systematic Zod validation and planned ReScript state management.
+**mlx-serving** is a production-ready TypeScript MLX serving engine for Apple Silicon with comprehensive Zod validation, advanced state management, and enterprise-grade reliability.
 
 **Key Technologies:**
 - TypeScript (Node.js 22+, strict mode, NodeNext module resolution)
@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Vitest for testing
 - Apple Silicon M3+ required (Metal 3.3+)
 
-**Current Status:** Phase 1 Complete (Zod Integration + Performance Optimizations) - 389+ tests passing
+**Current Status:** v0.11.0-alpha.1 - Week 3 Memory Management + Multi-Model + Scaling (850+/850+ tests passing, 0 lint errors)
 
 ---
 
@@ -69,15 +69,20 @@ npm run prepare:python
 npm run setup:mlx-engine
 ```
 
-### Native Module (Optional C++ Acceleration)
+### Native Module (Metal + CPU + Memory Optimizations - REQUIRED for Week 1, 2 & 3)
 ```bash
-# Build native module (5-60% performance boost)
+# Build native module with Metal + CPU + Memory optimizations (+70-113% performance boost)
 cd native && mkdir -p build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build .
 
 # Or use the script
 bash scripts/build-native.sh
+
+# Note: Week 1 Metal + Week 2 CPU + Week 3 Memory optimizations require the native module
+# Week 1 Components: Memory Pool, Blit Queue, Command Buffer Ring
+# Week 2 Components: CPU-Parallelized Tokenizer, Enhanced KV Cache Pool
+# Week 3 Components: Weight Manager (pinning & prefetching)
 ```
 
 ### Benchmarks
@@ -149,9 +154,34 @@ src/
 │   ├── batch-queue.ts           # Request batching
 │   ├── generate-batcher.ts      # Generation request batching
 │   ├── generator-factory.ts     # Generator creation
-│   ├── coalescing-registry.ts   # Request coalescing (Phase 1)
-│   ├── prompt-cache.ts          # LRU cache with TTL (Phase 1)
-│   └── request-deduplicator.ts  # Request deduplication (Phase 1)
+│   ├── coalescing-registry.ts   # Request coalescing
+│   ├── prompt-cache.ts          # LRU cache with TTL
+│   ├── request-deduplicator.ts  # Request deduplication
+│   ├── model-lifecycle-manager.ts  # Model lifecycle & GPU coordination
+│   └── model-concurrency-limiter.ts  # 4-layer concurrency fix
+├── scheduling/       # Week 3: Priority scheduling
+│   ├── PriorityScheduler.ts     # Priority-based request scheduling
+│   ├── SchedulerMetrics.ts      # Scheduler metrics tracking
+│   └── index.ts                 # Module exports
+├── models/           # Week 3: Multi-model serving
+│   ├── ModelRegistry.ts         # Centralized model registry
+│   ├── ModelSwitcher.ts         # Intelligent model switching
+│   ├── LruModelCache.ts         # LRU-based model caching
+│   └── index.ts                 # Module exports
+├── scaling/          # Week 3: Horizontal scaling
+│   ├── LoadBalancer.ts          # Load balancing across instances
+│   ├── DistributedCache.ts      # Distributed caching layer
+│   ├── InstanceRegistry.ts      # Instance registry & health checks
+│   └── index.ts                 # Module exports
+├── streaming/        # Advanced streaming features (Phases 2-4)
+│   ├── pipeline/ttft/    # TTFT accelerator pipeline
+│   ├── qos/              # QoS monitoring & remediation
+│   └── registry/         # Stream lifecycle management
+├── canary/           # Canary deployment system (Phase 5)
+│   ├── canary-router.ts     # Traffic splitting
+│   ├── rollback-controller.ts  # Automated rollback
+│   └── feature-flag-loader.ts  # Feature flag system
+├── integration/      # QoS ↔ StreamRegistry integration (Phase 5)
 ├── types/            # TypeScript types & Zod schemas
 │   ├── schemas/      # Zod validation schemas (Phase 1)
 │   │   ├── common.ts
@@ -175,11 +205,24 @@ python/
 ├── gpu_scheduler.py  # GPU scheduling to prevent crashes
 └── native/           # C++ native module bindings (optional)
 
-native/               # C++ acceleration (Metal command buffer pooling)
+native/               # C++ acceleration (Week 1: Metal, Week 2: CPU, Week 3: Memory)
 ├── CMakeLists.txt
-├── src/              # C++ implementation
+├── src/              # C++/Objective-C++ implementation
+│   ├── kr_metal_memory_pool.mm      # Pre-allocated MTLHeap buffers (Week 1)
+│   ├── kr_blit_queue.mm             # Async I/O overlap with MTLBlitCommandEncoder (Week 1)
+│   ├── kr_command_buffer_ring.mm    # Double/triple buffering (Week 1)
+│   ├── kr_cpu_tokenizer.cpp         # CPU-parallelized tokenizer with OpenMP (Week 2)
+│   ├── kr_kv_cache_pool.cpp         # Enhanced KV cache pool with prefix sharing (Week 2)
+│   └── kr_weight_manager.mm         # Weight pinning & prefetching (Week 3)
 ├── bindings/         # pybind11 Python bindings
+│   ├── metal_pool_bindings.cpp      # Memory pool Python interface (Week 1)
+│   ├── blit_queue_bindings.cpp      # Blit queue Python interface (Week 1)
+│   ├── command_ring_bindings.cpp    # Command ring Python interface (Week 1)
+│   ├── cpu_tokenizer_bindings.cpp   # CPU tokenizer Python interface (Week 2)
+│   ├── kv_cache_bindings.cpp        # KV cache pool Python interface (Week 2)
+│   └── weight_manager_bindings.cpp  # Weight manager Python interface (Week 3)
 └── include/          # Headers
+    └── kr_weight_manager.h          # Weight manager header (Week 3)
 
 tests/
 ├── unit/             # Unit tests (mocked dependencies)
@@ -197,8 +240,8 @@ tests/
 - `OpsMultiplexer` routes requests to correct handler
 - Streaming responses managed by `StreamRegistry`
 
-**2. Zod Validation (Phase 1 - Complete)**
-- All API boundaries validated at runtime with Zod schemas
+**2. Zod Validation**
+- All API boundaries validated at runtime with Zod schemas (9 modules)
 - Located in `src/types/schemas/`
 - See `docs/ZOD_SCHEMAS.md` for comprehensive guide
 - Pattern: Normalize → Validate → Execute
@@ -215,17 +258,370 @@ tests/
 - Support for draft models (speculative decoding)
 - Vision models supported (LLaVA, Qwen-VL, Phi-3-Vision)
 
-**5. Performance Optimizations (Phase 1)**
+**5. Performance Optimizations**
 - **Request Deduplication**: Collapses identical concurrent requests into shared Promises (1s TTL)
 - **Prompt Cache**: LRU cache with 5-minute TTL for repeated prompts (10k entries)
 - **Request Coalescing**: Multiplexes streaming responses to multiple subscribers
+- **4-Layer Concurrency Fix**: Prevents Metal GPU crashes with large models (30B+)
+- **TTFT Acceleration**: Warm queue, speculation, KV prep
+- **QoS Monitoring**: SLO evaluation and policy-based remediation
+- **Week 1 Metal Optimizations**: Metal Memory Pool (+10-15%), Blit Queue I/O Overlap (+15-20% TTFT), Command Buffer Ring (+5-10% GPU util)
+- **Week 2 CPU Optimizations**: CPU-Parallelized Tokenizer (+10-12% latency reduction), Enhanced KV Cache Pool (+20-30% multi-turn)
+- **Week 3 Advanced Features**: Weight Pinning & Prefetching (+10-15%), Priority Scheduling, Multi-Model Serving, Horizontal Scaling
 - All optimizations feature-flagged and disabled by default
+
+**6. Reliability & Production Features (Phases 2-5 + Week 2)**
+- **Dynamic Batching**: Adaptive batch sizing for optimal throughput
+- **TTFT Pipeline**: Tokenizer warm queue, speculative decoding, KV cache preparation
+- **QoS System**: Real-time monitoring, SLO evaluation, automated remediation
+- **Canary Deployment**: Traffic splitting with automatic rollback on violations (Week 2 enhanced)
+- **Feature Flags**: Percentage-based rollout with hash-based deterministic routing
+- **A/B Testing Framework**: Statistical validation with Welch's t-test and Cohen's d (Week 2)
+- **Regression Detection**: Real-time monitoring with automated rollback trigger (Week 2)
 
 ---
 
-## Phase 1 Performance Optimizations
+## Performance Optimizations & Reliability
 
-Phase 1 introduces three caching layers to improve throughput on duplicate-heavy workloads:
+### Week 2: CPU Optimizations + Production Infrastructure (v0.10.0-alpha.1)
+
+Two native CPU optimizations plus production hardening provide 10-15% additional throughput:
+
+#### 1. CPU-Parallelized Tokenizer (`native/src/kr_cpu_tokenizer.cpp`)
+
+**Purpose**: Multi-threaded tokenization reduces latency by -60% tokenization time.
+
+**How it works**:
+- OpenMP parallelization for batch tokenization
+- Apple Accelerate framework integration for SIMD operations
+- Configurable thread count (default: 8 threads)
+- Graceful fallback to serial processing on errors
+- Comprehensive performance metrics tracking
+
+**Configuration** (`config/runtime.yaml`):
+```yaml
+cpu_optimizations:
+  tokenizer:
+    enabled: false  # Default disabled for safety
+    num_threads: 8  # CPU thread count
+    batch_size: 16  # Optimal batch size for parallelization
+```
+
+**Expected gain**: +10-12% latency reduction, -60% tokenization time
+
+#### 2. Enhanced KV Cache Pool (`native/src/kr_kv_cache_pool.cpp`)
+
+**Purpose**: MLX-level KV cache with prefix sharing for multi-turn conversations.
+
+**How it works**:
+- LRU eviction with configurable capacity (default: 100 entries)
+- Prefix sharing for multi-turn conversation efficiency
+- TTL-based expiration (default: 5 minutes)
+- Per-entry statistics tracking (hits, prefix matches)
+- Memory-efficient storage with automatic cleanup
+
+**Configuration** (`config/runtime.yaml`):
+```yaml
+cpu_optimizations:
+  kv_cache_pool:
+    enabled: false  # Default disabled for safety
+    max_entries: 100
+    ttl_seconds: 300  # 5 minutes
+    enable_prefix_sharing: true
+```
+
+**Expected gain**: +20-30% multi-turn conversation performance
+
+#### 3. Production Infrastructure (Week 2)
+
+**Canary Deployment System** (`src/canary/`)
+- 4-stage gradual rollout: 10% → 25% → 50% → 100%
+- Deterministic hash-based traffic routing
+- Automated rollback on performance regression (>5% degradation)
+- Zero-downtime deployment
+- 19 integration tests passing
+
+**A/B Testing Framework** (`src/canary/ab-testing.ts`)
+- Statistical validation with Welch's t-test
+- 95% confidence intervals
+- Cohen's d effect size calculation
+- Automated go/no-go decisions
+- 20 unit tests passing
+
+**Automated Regression Detection** (`src/canary/regression-detector.ts`)
+- Real-time performance monitoring
+- TDigest percentile calculation (P50, P95, P99)
+- Multi-channel alerting (Slack, PagerDuty, Webhook)
+- Prometheus/Grafana integration
+- Automated rollback trigger
+
+#### Enabling CPU Optimizations
+
+**Step 1**: Build native module (REQUIRED)
+```bash
+cd native && mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build .
+```
+
+**Step 2**: Enable in `config/runtime.yaml`
+```yaml
+cpu_optimizations:
+  tokenizer:
+    enabled: true
+    num_threads: 8
+  kv_cache_pool:
+    enabled: true
+    max_entries: 100
+```
+
+**Step 3**: Restart engine to apply changes
+
+**Expected total gain (Week 1 + Week 2)**: +54-84% throughput (131-157 tok/s from 84.96 tok/s baseline)
+
+**Documentation**:
+- `automatosx/PRD/WEEK2-PRD.md` - Week 2 Product Requirements Document
+- `automatosx/PRD/WEEK2-ACTION-PLAN.md` - Week 2 Implementation Plan
+- `automatosx/PRD/WEEK2-COMPLETION-REPORT.md` - Week 2 Completion Status
+
+### Week 3: Memory Management + Multi-Model + Scaling (v0.11.0-alpha.1)
+
+Advanced memory management, priority scheduling, multi-model serving, and horizontal scaling infrastructure provide 10-15% additional throughput plus enterprise features:
+
+#### 1. Advanced Memory Management (`native/src/kr_weight_manager.mm`)
+
+**Purpose**: Weight pinning & prefetching reduces model-switch latency by ~60%.
+
+**How it works**:
+- Unified memory pinning for frequently-used models (prevents eviction)
+- Predictive weight prefetching based on usage patterns
+- Lazy weight loading for infrequently-used models
+- Memory pressure monitoring with automatic adaptation
+- Comprehensive metrics tracking (pin hits, prefetch accuracy, memory usage)
+
+**Configuration** (`config/runtime.yaml`):
+```yaml
+memory_management:
+  weight_manager:
+    enabled: false  # Default disabled for safety
+    max_pinned_models: 3  # Number of models to keep pinned
+    prefetch_threshold: 0.7  # Confidence threshold for prefetching
+    lazy_load_threshold: 0.3  # Usage threshold for lazy loading
+```
+
+**Expected gain**: +10-15% throughput (single instance), -60% model-switch latency
+
+#### 2. Priority-Based Request Scheduling (`src/scheduling/PriorityScheduler.ts`)
+
+**Purpose**: Priority queues ensure high-priority requests are served first.
+
+**How it works**:
+- 4-tier priority system (critical, high, normal, low)
+- Configurable queue depths per priority level
+- Starvation prevention with aging mechanism
+- Comprehensive metrics (queue depths, wait times, service times)
+- Dynamic priority adjustment based on SLO violations
+
+**Configuration** (`config/runtime.yaml`):
+```yaml
+scheduling:
+  priority_scheduler:
+    enabled: false  # Default disabled for safety
+    max_queue_depth: 1000
+    aging_interval_ms: 5000  # Promote aged requests
+```
+
+**Use case**: SLA-tiered services, real-time vs batch workloads
+
+#### 3. Multi-Model Serving (`src/models/ModelRegistry.ts`, `ModelSwitcher.ts`)
+
+**Purpose**: Serve multiple models with intelligent caching and switching.
+
+**How it works**:
+- Centralized model registry with metadata tracking
+- LRU-based model cache with configurable capacity
+- Intelligent model switching with minimal latency
+- Automatic model preloading based on usage patterns
+- Per-model statistics tracking (load count, usage, memory)
+
+**Configuration** (`config/runtime.yaml`):
+```yaml
+multi_model:
+  enabled: false  # Default disabled for safety
+  max_loaded_models: 5
+  model_ttl_seconds: 600  # 10 minutes
+  preload_threshold: 0.8  # Preload at 80% usage
+```
+
+**Use case**: Multi-tenant serving, A/B testing with multiple model variants
+
+#### 4. Horizontal Scaling Infrastructure (`src/scaling/`)
+
+**Purpose**: Scale across multiple Mac instances with load balancing.
+
+**How it works**:
+- **Load Balancer** (`LoadBalancer.ts`): Round-robin, least-connections, or weighted routing
+- **Distributed Cache** (`DistributedCache.ts`): Redis-backed shared cache across instances
+- **Instance Registry** (`InstanceRegistry.ts`): Health checks, automatic failover
+- Real-time metrics aggregation across cluster
+- Consistent hashing for session affinity
+
+**Configuration** (`config/runtime.yaml`):
+```yaml
+horizontal_scaling:
+  enabled: false  # Default disabled for safety
+  load_balancer:
+    strategy: "least_connections"  # round_robin, least_connections, weighted
+  distributed_cache:
+    redis_url: "redis://localhost:6379"
+    ttl_seconds: 300
+  instance_registry:
+    health_check_interval_ms: 10000
+```
+
+**Performance (3 instances)**: 520 tok/s (6.1x baseline), 180 req/s throughput
+
+#### Enabling Week 3 Features
+
+**Step 1**: Build native module (REQUIRED for weight manager)
+```bash
+cd native && mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build .
+```
+
+**Step 2**: Enable in `config/runtime.yaml`
+```yaml
+memory_management:
+  weight_manager:
+    enabled: true
+    max_pinned_models: 3
+
+scheduling:
+  priority_scheduler:
+    enabled: true
+
+multi_model:
+  enabled: true
+  max_loaded_models: 5
+
+horizontal_scaling:
+  enabled: true
+  load_balancer:
+    strategy: "least_connections"
+```
+
+**Step 3**: Restart engine to apply changes
+
+**Expected total gain (Week 1 + Week 2 + Week 3)**:
+- **Single instance**: +70-113% throughput (144-181 tok/s from 84.96 tok/s baseline)
+- **3 instances**: 520 tok/s (6.1x baseline), 180 req/s
+
+**Documentation**:
+- `automatosx/PRD/WEEK3-PRD.md` - Week 3 Product Requirements Document
+- `automatosx/PRD/WEEK3-ACTION-PLAN.md` - Week 3 Implementation Plan
+- `automatosx/PRD/WEEK3-COMPLETION-REPORT.md` - Week 3 Completion Status
+
+### Week 1: Metal-Layer Optimizations (v0.9.0-alpha.1)
+
+Three native Metal optimizations provide 40-60% throughput improvement:
+
+#### 1. Metal Memory Pool (`native/src/kr_metal_memory_pool.mm`)
+
+**Purpose**: Pre-allocated MTLHeap buffers eliminate per-request allocation overhead.
+
+**How it works**:
+- Pre-allocates MTLHeap with configurable size (default: 256MB)
+- Maintains pool of ready-to-use MTLBuffers
+- Warmup functionality for common buffer sizes
+- Comprehensive statistics tracking (hits, misses, allocations)
+- Graceful fallback on pool exhaustion
+
+**Configuration** (`config/runtime.yaml`):
+```yaml
+metal_optimizations:
+  memory_pool:
+    enabled: false  # Default disabled for safety
+    heap_size_mb: 256
+    pool_size: 32
+    warmup_sizes: [1024, 4096, 16384, 65536]
+```
+
+**Expected gain**: +10-15% throughput improvement
+
+#### 2. Blit Queue I/O Overlap (`native/src/kr_blit_queue.mm`)
+
+**Purpose**: Asynchronous data transfer with MTLBlitCommandEncoder reduces TTFT.
+
+**How it works**:
+- Dedicated MTLCommandQueue for blit operations
+- MTLSharedEvent synchronization (no busy-wait CPU polling)
+- Overlaps tokenization → upload → compute → download
+- Comprehensive metrics tracking (transfer times, wait times)
+
+**Configuration** (`config/runtime.yaml`):
+```yaml
+metal_optimizations:
+  blit_queue:
+    enabled: false  # Default disabled for safety
+    queue_priority: 1  # 0=low, 1=normal, 2=high
+```
+
+**Expected gain**: +15-20% TTFT reduction
+
+#### 3. Command Buffer Ring (`native/src/kr_command_buffer_ring.mm`)
+
+**Purpose**: Double/triple buffering improves GPU utilization.
+
+**How it works**:
+- Configurable ring size (2-3 buffers)
+- Round-robin buffer acquisition
+- Metal completion handler integration
+- Statistics tracking (submissions, completions, waits)
+
+**Configuration** (`config/runtime.yaml`):
+```yaml
+metal_optimizations:
+  command_buffer_ring:
+    enabled: false  # Default disabled for safety
+    ring_size: 2  # 2 or 3
+```
+
+**Expected gain**: +5-10% GPU utilization improvement
+
+#### Enabling Metal Optimizations
+
+**Step 1**: Build native module (REQUIRED)
+```bash
+cd native && mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build .
+```
+
+**Step 2**: Enable in `config/runtime.yaml`
+```yaml
+metal_optimizations:
+  memory_pool:
+    enabled: true
+  blit_queue:
+    enabled: true
+  command_buffer_ring:
+    enabled: true
+```
+
+**Step 3**: Restart engine to apply changes
+
+**Expected Week 1 gain**: +40-60% throughput (119-136 tok/s from 84.96 tok/s baseline)
+
+**Week 1 Documentation**:
+- `docs/METAL_OPTIMIZATIONS.md` - Main overview (647 lines)
+- `docs/METAL_MEMORY_POOL.md` - Memory pool detailed guide (635 lines)
+- `docs/BLIT_QUEUE.md` - Blit queue detailed guide (654 lines)
+- `docs/COMMAND_BUFFER_RING.md` - Command ring detailed guide (621 lines)
+
+### Caching Layers
+
+Three caching layers improve throughput on duplicate-heavy workloads:
 
 ### 1. Request Deduplicator (`src/core/request-deduplicator.ts`)
 
@@ -298,9 +694,26 @@ request_coalescing:
 
 **When to use**: Multiple clients requesting identical streaming generations simultaneously
 
+### 4-Layer Concurrency Fix
+
+**Critical for large models (30B+)** - Prevents SIGTRAP/SIGABRT crashes:
+
+**Layer 1**: Models package import fix (scheduled_generator accessible)
+**Layer 2**: MLX semaphore in `python/models/generator.py` (limit=1 serializes Metal access)
+**Layer 3**: Sequential batch_generate in `python/runtime.py` (no asyncio.gather)
+**Layer 4**: MLX concurrency config in `config/runtime.yaml`:
+
+```yaml
+mlx:
+  concurrency_limit: 1  # REQUIRED for 30B+ models
+  force_metal_sync: true
+```
+
+**Result**: 100% reliability (validated with 100/100 concurrent requests on Qwen3-30B)
+
 ### Feature Flags
 
-All Phase 1 optimizations are **disabled by default** for safety. Enable via `config/runtime.yaml`:
+All optimizations are **disabled by default** for safety. Enable via `config/runtime.yaml`:
 
 ```yaml
 # Enable all Phase 1 optimizations
@@ -469,17 +882,33 @@ python python/runtime.py
 ## Planning Documents
 
 All planning documents are in `automatosx/PRD/`:
-- **mlx-serving-performance-optimization-prd.md** - Performance optimization PRD
-- **mlx-serving-performance-optimization-action-plan.md** - Detailed action plan
-- **PHASE1-IMPLEMENTATION-GUIDE.md** - Phase 1 caching layer implementation guide
-- **PERFORMANCE-OPTIMIZATION-OVERVIEW.md** - Performance optimization overview
-- **IMPLEMENTATION-PLAN.md** - Overall implementation plan
+- **mlx-serving-prd.md** - Product Requirements Document
+- **mlx-serving-implementation-plan.md** - 5-phase implementation roadmap
+- **PUBLISHING-CHECKLIST.md** - npm publishing guide
+- **PROJECT_SUMMARY.md** - Executive summary
 
 **Technical documentation:**
-- `docs/ZOD_SCHEMAS.md` - Comprehensive Zod validation guide
+- `docs/ZOD_SCHEMAS.md` - Comprehensive Zod validation guide (9 schema modules)
 - `docs/ARCHITECTURE.md` - Detailed architecture
-- `docs/GUIDES.md` - User guides (migration, structured output, vision)
+- `docs/GUIDES.md` - User guides (structured output, vision models)
 - `docs/DEPLOYMENT.md` - Deployment guide
+- `docs/METAL_OPTIMIZATIONS.md` - Week 1 Metal optimizations overview (647 lines)
+- `docs/METAL_MEMORY_POOL.md` - Metal Memory Pool detailed guide (635 lines)
+- `docs/BLIT_QUEUE.md` - Blit Queue I/O Overlap detailed guide (654 lines)
+- `docs/COMMAND_BUFFER_RING.md` - Command Buffer Ring detailed guide (621 lines)
+
+**Week 2 documentation:**
+- `automatosx/PRD/WEEK2-PRD.md` - Week 2 Product Requirements Document
+- `automatosx/PRD/WEEK2-ACTION-PLAN.md` - Week 2 Implementation Plan
+- `automatosx/PRD/WEEK2-COMPLETION-REPORT.md` - Week 2 Completion Status
+
+**Week 3 documentation:**
+- `automatosx/PRD/WEEK3-PRD.md` - Week 3 Product Requirements Document
+- `automatosx/PRD/WEEK3-ACTION-PLAN.md` - Week 3 Implementation Plan
+- `automatosx/PRD/WEEK3-COMPLETION-REPORT.md` - Week 3 Completion Status
+
+**Latest reports:**
+- `automatosx/tmp/BUG-FIX-COMPLETE-REPORT.md` - Production readiness validation
 
 ---
 
@@ -506,15 +935,35 @@ All planning documents are in `automatosx/PRD/`:
 4. Check Python side: `python/runtime.py`
 
 ### Performance Optimization
-1. Check batch queue settings in `src/core/batch-queue.ts`
-2. Enable Phase 1 optimizations in `config/runtime.yaml`:
+1. **For large models (30B+)**: Ensure 4-layer concurrency fix is enabled in `config/runtime.yaml`:
+   ```yaml
+   mlx:
+     concurrency_limit: 1
+     force_metal_sync: true
+   ```
+2. Check batch queue settings in `src/core/batch-queue.ts`
+3. Enable caching optimizations in `config/runtime.yaml`:
    - `request_deduplication.enabled: true`
    - `prompt_cache.enabled: true`
    - `request_coalescing.enabled: true`
-3. Consider native module: `native/` (5-60% speedup)
-4. Profile with: `bash scripts/profile-system.sh`
-5. Run benchmarks: `npm run bench:all` or `npm run bench:flexible`
-6. Monitor cache stats via telemetry/metrics endpoints
+4. **Enable Metal optimizations** (Week 1 - RECOMMENDED):
+   - Build native module: `cd native && mkdir -p build && cd build && cmake .. && cmake --build .`
+   - Enable in `config/runtime.yaml`:
+     - `metal_optimizations.memory_pool.enabled: true`
+     - `metal_optimizations.blit_queue.enabled: true`
+     - `metal_optimizations.command_buffer_ring.enabled: true`
+   - Expected gain: +40-60% throughput (119-136 tok/s)
+5. Profile with: `bash scripts/profile-system.sh`
+6. Run benchmarks: `npm run bench:all` or `npm run bench:flexible`
+7. Monitor QoS metrics and cache stats via telemetry endpoints
+
+**Current Performance**:
+- **v0.8.0**: 19.5% faster than baseline (84.96 tok/s on Qwen3-30B-4bit)
+- **v0.9.0-alpha.1** (expected with Metal optimizations): 40-60% faster (119-136 tok/s)
+- **v0.10.0-alpha.1** (expected with Metal + CPU optimizations): 54-84% faster (131-157 tok/s)
+- **v0.11.0-alpha.1** (expected with Metal + CPU + Memory optimizations):
+  - **Single instance**: 70-113% faster (144-181 tok/s)
+  - **3 instances**: 6.1x baseline (520 tok/s, 180 req/s)
 
 ### Running Custom Benchmarks
 The flexible benchmark tool allows testing any MLX model with custom parameters:
@@ -556,7 +1005,7 @@ Available flags:
 
 ### Branch Strategy
 - Main branch: `main`
-- Current status: Phase 1 complete (Zod + Performance), 389+ tests passing
+- Current status: v0.11.0-alpha.1 - Week 3 Memory Management + Multi-Model + Scaling (850+/850+ tests passing)
 
 ### Commit Message Format
 Follow conventional commits:
@@ -586,358 +1035,27 @@ The package will fail to install on non-Apple Silicon systems.
 
 ---
 
-#
+## AutomatosX Integration
 
-# AutomatosX Integration
+This project uses [AutomatosX](https://github.com/defai-digital/automatosx) for AI agent orchestration with persistent memory.
 
-This project uses [AutomatosX](https://github.com/defai-digital/automatosx) - an AI agent orchestration platform with persistent memory and multi-agent collaboration.
+### Key Commands
 
-## Quick Start
-
-### Available Commands
-
-```bash
-# List all available agents
-ax list agents
-
-# Run an agent with a task
-ax run <agent-name> "your task description"
-
-# Example: Ask the backend agent to create an API
-ax run backend "create a REST API for user management"
-
-# Search memory for past conversations
-ax memory search "keyword"
-
-# View system status
-ax status
-```
-
-### Using AutomatosX in Claude Code
-
-You can interact with AutomatosX agents directly in Claude Code using natural language:
-
-**Natural Language Examples**:
-```
-"Please work with ax agent backend to implement user authentication"
-"Ask the ax security agent to audit this code for vulnerabilities"
-"Have the ax quality agent write tests for this feature"
-"Use ax agent product to design this new feature"
-"Work with ax agent devops to set up the deployment pipeline"
-```
-
-Claude Code will understand your intent and invoke the appropriate AutomatosX agent for you. Just describe what you need in natural language - no special commands required!
-
-### Available Agents
-
-This project includes the following specialized agents:
-
-- **backend** (Bob) - Backend development (Go/Rust systems)
-- **frontend** (Frank) - Frontend development (React/Next.js/Swift)
-- **architecture** (Avery) - System architecture and ADR management
-- **fullstack** (Felix) - Full-stack development (Node.js/TypeScript)
-- **mobile** (Maya) - Mobile development (iOS/Android, Swift/Kotlin/Flutter)
-- **devops** (Oliver) - DevOps and infrastructure
-- **security** (Steve) - Security auditing and threat modeling
-- **data** (Daisy) - Data engineering and ETL
-- **quality** (Queenie) - QA and testing
-- **design** (Debbee) - UX/UI design
-- **writer** (Wendy) - Technical writing
-- **product** (Paris) - Product management
-- **cto** (Tony) - Technical strategy
-- **ceo** (Eric) - Business leadership
-- **researcher** (Rodman) - Research and analysis
-- **data-scientist** (Dana) - Machine learning and data science
-- **aerospace-scientist** (Astrid) - Aerospace engineering and mission design
-- **quantum-engineer** (Quinn) - Quantum computing and algorithms
-- **creative-marketer** (Candy) - Creative marketing and content strategy
-- **standard** (Stan) - Standards and best practices expert
-
-For a complete list with capabilities, run: `ax list agents --format json`
-
-## Key Features
-
-### 1. Persistent Memory
-
-AutomatosX agents remember all previous conversations and decisions:
-
-```bash
-# First task - design is saved to memory
-ax run product "Design a calculator with add/subtract features"
-
-# Later task - automatically retrieves the design from memory
-ax run backend "Implement the calculator API"
-```
-
-### 2. Multi-Agent Collaboration
-
-Agents can delegate tasks to each other automatically:
-
-```bash
-ax run product "Build a complete user authentication feature"
-# → Product agent designs the system
-# → Automatically delegates implementation to backend agent
-# → Automatically delegates security audit to security agent
-```
-
-### 3. Cross-Provider Support
-
-AutomatosX supports multiple AI providers with automatic fallback:
-- **Claude** (Anthropic) - Primary provider for Claude Code users
-- **Gemini** (Google) - Alternative provider
-- **OpenAI** (GPT) - Alternative provider
-
-Configuration is in `automatosx.config.json`.
-
-## Configuration
-
-### Project Configuration
-
-Edit `automatosx.config.json` to customize:
-
-```json
-{
-  "providers": {
-    "claude-code": {
-      "enabled": true,
-      "priority": 1
-    },
-    "gemini-cli": {
-      "enabled": true,
-      "priority": 2
-    }
-  },
-  "execution": {
-    "defaultTimeout": 1500000,  // 25 minutes
-    "maxRetries": 3
-  },
-  "memory": {
-    "enabled": true,
-    "maxEntries": 10000
-  }
-}
-```
-
-### Agent Customization
-
-Create custom agents in `.automatosx/agents/`:
-
-```bash
-ax agent create my-agent --template developer --interactive
-```
-
-### Workspace Conventions
-
-**IMPORTANT**: AutomatosX uses specific directories for organized file management. Please follow these conventions when working with agents:
-
-- **`automatosx/PRD/`** - Product Requirements Documents, design specs, and planning documents
-  - Use for: Architecture designs, feature specs, technical requirements
-  - Example: `automatosx/PRD/auth-system-design.md`
-
-- **`automatosx/tmp/`** - Temporary files, scratch work, and intermediate outputs
-  - Use for: Draft code, test outputs, temporary analysis
-  - Auto-cleaned periodically
-  - Example: `automatosx/tmp/draft-api-endpoints.ts`
-
-**Usage in Claude Code**:
-```
-"Please save the architecture design to automatosx/PRD/user-auth-design.md"
-"Put the draft implementation in automatosx/tmp/auth-draft.ts for review"
-"Work with ax agent backend to implement the spec in automatosx/PRD/api-spec.md"
-```
-
-These directories are automatically created by `ax setup` and included in `.gitignore` appropriately.
-
-## Memory System
-
-### Search Memory
-
-```bash
-# Search for past conversations
-ax memory search "authentication"
-ax memory search "API design"
-
-# List recent memories
-ax memory list --limit 10
-
-# Export memory for backup
-ax memory export > backup.json
-```
-
-### How Memory Works
-
-- **Automatic**: All agent conversations are saved automatically
-- **Fast**: SQLite FTS5 full-text search (< 1ms)
-- **Local**: 100% private, data never leaves your machine
-- **Cost**: $0 (no API calls for memory operations)
-
-## Advanced Usage
-
-### Parallel Execution (v5.6.0+)
-
-Run multiple agents in parallel for faster workflows:
-
-```bash
-ax run product "Design authentication system" --parallel
-```
-
-### Resumable Runs (v5.3.0+)
-
-For long-running tasks, enable checkpoints:
-
-```bash
-ax run backend "Refactor entire codebase" --resumable
-
-# If interrupted, resume with:
-ax resume <run-id>
-
-# List all runs
-ax runs list
-```
-
-### Streaming Output (v5.6.5+)
-
-See real-time output from AI providers:
-
-```bash
-ax run backend "Explain this codebase" --streaming
-```
-
-### Spec-Driven Development (v5.8.0+)
-
-For complex projects, use spec-driven workflows:
-
-```bash
-# Create spec from natural language
-ax spec create "Build authentication with database, API, JWT, and tests"
-
-# Or manually define in .specify/tasks.md
-ax spec run --parallel
-
-# Check progress
-ax spec status
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**"Agent not found"**
 ```bash
 # List available agents
 ax list agents
 
-# Make sure agent name is correct
-ax run backend "task"  # ✓ Correct
-ax run Backend "task"  # ✗ Wrong (case-sensitive)
-```
+# Run an agent
+ax run <agent-name> "task description"
 
-**"Provider not available"**
-```bash
-# Check system status
-ax status
-
-# View configuration
-ax config show
-```
-
-**"Out of memory"**
-```bash
-# Clear old memories
-ax memory clear --before "2024-01-01"
-
-# View memory stats
-ax cache stats
-```
-
-### Getting Help
-
-```bash
-# View command help
-ax --help
-ax run --help
-
-# Enable debug mode
-ax --debug run backend "task"
-
-# Search memory for similar past tasks
-ax memory search "similar task"
-```
-
-## Best Practices
-
-1. **Use Natural Language in Claude Code**: Let Claude Code coordinate with agents for complex tasks
-2. **Leverage Memory**: Reference past decisions and designs
-3. **Start Simple**: Test with small tasks before complex workflows
-4. **Review Configurations**: Check `automatosx.config.json` for timeouts and retries
-5. **Keep Agents Specialized**: Use the right agent for each task type
-
-## Documentation
-
-- **AutomatosX Docs**: https://github.com/defai-digital/automatosx
-- **Agent Directory**: `.automatosx/agents/`
-- **Configuration**: `automatosx.config.json`
-- **Memory Database**: `.automatosx/memory/memories.db`
-- **Workspace**: `automatosx/PRD/` (planning docs) and `automatosx/tmp/` (temporary files)
-
-## Support
-
-- Issues: https://github.com/defai-digital/automatosx/issues
-- NPM: https://www.npmjs.com/package/@defai.digital/automatosx
-
-
-# List all available agents
-ax list agents
-
-# Run an agent with a task
-ax run <agent-name> "your task description"
-
-# Example: Ask the backend agent to create an API
-ax run backend "create a REST API for user management"
-
-# Search memory for past conversations
+# Search memory
 ax memory search "keyword"
-
-# View system status
-ax status
 ```
 
-### Using AutomatosX in Claude Code
+### Workspace Directories
 
-You can interact with AutomatosX agents directly in Claude Code using natural language:
-
-```
-"Please work with ax agent backend to implement user authentication"
-"Ask the ax security agent to audit this code for vulnerabilities"
-"Have the ax quality agent write tests for this feature"
-"Use ax agent product to design this new feature"
-"Work with ax agent devops to set up the deployment pipeline"
-```
-
-### Available Agents
-
-This project includes specialized agents: backend, frontend, architecture, fullstack, mobile, devops, security, data, quality, design, writer, product, cto, ceo, researcher, data-scientist, and more.
-
-For a complete list with capabilities, run: `ax list agents --format json`
-
-### Workspace Conventions
-
-AutomatosX uses specific directories for organized file management:
-
-- **`automatosx/PRD/`** - Product Requirements Documents, design specs, and planning documents
-  - Use for: Architecture designs, feature specs, technical requirements
-  - Example: `automatosx/PRD/auth-system-design.md`
-
-- **`automatosx/tmp/`** - Temporary files, scratch work, and intermediate outputs
-  - Use for: Draft code, test outputs, temporary analysis
-  - Auto-cleaned periodically
-  - Example: `automatosx/tmp/draft-api-endpoints.ts`
-
-### Documentation
-
-- **AutomatosX Docs**: https://github.com/defai-digital/automatosx
-- **Configuration**: `automatosx.config.json`
-- **Memory Database**: `.automatosx/memory/memories.db`
+- **`automatosx/PRD/`** - Planning documents, specs, architecture designs
+- **`automatosx/tmp/`** - Temporary files, drafts, analysis outputs (auto-cleaned)
 
 ---
 

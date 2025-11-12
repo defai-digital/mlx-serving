@@ -33,7 +33,6 @@
 import { createHash } from 'node:crypto';
 import type { Logger } from 'pino';
 import type { StreamChunk } from '../bridge/stream-registry.js';
-import type { GenerateResponse } from '../bridge/serializers.js';
 
 /**
  * Configuration for coalescing registry
@@ -373,12 +372,8 @@ export class CoalescingRegistry {
   ): ReadableStream<StreamChunk> {
     const subscriberId = `${fingerprint.substring(0, 8)}-sub-${request.subscribers.length}`;
 
-    let controller: ReadableStreamDefaultController<StreamChunk>;
-
     const stream = new ReadableStream<StreamChunk>({
       start: (ctrl) => {
-        controller = ctrl;
-
         // Create subscriber record
         const subscriber: CoalescedSubscriber = {
           id: subscriberId,
@@ -423,17 +418,21 @@ export class CoalescingRegistry {
     const reader = primaryStream.getReader();
 
     try {
-      while (true) {
-        const { done, value } = await reader.read();
+      let streamCompleted = false;
+      while (!streamCompleted) {
+        const result = await reader.read();
 
-        if (done) {
+        if (result.done) {
           // Stream completed successfully
           this.completeRequest(fingerprint, request);
-          break;
+          streamCompleted = true;
+          continue;
         }
 
         // Broadcast chunk to all subscribers
-        this.broadcastChunk(fingerprint, request, value);
+        if (result.value) {
+          this.broadcastChunk(fingerprint, request, result.value);
+        }
         request.chunkCount++;
       }
     } catch (error) {
@@ -612,7 +611,7 @@ export class CoalescingRegistry {
   private handleSubscriberDisconnect(
     fingerprint: string,
     subscriberId: string,
-    reason?: any
+    reason?: unknown
   ): void {
     const request = this.requests.get(fingerprint);
     if (!request) {

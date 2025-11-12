@@ -1,16 +1,168 @@
-# kr-serve-mlx User Guides
+# mlx-serving User Guides
 
-**Version**: 2.0
-**Date**: 2025-10-28
+**Version**: 2.1
+**Date**: 2025-11-10
 
 ---
 
 ## Table of Contents
 
-1. [Migration Guide (mlx-engine → kr-serve-mlx)](#migration-guide)
-2. [Structured Output with Outlines](#structured-output-with-outlines)
-3. [Vision Models](#vision-models)
-4. [Quick Reference](#quick-reference)
+1. [Quick Start](#quick-start)
+2. [Week 7 Performance Optimizations](#week-7-performance-optimizations)
+3. [Production Features (Phases 2-5)](#production-features-phases-2-5)
+4. [Migration Guide (mlx-engine → mlx-serving)](#migration-guide)
+5. [Structured Output with Outlines](#structured-output-with-outlines)
+6. [Vision Models](#vision-models)
+7. [Quick Reference](#quick-reference)
+
+---
+
+## Quick Start
+
+**Get started with mlx-serving in 5 minutes**
+
+See [QUICK_START.md](./QUICK_START.md) for the fastest path to using mlx-serving.
+
+### Installation
+
+```bash
+npm install @knowrag/mlx-serving
+npm run setup
+```
+
+### Hello World
+
+```typescript
+import { createEngine } from '@knowrag/mlx-serving';
+
+const engine = await createEngine();
+
+const generator = engine.generate({
+  model: 'mlx-community/Llama-3.2-3B-Instruct-4bit',
+  prompt: 'What is the capital of France?',
+  maxTokens: 50,
+});
+
+for await (const chunk of generator) {
+  process.stdout.write(chunk.text);
+}
+
+await engine.close();
+```
+
+**Run**: `npx tsx your-file.ts`
+
+---
+
+## Week 7 Performance Optimizations
+
+**Benchmark-driven optimizations for production workloads**
+
+Complete guide: [PERFORMANCE.md](./PERFORMANCE.md)
+
+### Key Features
+
+1. **[Model Preloading](./PERFORMANCE.md#model-preloading)** - Zero first-request latency (104x faster)
+2. **[Object Pooling](./PERFORMANCE.md#object-pooling)** - 20% GC reduction
+3. **[Adaptive Batching](./PERFORMANCE.md#adaptive-batching)** - 10-15% throughput improvement
+4. **[FastJsonCodec](./PERFORMANCE.md#fastjsoncodec)** - 2-3x faster JSON serialization
+
+### Quick Configuration
+
+Edit `config/runtime.yaml`:
+
+```yaml
+# Model Preloading: Zero first-request latency
+model_preload:
+  enabled: true
+  models:
+    - model_id: "mlx-community/Llama-3.2-3B-Instruct-4bit"
+      warmup_requests: 3
+      max_tokens: 10
+
+# Adaptive Batching: 10-15% throughput boost
+batch_queue:
+  enabled: true
+  adaptive_sizing: true
+```
+
+**Performance Gains**:
+- **TTFT**: 12.5% faster
+- **Throughput**: 20% improvement
+- **First Request**: 104x faster (5,200ms → 50ms with preloading)
+
+### Examples
+
+- [Model Preloading Example](../examples/performance/01-model-preloading.ts)
+- [Object Pooling Example](../examples/performance/02-object-pooling.ts)
+- [Adaptive Batching Example](../examples/performance/03-adaptive-batching.ts)
+
+See [examples/performance/](../examples/performance/) for complete code examples.
+
+---
+
+## Production Features (Phases 2-5)
+
+**Enterprise-grade production features**
+
+Complete guide: [PRODUCTION_FEATURES.md](./PRODUCTION_FEATURES.md)
+
+### Key Features
+
+1. **[TTFT Acceleration Pipeline](./PRODUCTION_FEATURES.md#ttft-acceleration-pipeline)** - 30-40% TTFT reduction
+   - Tokenizer warm queue (20-30ms improvement)
+   - First-token speculation (50-100ms for repeated prompts)
+   - KV cache prefetch (experimental)
+
+2. **[QoS Monitoring](./PRODUCTION_FEATURES.md#qos-monitoring)** - SLO enforcement & auto-remediation
+   - Real-time SLO monitoring (TTFT P99, throughput)
+   - Policy-based remediation (scale up/down, reject requests)
+   - TDigest percentile tracking
+
+3. **[Canary Deployment](./PRODUCTION_FEATURES.md#canary-deployment)** - Zero-downtime rollouts
+   - Hash-based traffic splitting
+   - Automatic rollback on violations
+   - Progressive rollout (1% → 10% → 50% → 100%)
+
+4. **[Feature Flags](./FEATURE_FLAGS.md)** - Gradual percentage-based rollout
+   - Deterministic hash routing
+   - Independent sub-feature control
+   - Emergency kill switch
+
+### Quick Configuration
+
+Edit `config/feature-flags.yaml`:
+
+```yaml
+# TTFT Pipeline
+ttft_pipeline:
+  enabled: true
+  rollout_percentage: 100
+  warmup_queue:
+    enabled: true
+
+# QoS Monitoring
+qos_monitor:
+  enabled: true
+  evaluator:
+    enabled: true
+  executor:
+    enabled: true
+    dry_run: false
+
+# Canary Deployment
+canary:
+  enabled: true
+  rolloutPercentage: 10  # 10% canary traffic
+```
+
+### Examples
+
+- [QoS Monitoring Example](../examples/production/01-qos-monitoring.ts)
+- [Canary Deployment Example](../examples/production/02-canary-deployment.ts)
+- [Feature Flags Example](../examples/production/03-feature-flags.ts)
+
+See [examples/production/](../examples/production/) for complete code examples.
 
 ---
 
@@ -18,7 +170,7 @@
 
 ### For Python mlx-engine Users
 
-**kr-serve-mlx provides 100% API compatibility** with mlx-engine while adding TypeScript type safety and async/await support.
+**mlx-serving provides 100% API compatibility** with mlx-engine while adding TypeScript type safety and async/await support.
 
 ### Installation
 
@@ -26,9 +178,9 @@
 # Python mlx-engine (before)
 pip install mlx-engine
 
-# TypeScript kr-serve-mlx (after)
-npm install @knowrag/kr-serve-mlx
-npm prepare:python  # Sets up Python runtime
+# TypeScript mlx-serving (after)
+npm install @knowrag/mlx-serving
+npm run setup  # Sets up Python runtime
 ```
 
 ### Basic Usage Comparison
@@ -45,10 +197,10 @@ for token in engine.generate(prompt="Hello"):
     print(token, end="", flush=True)
 ```
 
-#### TypeScript (kr-serve-mlx) - Python-Compatible
+#### TypeScript (mlx-serving) - Python-Compatible
 
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@knowrag/mlx-serving';
 
 const engine = await createEngine();
 
@@ -65,10 +217,10 @@ for await (const chunk of engine.create_generator({ prompt: "Hello" })) {
 await engine.dispose();
 ```
 
-#### TypeScript (kr-serve-mlx) - Native Style
+#### TypeScript (mlx-serving) - Native Style
 
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@knowrag/mlx-serving';
 
 const engine = await createEngine();
 
@@ -89,7 +241,7 @@ await engine.dispose();
 
 **Full snake_case compatibility** for mlx-engine users:
 
-| mlx-engine | kr-serve-mlx (snake_case) | kr-serve-mlx (camelCase) |
+| mlx-engine | mlx-serving (snake_case) | mlx-serving (camelCase) |
 |------------|--------------------------|-------------------------|
 | `max_tokens` | `max_tokens` ✅ | `maxTokens` |
 | `top_p` | `top_p` ✅ | `topP` |
@@ -107,7 +259,7 @@ await engine.dispose();
 
 ### Method Mapping
 
-| mlx-engine | kr-serve-mlx (snake_case) | kr-serve-mlx (camelCase) |
+| mlx-engine | mlx-serving (snake_case) | mlx-serving (camelCase) |
 |------------|--------------------------|-------------------------|
 | `load_model()` | `load_model()` | `loadModel()` |
 | `unload_model()` | `unload_model()` | `unloadModel()` |
@@ -134,9 +286,9 @@ for token in engine.generate({"prompt": "Hello", "temperature": 0.7}):
     print(token, end="")
 ```
 
-**After (kr-serve-mlx)**:
+**After (mlx-serving)**:
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@knowrag/mlx-serving';
 
 const engine = await createEngine();
 await engine.load_model({ model: "llama-8b", max_tokens: 100 });
@@ -162,7 +314,7 @@ for token in engine.generate({"prompt": "Explain AI"}):
     print(token, end="")
 ```
 
-**After (kr-serve-mlx)**:
+**After (mlx-serving)**:
 ```typescript
 await engine.load_model({ model: "llama-70b" });
 await engine.load_draft_model({ model: "llama-8b" });
@@ -176,20 +328,20 @@ for await (const chunk of engine.create_generator({ prompt: "Explain AI" })) {
 
 **Async/Await**:
 - mlx-engine: Synchronous API
-- kr-serve-mlx: All operations are `async` → Use `await`
+- mlx-serving: All operations are `async` → Use `await`
 
 **Generator Pattern**:
 - mlx-engine: `for token in engine.generate()`
-- kr-serve-mlx: `for await (const chunk of engine.create_generator())`
+- mlx-serving: `for await (const chunk of engine.create_generator())`
   - Check `chunk.type === 'token'` before using `chunk.token`
 
 **Resource Management**:
 - mlx-engine: Manual cleanup or context manager
-- kr-serve-mlx: Call `await engine.dispose()` or use `withEngine()` helper
+- mlx-serving: Call `await engine.dispose()` or use `withEngine()` helper
 
 **Context Manager Equivalent**:
 ```typescript
-import { withEngine } from '@knowrag/kr-serve-mlx';
+import { withEngine } from '@knowrag/mlx-serving';
 
 const result = await withEngine(async (engine) => {
   await engine.load_model({ model: "llama-8b" });
@@ -477,7 +629,7 @@ console.log(user.name);  // Type-safe access
 
 ### Overview
 
-kr-serve-mlx supports **multi-modal inference** with vision-language models (VLMs) that process both images and text.
+mlx-serving supports **multi-modal inference** with vision-language models (VLMs) that process both images and text.
 
 **Supported Models**:
 - LLaVA (7B, 13B, 34B)
@@ -489,8 +641,8 @@ kr-serve-mlx supports **multi-modal inference** with vision-language models (VLM
 Vision support is included:
 
 ```bash
-npm install @knowrag/kr-serve-mlx
-npm prepare:python
+npm install @knowrag/mlx-serving
+npm run setup
 
 # Verify mlx-vlm
 .kr-mlx-venv/bin/python -c "import mlx_vlm; print(mlx_vlm.__version__)"
@@ -499,7 +651,7 @@ npm prepare:python
 ### Quick Start
 
 ```typescript
-import { createEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine } from '@knowrag/mlx-serving';
 
 const engine = await createEngine();
 
@@ -608,8 +760,8 @@ const analysis = await engine.createVisionGenerator({
 
 ```bash
 # Install
-npm install @knowrag/kr-serve-mlx
-npm prepare:python
+npm install @knowrag/mlx-serving
+npm run setup
 
 # Test installation
 echo '{"jsonrpc":"2.0","id":1,"method":"runtime/info"}' | \
@@ -628,7 +780,7 @@ npm build
 ### Core API
 
 ```typescript
-import { createEngine, withEngine } from '@knowrag/kr-serve-mlx';
+import { createEngine, withEngine } from '@knowrag/mlx-serving';
 
 // Basic flow
 const engine = await createEngine();
@@ -694,16 +846,29 @@ console.log('Status:', info.status, 'PID:', info.pid);
 4. **Stream by Default**: Streaming reduces perceived latency
 5. **Monitor Memory**: Use paged KV cache for long contexts
 
-### Links
+### Additional Resources
 
-- [GitHub Repository](https://github.com/defai-digital/kr-serve-mlx)
-- [npm Package](https://www.npmjs.com/package/@knowrag/kr-serve-mlx)
-- [Full Documentation](./INDEX.md)
-- [Architecture Guide](./ARCHITECTURE.md)
-- [Deployment Guide](./DEPLOYMENT.md)
+- **[Quick Start Guide](./QUICK_START.md)** - 5-minute getting started
+- **[Performance Guide](./PERFORMANCE.md)** - Week 7 optimizations (52K)
+- **[Production Features](./PRODUCTION_FEATURES.md)** - Enterprise features (65K)
+- **[Feature Flags](./FEATURE_FLAGS.md)** - Feature flag system (34K)
+- **[Full Documentation](./INDEX.md)** - Documentation hub
+- **[Architecture Guide](./ARCHITECTURE.md)** - System architecture
+- **[Deployment Guide](./DEPLOYMENT.md)** - Operations guide
+
+**Examples**:
+- [Performance Examples](../examples/performance/) - Week 7 optimization examples
+- [Production Examples](../examples/production/) - Enterprise feature examples
+- [Migration Examples](../examples/migration/) - Migration from mlx-engine
+
+**Links**:
+- [GitHub Repository](https://github.com/defai-digital/mlx-serving)
+- [npm Package](https://www.npmjs.com/package/@knowrag/mlx-serving)
+- [Issues](https://github.com/defai-digital/mlx-serving/issues)
+- [Discussions](https://github.com/defai-digital/mlx-serving/discussions)
 
 ---
 
-**Document Version**: 2.0
-**Last Updated**: 2025-10-28
-**Maintained By**: KnowRAG Studio - kr-serve-mlx Team
+**Document Version**: 2.1
+**Last Updated**: 2025-11-10
+**Maintained By**: mlx-serving Team

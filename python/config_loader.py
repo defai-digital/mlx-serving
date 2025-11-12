@@ -4,6 +4,7 @@ Python Configuration Loader
 Loads configuration from YAML files to eliminate hardcoded values
 """
 
+import logging
 import os
 import threading
 import yaml
@@ -46,6 +47,14 @@ class Config:
         self.max_generation_tokens = model.get("max_generation_tokens", 4096)
         self.max_temperature = model.get("max_temperature", 2.0)
 
+        # LAYER 4 FIX: MLX Concurrency Limit
+        # Maximum concurrent MLX operations (Metal GPU limitation)
+        # Default: 1 (safest, required for 30B+ models)
+        # Can increase to 2-4 for smaller models (7B-13B) if stable
+        mlx_config = config_dict.get("mlx", {})
+        self.mlx_concurrency_limit = mlx_config.get("concurrency_limit", 1)
+        self.force_metal_sync = mlx_config.get("force_metal_sync", True)
+
         # Model Cache (Phase 2: v0.2.0)
         memory_cache = model.get("memory_cache", {})
         self.cache_enabled = memory_cache.get("enabled", True)
@@ -71,6 +80,45 @@ class Config:
         telemetry = config_dict.get("telemetry", {})
         self.telemetry_enabled = telemetry.get("enabled", True)
         self.telemetry_sampling_rate = telemetry.get("sampling_rate", 1.0)
+
+        # Metal Optimizations (Week 1: Native C++/Metal GPU optimizations)
+        metal_opts = config_dict.get("metal_optimizations", {})
+        self.metal_optimizations_enabled = metal_opts.get("enabled", False)
+        self.metal_optimizations = metal_opts  # Store full config for runtime access
+
+        # Week 2: CPU Optimizations (Parallel Tokenizer)
+        cpu_opts = config_dict.get("cpu_optimizations", {})
+        self.cpu_optimizations_enabled = cpu_opts.get("enabled", False)
+        self.cpu_optimizations = cpu_opts  # Store full config for runtime access
+
+        # Week 2: KV Cache Pool
+        kv_cache = config_dict.get("kv_cache_pool", {})
+        self.kv_cache_pool_enabled = kv_cache.get("enabled", False)
+        self.kv_cache_pool = kv_cache  # Store full config for runtime access
+
+        # Week 3: Advanced Optimizations
+        adv_opts = config_dict.get("advanced_optimizations", {})
+        self.advanced_optimizations_enabled = adv_opts.get("enabled", False)
+
+        # Week 3: Weight Management
+        weight_mgmt = adv_opts.get("weight_management", {})
+        self.weight_management_enabled = weight_mgmt.get("enabled", False)
+        self.weight_management = weight_mgmt  # Store full config for runtime access
+
+        # Week 3: Priority Scheduling
+        priority_sched = adv_opts.get("priority_scheduling", {})
+        self.priority_scheduling_enabled = priority_sched.get("enabled", False)
+        self.priority_scheduling = priority_sched  # Store full config for runtime access
+
+        # Week 3: Multi-Model Serving
+        multi_model = adv_opts.get("multi_model", {})
+        self.multi_model_enabled = multi_model.get("enabled", False)
+        self.multi_model = multi_model  # Store full config for runtime access
+
+        # Week 3: Horizontal Scaling
+        horiz_scale = adv_opts.get("horizontal_scaling", {})
+        self.horizontal_scaling_enabled = horiz_scale.get("enabled", False)
+        self.horizontal_scaling = horiz_scale  # Store full config for runtime access
 
     def validate(self) -> None:
         """
@@ -102,6 +150,10 @@ class Config:
 
         if self.eviction_strategy not in ["lru"]:
             raise ValueError(f"eviction_strategy must be 'lru', got {self.eviction_strategy}")
+
+        # LAYER 4 FIX: Validate MLX concurrency limit
+        if self.mlx_concurrency_limit < 1 or self.mlx_concurrency_limit > 10:
+            raise ValueError(f"mlx_concurrency_limit must be in range [1, 10], got {self.mlx_concurrency_limit}")
 
     def get_queue_put_backoff_seconds(self) -> float:
         """Convert backoff MS to seconds for time.sleep()"""
@@ -239,8 +291,9 @@ def _init_module_constants():
             "MAX_SCHEMA_SIZE_BYTES": cfg.max_schema_size_bytes,
             "ENABLE_AGGRESSIVE_GC": cfg.enable_aggressive_gc,
         }
-    except Exception:
+    except (yaml.YAMLError, FileNotFoundError, PermissionError, OSError, KeyError) as e:
         # Fallback to hardcoded values if config loading fails
+        logging.warning(f"Failed to load configuration, using defaults: {type(e).__name__}: {e}")
         return {
             "MAX_BUFFER_SIZE": 1_048_576,
             "STREAM_QUEUE_SIZE": 100,
@@ -250,6 +303,10 @@ def _init_module_constants():
             "MAX_SCHEMA_SIZE_BYTES": 32768,
             "ENABLE_AGGRESSIVE_GC": False,
         }
+    except Exception as e:
+        # Log unexpected exceptions and re-raise
+        logging.error(f"Unexpected error initializing config constants: {type(e).__name__}: {e}")
+        raise
 
 
 # Export constants

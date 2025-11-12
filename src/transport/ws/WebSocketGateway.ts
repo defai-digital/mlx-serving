@@ -9,7 +9,9 @@
  */
 
 import WebSocket, { WebSocketServer } from 'ws';
-import type { IncomingMessage } from 'http';
+import type { ServerOptions } from 'ws';
+import type { IncomingMessage, Server as HttpServer } from 'http';
+import type { Server as HttpsServer } from 'https';
 import { EventEmitter } from 'eventemitter3';
 import type { Logger } from 'pino';
 import type { WsMessage } from '../http2/types.js';
@@ -70,12 +72,17 @@ export class WebSocketGateway extends EventEmitter<WebSocketGatewayEvents> {
   /**
    * Initialize the WebSocket server
    */
-  public initialize(server?: any): void {
-    this.wss = new WebSocketServer({
-      server: server as any, // Attach to existing HTTP server if provided
+  public initialize(server?: HttpServer | HttpsServer): void {
+    const options: ServerOptions = {
       perMessageDeflate: false, // Disable compression for lower latency
       maxPayload: this.config.maxFrameSizeBytes,
-    });
+    };
+
+    if (server) {
+      options.server = server;
+    }
+
+    this.wss = new WebSocketServer(options);
 
     this.wss.on('connection', (ws: WebSocket, request: IncomingMessage) => {
       this.handleConnection(ws, request);
@@ -97,7 +104,7 @@ export class WebSocketGateway extends EventEmitter<WebSocketGatewayEvents> {
   /**
    * Handle new WebSocket connection
    */
-  public handleConnection(ws: WebSocket, request: IncomingMessage): void {
+  public handleConnection(ws: WebSocket, _request: IncomingMessage): void {
     // Check connection limit
     if (this.connections.size >= this.config.maxConnections) {
       this.logger?.warn('WebSocket connection limit reached, rejecting');
@@ -313,8 +320,10 @@ export class WebSocketGateway extends EventEmitter<WebSocketGatewayEvents> {
    * Start heartbeat monitoring
    */
   private startHeartbeat(): void {
+    // Clear any existing timer (defensive cleanup)
     if (this.heartbeatTimer) {
-      return;
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = undefined;
     }
 
     this.heartbeatTimer = setInterval(() => {
@@ -326,7 +335,7 @@ export class WebSocketGateway extends EventEmitter<WebSocketGatewayEvents> {
    * Send heartbeat pings to all connections
    */
   private sendHeartbeats(): void {
-    for (const [connectionId, connection] of this.connections.entries()) {
+    for (const [_connectionId, connection] of this.connections.entries()) {
       if (connection.ws.readyState === WebSocket.OPEN) {
         connection.ws.ping();
       }

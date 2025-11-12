@@ -43,6 +43,9 @@ export class Http2Pool extends EventEmitter<Http2PoolEvents> {
   private server?: http2.Http2SecureServer | http2.Http2Server;
   private streamHandles = new Map<string, MultiplexedStreamHandle>();
   private nextSessionId = 0;
+  private initialized = false;
+  private sessionCreatedHandler?: (id: string) => void;
+  private sessionClosedHandler?: (id: string, reason: string) => void;
 
   constructor(options: Http2PoolOptions, logger?: Logger) {
     super();
@@ -57,31 +60,49 @@ export class Http2Pool extends EventEmitter<Http2PoolEvents> {
     };
 
     this.sessionManager = new SessionManager(sessionManagerConfig, logger);
-
-    // Forward session events
-    this.sessionManager.on('sessionCreated', (id) => {
-      try {
-        this.emit('sessionCreated', id);
-      } catch (err) {
-        this.logger?.error({ err }, 'Error emitting sessionCreated event');
-      }
-    });
-
-    this.sessionManager.on('sessionClosed', (id, reason) => {
-      this.logger?.info({ sessionId: id, reason }, 'Session closed');
-    });
   }
 
   /**
    * Initialize the HTTP/2 server and create initial sessions
    */
   public async initialize(): Promise<void> {
+    if (this.initialized) {
+      this.logger?.warn('Http2Pool already initialized, skipping');
+      return;
+    }
+
+    // Remove old listeners if any (defensive)
+    if (this.sessionCreatedHandler) {
+      this.sessionManager.off('sessionCreated', this.sessionCreatedHandler);
+    }
+    if (this.sessionClosedHandler) {
+      this.sessionManager.off('sessionClosed', this.sessionClosedHandler);
+    }
+
     // Create HTTP/2 server
     this.server = this.createHttp2Server();
 
     // Start health checks
     this.sessionManager.startHealthChecks();
 
+    // Store handlers for cleanup
+    this.sessionCreatedHandler = (id) => {
+      try {
+        this.emit('sessionCreated', id);
+      } catch (err) {
+        this.logger?.error({ err }, 'Error emitting sessionCreated event');
+      }
+    };
+
+    this.sessionClosedHandler = (id, reason) => {
+      this.logger?.info({ sessionId: id, reason }, 'Session closed');
+    };
+
+    // Register event listeners
+    this.sessionManager.on('sessionCreated', this.sessionCreatedHandler);
+    this.sessionManager.on('sessionClosed', this.sessionClosedHandler);
+
+    this.initialized = true;
     this.logger?.info(
       { maxSessions: this.options.maxSessions },
       'HTTP/2 pool initialized'
@@ -120,7 +141,7 @@ export class Http2Pool extends EventEmitter<Http2PoolEvents> {
     const handle: MultiplexedStreamHandle = {
       sessionId: session.id,
       streamId: Date.now(), // Temporary - would be actual stream ID in production
-      stream: null as any, // Would be actual ServerHttp2Stream
+      stream: null as unknown as MultiplexedStreamHandle['stream'], // Would be actual ServerHttp2Stream
       acquiredAt: Date.now(),
     };
 
@@ -260,7 +281,19 @@ export class Http2Pool extends EventEmitter<Http2PoolEvents> {
    * Shutdown the pool
    */
   public async shutdown(): Promise<void> {
+    if (!this.initialized) {
+      return;
+    }
+
     this.logger?.info('Shutting down HTTP/2 pool');
+
+    // Cleanup listeners
+    if (this.sessionCreatedHandler) {
+      this.sessionManager.off('sessionCreated', this.sessionCreatedHandler);
+    }
+    if (this.sessionClosedHandler) {
+      this.sessionManager.off('sessionClosed', this.sessionClosedHandler);
+    }
 
     // Stop health checks
     this.sessionManager.stopHealthChecks();
@@ -275,6 +308,7 @@ export class Http2Pool extends EventEmitter<Http2PoolEvents> {
       });
     }
 
+    this.initialized = false;
     this.logger?.info('HTTP/2 pool shut down');
   }
 

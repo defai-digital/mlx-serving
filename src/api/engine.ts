@@ -46,7 +46,7 @@ import {
   zodErrorToEngineError,
   type EngineErrorCode,
 } from './errors.js';
-import { initializeConfig } from '../config/loader.js';
+import { initializeConfig, getModelPreloadConfig } from '../config/loader.js';
 import {
   LoadModelOptionsSchema,
   GeneratorParamsWithStructuredSchema,
@@ -57,6 +57,7 @@ import type {
   TokenizeResponse as TransportTokenizeResponse,
 } from '../bridge/serializers.js';
 import { RuntimeLifecycleService } from '../services/runtime-lifecycle.js';
+import { ModelPreloader } from '../core/model-preloader.js';
 
 interface EngineDependencies {
   runner?: PythonRunner;
@@ -1214,6 +1215,9 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
         'State reconciliation complete'
       );
 
+      // Week 7 Phase 7.1.4: Model preloading (after successful reconciliation)
+      await this.attemptModelPreloading();
+
       // Bug Fix #55 Phase 3: Reset circuit breaker on successful reconciliation
       this.runtimeLifecycle.resetCircuitBreaker();
     } catch (err) {
@@ -1232,6 +1236,72 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
         'State reconciliation failed - circuit breaker updated'
       );
       // Note: Don't throw here - we want the engine to remain operational
+    }
+  }
+
+  /**
+   * Week 7 Phase 7.1.4: Model Preloading
+   *
+   * Attempts to preload and warmup configured models after engine initialization.
+   * Runs after successful state reconciliation to ensure runtime is stable.
+   *
+   * - Loads configured models from runtime.yaml
+   * - Warms up each model with sample requests
+   * - Continues on error (does not block engine startup)
+   * - Logs detailed preload statistics
+   */
+  private async attemptModelPreloading(): Promise<void> {
+    try {
+      const preloadConfig = getModelPreloadConfig();
+
+      if (!preloadConfig.enabled || preloadConfig.models.length === 0) {
+        this.logger?.debug('Model preloading skipped (disabled or no models configured)');
+        return;
+      }
+
+      // Ensure we have modelManager and generatorFactory
+      if (!this.modelManager || !this.generatorFactory) {
+        this.logger?.warn('Model preloading skipped (runtime not fully initialized)');
+        return;
+      }
+
+      this.logger?.info(
+        { modelCount: preloadConfig.models.length, parallel: preloadConfig.parallel },
+        'Starting model preloading...'
+      );
+
+      const preloader = new ModelPreloader(
+        this.modelManager,
+        this.generatorFactory,
+        preloadConfig,
+        this.logger
+      );
+
+      const report = await preloader.preloadModels();
+
+      this.logger?.info(
+        {
+          successful: report.successful,
+          failed: report.failed,
+          totalModels: report.totalModels,
+          totalTimeMs: Math.round(report.totalTimeMs),
+        },
+        `Model preloading complete: ${report.successful}/${report.totalModels} successful (${Math.round(report.totalTimeMs)}ms)`
+      );
+
+      // Log details for failed models
+      const failures = report.results.filter(r => !r.success);
+      if (failures.length > 0) {
+        failures.forEach(failure => {
+          this.logger?.warn(
+            { modelId: failure.modelId, error: failure.error?.message },
+            `Failed to preload model: ${failure.modelId}`
+          );
+        });
+      }
+    } catch (err) {
+      // Log error but don't throw - preloading is optional
+      this.logger?.error({ err }, 'Model preloading failed unexpectedly');
     }
   }
 

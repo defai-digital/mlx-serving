@@ -9,6 +9,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 import type { CacheConfig } from '../types/cache.js';
+import type { PreloadConfig } from '../core/model-preloader.js';
 import { RuntimeConfigSchema } from '../types/schemas/config.js';
 
 /**
@@ -175,6 +176,37 @@ export interface Config {
       failure_window_ms?: number;
     };
   };
+  // Phase 5 Week 3: Model-Size-Aware Concurrency Limiter
+  model_concurrency_limiter?: {
+    enabled: boolean;
+    tier_limits?: {
+      '30B+'?: {
+        max_concurrent: number;
+        queue_depth: number;
+        queue_timeout_ms: number;
+      };
+      '13-27B'?: {
+        max_concurrent: number;
+        queue_depth: number;
+        queue_timeout_ms: number;
+      };
+      '7-13B'?: {
+        max_concurrent: number;
+        queue_depth: number;
+        queue_timeout_ms: number;
+      };
+      '3-7B'?: {
+        max_concurrent: number;
+        queue_depth: number;
+        queue_timeout_ms: number;
+      };
+      '<3B'?: {
+        max_concurrent: number;
+        queue_depth: number;
+        queue_timeout_ms: number;
+      };
+    };
+  };
   stream_registry: {
     default_timeout_ms: number;
     max_active_streams: number;
@@ -239,6 +271,46 @@ export interface Config {
       };
     };
   };
+  // Phase 4.3: TTFT Accelerator Pipeline (Performance Optimization v0.2.0)
+  ttft_accelerator?: {
+    enabled: boolean;
+    warm_queue: {
+      max_size: number;
+      ttl_ms: number;
+      priority_by_tokens: boolean;
+    };
+    speculation: {
+      enabled: boolean;
+      allowlist_only: boolean;
+      max_candidates: number;
+      min_confidence: number;
+      decay_factor: number;
+    };
+    kv_prep: {
+      enabled: boolean;
+      coordinator_endpoint?: string;
+    };
+  };
+  // Phase 4.4: QoS Monitor (SLO Monitoring & Remediation)
+  qos_monitor?: {
+    enabled: boolean;
+    slo: {
+      target_ttft_ms: number;
+      target_latency_ms: number;
+      target_error_rate: number;
+    };
+    evaluator: {
+      enabled: boolean;
+      check_interval_ms: number;
+    };
+    executor: {
+      enabled: boolean;
+      dry_run: boolean;
+    };
+    policy_store: {
+      enabled: boolean;
+    };
+  };
   model: {
     default_context_length: number;
     default_max_tokens: number;
@@ -256,6 +328,53 @@ export interface Config {
       eviction_strategy: 'lru';
       warmup_on_start: string[];
       track_stats: boolean;
+    };
+  };
+  // Week 7 Phase 7.1.4: Model Preloading
+  model_preload?: {
+    enabled: boolean;
+    parallel: boolean;
+    max_parallel?: number;
+    fail_fast?: boolean;
+    models: Array<{
+      model_id: string;
+      warmup_requests: number;
+      max_tokens?: number;
+      warmup_prompts?: string[];
+      options?: Record<string, unknown>;
+    }>;
+  };
+  // LAYER 4 FIX: MLX Concurrency Configuration
+  mlx: {
+    concurrency_limit: number;
+    force_metal_sync: boolean;
+  };
+  // Phase 5 Week 1: Metal Memory & Command Buffer Optimizations
+  metal_optimizations?: {
+    enabled: boolean;
+    graceful_fallback?: boolean;
+    memory_pool?: {
+      enabled: boolean;
+      heap_size_mb: number;
+      num_heaps: number;
+      warmup_sizes: number[];
+      track_statistics: boolean;
+      log_exhaustion?: boolean;
+    };
+    blit_queue?: {
+      enabled: boolean;
+      max_concurrent_ops?: number;
+      use_shared_events?: boolean;
+      staging_buffer_size_mb?: number;
+      verbose_logging?: boolean;
+      track_metrics?: boolean;
+    };
+    command_buffer_ring?: {
+      enabled: boolean;
+      ring_size: number;
+      timeout_ms: number;
+      log_wait_events?: boolean;
+      track_statistics?: boolean;
     };
   };
   cache: {
@@ -511,6 +630,37 @@ export function getCacheConfig(): CacheConfig {
     preloadModels: config.cache.preload_models,
     validateOnStartup: config.cache.validate_on_startup,
     enableCompression: config.cache.enable_compression,
+  };
+}
+
+/**
+ * Get model preload configuration (Week 7 Phase 7.1.4)
+ */
+export function getModelPreloadConfig(): PreloadConfig {
+  const config = getConfig();
+  const preloadConfig = config.model_preload;
+
+  // Default configuration if not specified
+  if (!preloadConfig) {
+    return {
+      enabled: false,
+      parallel: false,
+      models: [],
+    };
+  }
+
+  return {
+    enabled: preloadConfig.enabled,
+    parallel: preloadConfig.parallel,
+    maxParallel: preloadConfig.max_parallel,
+    failFast: preloadConfig.fail_fast,
+    models: preloadConfig.models.map((m) => ({
+      modelId: m.model_id,
+      warmupRequests: m.warmup_requests,
+      maxTokens: m.max_tokens,
+      warmupPrompts: m.warmup_prompts,
+      options: m.options,
+    })),
   };
 }
 

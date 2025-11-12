@@ -174,13 +174,12 @@ const LOAD_SAMPLE_HISTORY_SIZE = 50;
 const ACCESS_HISTORY_SIZE = 64;
 
 /** Utilities */
+import { safeAverage } from '@/utils/math-helpers.js';
+
 const average = (samples: LoadTimeSample[], type: 'cold' | 'warm'): number => {
   const filtered = samples.filter((sample) => sample.type === type);
-  if (filtered.length === 0) {
-    return 0;
-  }
-  const total = filtered.reduce((sum, sample) => sum + sample.durationMs, 0);
-  return total / filtered.length;
+  const durations = filtered.map(sample => sample.durationMs);
+  return safeAverage(durations);
 };
 
 /**
@@ -651,7 +650,10 @@ export class ModelLifecycleManager extends EventEmitter<ModelLifecycleEvents> {
     return new Promise<boolean>((resolve) => {
       let settled = false;
       const waiters = this.drainWaiters.get(modelId) ?? new Set<DrainResolution>();
+
+      // Declare timeout handle at function scope for proper cleanup
       let timeout: NodeJS.Timeout;
+
       const finish = (result: boolean): void => {
         if (settled) {
           return;
@@ -664,11 +666,15 @@ export class ModelLifecycleManager extends EventEmitter<ModelLifecycleEvents> {
         }
         resolve(result);
       };
+
       const listener: DrainResolution = () => {
         if ((this.modelState.get(modelId)?.inFlightRequests ?? 0) === 0) {
+          // Clear timeout BEFORE calling finish() for defensive programming
+          clearTimeout(timeout);
           finish(true);
         }
       };
+
       waiters.add(listener);
       this.drainWaiters.set(modelId, waiters);
       timeout = setTimeout(() => finish(false), this.config.drainTimeoutMs);
@@ -784,6 +790,8 @@ export class ModelLifecycleManager extends EventEmitter<ModelLifecycleEvents> {
     if (this.prefetchConcurrency >= PREFETCH_MAX_CONCURRENCY) {
       return;
     }
+
+    this.logger?.debug({ trigger }, 'Running prefetch cycle');
 
     const predictions = this.computePrefetchPredictions()
       .filter((prediction) => prediction.confidence >= this.config.prefetchMinConfidence)

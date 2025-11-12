@@ -398,15 +398,18 @@ export class PythonRunner extends EventEmitter<PythonRunnerEvents> {
           this.process.stderr.off('data', this.stderrHandler);
         }
 
-        // Flag to track if probe has been sent (prevent duplicate probes)
-        let probeSent = false;
+        // Promise guard to prevent duplicate probe requests
+        let probePromise: Promise<void> | null = null;
 
         // Helper function to send readiness probe
         const sendReadinessProbe = async (): Promise<void> => {
-          if (probeSent) {
-            return; // Prevent duplicate probe requests
+          // If probe is already in progress, return the existing Promise
+          if (probePromise) {
+            return probePromise;
           }
-          probeSent = true;
+
+          // Start new probe and store the Promise
+          probePromise = (async () => {
 
           try {
             // Send runtime/info probe via stdin
@@ -478,6 +481,9 @@ export class PythonRunner extends EventEmitter<PythonRunnerEvents> {
           } catch (err) {
             this.options.logger?.warn({ err }, 'Failed to probe runtime/info');
           }
+          })();
+
+          return probePromise;
         };
 
         this.stderrHandler = (chunk: Buffer) => {
@@ -502,7 +508,7 @@ export class PythonRunner extends EventEmitter<PythonRunnerEvents> {
         const config = getConfig();
         const fallbackDelayMs = config.python_runtime.init_probe_fallback_ms ?? 3000;
         probeTimeoutId = setTimeout(() => {
-          if (!probeSent) {
+          if (!probePromise) {
             this.options.logger?.warn(
               { fallbackDelayMs },
               'Python ready signal not received, using fallback probe'

@@ -181,7 +181,9 @@ export class PromptCache {
 
     // Load persisted cache if enabled
     if (config.enabled && config.persistence?.enabled && config.persistence.path) {
-      this.load();
+      this.load().catch((err) => {
+        this.logger?.error({ err }, 'Failed to load persisted cache on startup');
+      });
     }
 
     if (config.enabled) {
@@ -193,7 +195,9 @@ export class PromptCache {
       // Start persistence save timer
       if (config.persistence?.enabled && config.persistence.saveIntervalMs) {
         this.saveTimer = setInterval(() => {
-          this.save();
+          this.save().catch((err) => {
+            this.logger?.error({ err }, 'Failed to persist cache during periodic save');
+          });
         }, config.persistence.saveIntervalMs);
       }
     }
@@ -630,7 +634,9 @@ export class PromptCache {
 
     // Final persistence save
     if (this.config.persistence?.enabled && this.config.persistence.path) {
-      this.save();
+      this.save().catch((err) => {
+        this.logger?.error({ err }, 'Failed to persist cache during shutdown');
+      });
     }
 
     this.cache.clear();

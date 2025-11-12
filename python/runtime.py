@@ -15,6 +15,7 @@ import json
 import asyncio
 import time
 import uuid
+import logging
 from typing import Dict, Any, Optional, List, Tuple
 import orjson
 
@@ -47,6 +48,58 @@ import validators
 # Phase 1.3: Enhanced Telemetry
 from telemetry import RuntimeTelemetry
 
+# Metal Optimizations (Week 1: Native C++/Metal GPU optimizations)
+# Import native module if available
+try:
+    from krserve_native import MetalMemoryPool, BlitQueue, CommandBufferRing
+    from krserve_native import MetalMemoryPoolConfig, BlitQueueConfig, CommandBufferRingConfig
+    METAL_OPTIMIZATIONS_AVAILABLE = True
+    logging.info("✅ Metal optimization modules loaded (MetalMemoryPool, BlitQueue, CommandBufferRing)")
+except ImportError:
+    METAL_OPTIMIZATIONS_AVAILABLE = False
+    logging.info("ℹ️ Metal optimizations not available (native module not built)")
+
+# Week 2: CPU Optimizations (Parallel Tokenizer)
+try:
+    from krserve_native import ParallelTokenizer, ParallelTokenizerConfig
+    CPU_TOKENIZER_AVAILABLE = True
+    logging.info("✅ CPU optimization modules loaded (ParallelTokenizer)")
+except ImportError:
+    CPU_TOKENIZER_AVAILABLE = False
+    logging.info("ℹ️ CPU tokenizer not available (native module not built)")
+
+# Week 2: KV Cache Pool
+try:
+    from kv_cache_pool import KVCachePool, KVCachePoolConfig
+    KV_CACHE_AVAILABLE = True
+except ImportError:
+    KV_CACHE_AVAILABLE = False
+    logging.warning("KV cache pool not available")
+
+# Week 3: Weight Management
+try:
+    from krserve_native import WeightManager, WeightManagerConfig
+    WEIGHT_MANAGER_AVAILABLE = True
+    logging.info("✅ Weight management modules loaded (WeightManager)")
+except ImportError:
+    WEIGHT_MANAGER_AVAILABLE = False
+    logging.info("ℹ️ Weight management not available (native module not built)")
+
+# Week 3: Model Registry (multi-model serving)
+try:
+    from model_registry import ModelRegistry, ModelRegistryConfig
+    MODEL_REGISTRY_AVAILABLE = True
+except ImportError:
+    MODEL_REGISTRY_AVAILABLE = False
+    logging.warning("Week 3 ModelRegistry not available")
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
 
 class RuntimeServer:
     """Lightweight Python runtime exposing MLX bindings via JSON-RPC"""
@@ -72,6 +125,107 @@ class RuntimeServer:
             enabled=config.telemetry_enabled,
             sampling_rate=config.telemetry_sampling_rate
         )
+
+        # Metal Optimizations (Week 1: Native C++/Metal GPU optimizations)
+        self.metal_pool: Optional[MetalMemoryPool] = None
+        self.blit_queue: Optional[BlitQueue] = None
+        self.command_ring: Optional[CommandBufferRing] = None
+
+        # Week 2: CPU Optimizations
+        self.cpu_tokenizer: Optional[Any] = None  # ParallelTokenizer if available
+
+        # Week 2: KV Cache Pool
+        self.kv_cache_pool: Optional[KVCachePool] = None
+
+        # Week 3: Weight Management
+        self.weight_manager: Optional[Any] = None  # WeightManager if available
+
+        # Week 3: Model Registry (multi-model serving)
+        self.model_registry: Optional[ModelRegistry] = None
+
+        # Initialize native optimizations based on config
+        self._initialize_native_optimizations()
+
+    def _initialize_native_optimizations(self) -> None:
+        """Initialize native C++ optimization modules if available and enabled"""
+        config = get_config()
+
+        # Week 1: Metal Optimizations
+        if METAL_OPTIMIZATIONS_AVAILABLE and config.metal_optimizations_enabled:
+            try:
+                # Metal Memory Pool
+                pool_config = MetalMemoryPoolConfig()
+                pool_config.heap_size_mb = config.metal_optimizations.get('memory_pool', {}).get('heap_size_mb', 512)
+                pool_config.track_statistics = config.metal_optimizations.get('memory_pool', {}).get('track_statistics', True)
+                self.metal_pool = MetalMemoryPool(pool_config)
+                logging.info(f"✅ Metal Memory Pool initialized: heap_size={pool_config.heap_size_mb}MB")
+
+                # Blit Queue
+                blit_config = BlitQueueConfig()
+                blit_config.max_pending_ops = config.metal_optimizations.get('blit_queue', {}).get('max_pending_ops', 16)
+                blit_config.track_metrics = config.metal_optimizations.get('blit_queue', {}).get('track_metrics', True)
+                self.blit_queue = BlitQueue(blit_config)
+                logging.info(f"✅ Blit Queue initialized: max_pending_ops={blit_config.max_pending_ops}")
+
+                # Command Buffer Ring
+                ring_config = CommandBufferRingConfig()
+                ring_config.ring_size = config.metal_optimizations.get('command_ring', {}).get('ring_size', 3)
+                ring_config.track_statistics = config.metal_optimizations.get('command_ring', {}).get('track_statistics', True)
+                self.command_ring = CommandBufferRing(ring_config)
+                logging.info(f"✅ Command Buffer Ring initialized: ring_size={ring_config.ring_size}")
+
+            except Exception as e:
+                logging.warning(f"⚠️ Failed to initialize Metal optimizations: {e}")
+                self.metal_pool = None
+                self.blit_queue = None
+                self.command_ring = None
+        else:
+            if METAL_OPTIMIZATIONS_AVAILABLE:
+                logging.info("ℹ️ Metal optimizations available but disabled in config")
+            else:
+                logging.info("ℹ️ Metal optimizations not available (native module not built)")
+
+        # Week 2: CPU Optimizations
+        if CPU_TOKENIZER_AVAILABLE and config.cpu_optimizations_enabled:
+            try:
+                tok_config = ParallelTokenizerConfig()
+                tok_config.num_threads = config.cpu_optimizations.get('parallel_tokenizer', {}).get('num_threads', 8)
+                tok_config.use_accelerate = config.cpu_optimizations.get('parallel_tokenizer', {}).get('use_accelerate', True)
+                tok_config.enable_stats = config.cpu_optimizations.get('parallel_tokenizer', {}).get('enable_stats', True)
+
+                self.cpu_tokenizer = ParallelTokenizer(tok_config)
+                logging.info(f"✅ Parallel Tokenizer initialized: threads={tok_config.num_threads}, accelerate={tok_config.use_accelerate}")
+
+            except Exception as e:
+                logging.warning(f"⚠️ Failed to initialize CPU optimizations: {e}")
+                self.cpu_tokenizer = None
+        else:
+            if CPU_TOKENIZER_AVAILABLE:
+                logging.info("ℹ️ CPU optimizations available but disabled in config")
+            else:
+                logging.info("ℹ️ CPU optimizations not available (native module not built)")
+
+        # Week 3: Weight Management
+        if WEIGHT_MANAGER_AVAILABLE and config.weight_management_enabled:
+            try:
+                wm_config = WeightManagerConfig()
+                wm_config.pin_critical_weights = config.weight_management.get('pin_critical_weights', True)
+                wm_config.prefetch_enabled = config.weight_management.get('prefetch_enabled', True)
+                wm_config.prefetch_threads = config.weight_management.get('prefetch_threads', 2)
+                wm_config.warmup_on_load = config.weight_management.get('warmup_on_load', True)
+                wm_config.warmup_buffer_mb = config.weight_management.get('warmup_buffer_mb', 512)
+
+                self.weight_manager = WeightManager(wm_config)
+                logging.info(f"✅ Weight Manager initialized: pin={wm_config.pin_critical_weights}, prefetch={wm_config.prefetch_enabled}")
+
+            except Exception as e:
+                logging.warning(f"⚠️ Failed to initialize Weight Manager: {e}")
+                self.weight_manager = None
+        else:
+            if WEIGHT_MANAGER_AVAILABLE:
+                logging.info("ℹ️ Weight management available but disabled in config")
+            else:
+                logging.info("ℹ️ Weight management not available (native module not built)")
 
     def _notify(self, method: str, params: Dict[str, Any]) -> None:
         """Emit JSON-RPC notification to stdout"""
@@ -311,7 +465,60 @@ class RuntimeServer:
         - Tokenization stats (calls, latency percentiles)
         - Error rates and timeouts
         """
-        return self.telemetry.get_report()
+        report = self.telemetry.get_report()
+
+        # Add native optimization statistics (Week 1-3)
+        report['native_optimizations'] = self._get_optimization_stats()
+
+        return report
+
+    def _get_optimization_stats(self) -> Dict[str, Any]:
+        """Get statistics from native optimization modules"""
+        stats = {
+            'enabled': {
+                'metal_pool': self.metal_pool is not None,
+                'blit_queue': self.blit_queue is not None,
+                'command_ring': self.command_ring is not None,
+                'cpu_tokenizer': self.cpu_tokenizer is not None,
+                'weight_manager': self.weight_manager is not None,
+            },
+            'statistics': {}
+        }
+
+        # Week 1: Metal optimizations
+        if self.metal_pool:
+            try:
+                stats['statistics']['metal_pool'] = self.metal_pool.get_statistics()
+            except Exception as e:
+                stats['statistics']['metal_pool'] = {'error': str(e)}
+
+        if self.blit_queue:
+            try:
+                stats['statistics']['blit_queue'] = self.blit_queue.get_statistics()
+            except Exception as e:
+                stats['statistics']['blit_queue'] = {'error': str(e)}
+
+        if self.command_ring:
+            try:
+                stats['statistics']['command_ring'] = self.command_ring.get_statistics()
+            except Exception as e:
+                stats['statistics']['command_ring'] = {'error': str(e)}
+
+        # Week 2: CPU optimizations
+        if self.cpu_tokenizer:
+            try:
+                stats['statistics']['cpu_tokenizer'] = self.cpu_tokenizer.get_statistics()
+            except Exception as e:
+                stats['statistics']['cpu_tokenizer'] = {'error': str(e)}
+
+        # Week 3: Weight management
+        if self.weight_manager:
+            try:
+                stats['statistics']['weight_manager'] = self.weight_manager.get_statistics()
+            except Exception as e:
+                stats['statistics']['weight_manager'] = {'error': str(e)}
+
+        return stats
 
     async def load_model(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Load a model into memory"""
@@ -322,6 +529,15 @@ class RuntimeServer:
         validators.validate_load_model_params(params)
 
         try:
+            # Week 3: Pre-warm memory before model loading (if Weight Manager enabled)
+            if self.weight_manager:
+                warmup_mb = params.get('warmup_buffer_mb', 512)
+                try:
+                    self.weight_manager.warmup_model(warmup_mb)
+                    logging.info(f"[WeightManager] Pre-warmed {warmup_mb}MB memory before loading {model_id}")
+                except Exception as e:
+                    logging.warning(f"[WeightManager] Warmup failed: {e}")
+
             # Delegate to loader module
             handle = loader.load_model(model_id, params)
             self.models[model_id] = handle
@@ -709,24 +925,24 @@ class RuntimeServer:
                 raise ValueError(f"Duplicate stream_id '{stream_id}' detected in batch_generate payload")
             seen_stream_ids.add(stream_id)
 
-        # Run each generate request in parallel while isolating failures.
-        tasks = [self.generate(dict(req)) for req in requests]
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
-
+        # LAYER 3 FIX: Run sequentially instead of asyncio.gather()
+        # Concurrent execution causes SIGTRAP (concurrent Metal GPU access)
+        # Sequential execution is protected by MLX semaphore in generator.py
         results: List[Dict[str, Any]] = []
-        for response in responses:
-            if isinstance(response, Exception):
-                error_obj = self._serialize_error(response)
-                results.append({
-                    "success": False,
-                    "result": None,
-                    "error": error_obj.get("message", str(response)),
-                })
-            else:
+        for req in requests:
+            try:
+                response = await self.generate(dict(req))
                 results.append({
                     "success": True,
                     "result": response,
                     "error": None,
+                })
+            except Exception as exc:
+                error_obj = self._serialize_error(exc)
+                results.append({
+                    "success": False,
+                    "result": None,
+                    "error": error_obj.get("message", str(exc)),
                 })
 
         return {"results": results}
@@ -1168,7 +1384,26 @@ class RuntimeServer:
                         "error": None,
                     }
 
-        await asyncio.gather(*(handle_group(group) for group in grouped.values()))
+        # BUG-FIX: Add return_exceptions=True to prevent group handler failures from crashing entire batch
+        # If handle_group() itself raises (e.g., iteration error, zip error), it won't crash all groups
+        group_results = await asyncio.gather(
+            *(handle_group(group) for group in grouped.values()),
+            return_exceptions=True
+        )
+
+        # Handle any group-level failures by filling in error results
+        for group_idx, group_result in enumerate(group_results):
+            if isinstance(group_result, Exception):
+                # Group handler failed - mark all items in this group as failed
+                group_items = list(grouped.values())[group_idx]
+                error_obj = self._serialize_error(group_result)
+                for index, _ in group_items:
+                    if results[index] is None:  # Only fill if not already set
+                        results[index] = {
+                            "success": False,
+                            "result": None,
+                            "error": error_obj.get("message", str(group_result)),
+                        }
 
         # Fill any missing entries with a generic error (should not happen)
         normalized = [
@@ -1285,6 +1520,68 @@ class RuntimeServer:
         # Now safe to clear
         self.stream_tasks.clear()
 
+        # Cleanup Metal Optimizations (Week 1: Log statistics before shutdown)
+        if self.metal_pool:
+            try:
+                stats = self.metal_pool.get_statistics()
+                stats_dict = stats.to_dict()
+                logging.info(f"Metal Memory Pool final stats: {stats_dict}")
+            except Exception as exc:
+                logging.warning(f"Error getting Metal pool stats: {exc}")
+
+        if self.blit_queue:
+            try:
+                self.blit_queue.wait_for_all()  # Wait for pending operations
+                metrics = self.blit_queue.get_metrics()
+                metrics_dict = metrics.to_dict()
+                logging.info(f"Blit Queue final metrics: {metrics_dict}")
+            except Exception as exc:
+                logging.warning(f"Error getting Blit queue metrics: {exc}")
+
+        if self.command_ring:
+            try:
+                self.command_ring.wait_all()  # Wait for in-flight buffers
+                stats = self.command_ring.get_statistics()
+                stats_dict = stats.to_dict()
+                logging.info(f"Command Buffer Ring final stats: {stats_dict}")
+            except Exception as exc:
+                logging.warning(f"Error getting Command ring stats: {exc}")
+
+        # Cleanup Week 2 Optimizations
+        # Log CPU tokenizer statistics
+        if self.cpu_tokenizer:
+            try:
+                stats = self.cpu_tokenizer.get_statistics()
+                stats_dict = stats.to_dict()
+                logging.info(f"CPU tokenizer final stats: {stats_dict}")
+            except Exception as exc:
+                logging.warning(f"Error getting CPU tokenizer stats: {exc}")
+
+        # Log KV cache pool statistics
+        if self.kv_cache_pool:
+            try:
+                stats = self.kv_cache_pool.get_stats()
+                logging.info(f"KV cache pool final stats: {stats}")
+            except Exception as exc:
+                logging.warning(f"Error getting KV cache pool stats: {exc}")
+
+        # Week 3: Cleanup Weight Manager
+        if self.weight_manager:
+            try:
+                stats = self.weight_manager.get_statistics()
+                stats_dict = stats.to_dict()
+                logging.info(f"WeightManager final stats: {stats_dict}")
+            except Exception as exc:
+                logging.warning(f"Error getting WeightManager stats: {exc}")
+
+        # Week 3: Log Model Registry statistics
+        if self.model_registry:
+            try:
+                stats = self.model_registry.get_stats()
+                logging.info(f"ModelRegistry final stats: {stats}")
+            except Exception as exc:
+                logging.warning(f"Error getting ModelRegistry stats: {exc}")
+
         return {"success": True}
 
     async def run(self) -> None:
@@ -1300,6 +1597,156 @@ class RuntimeServer:
                 print(f"[Runtime] GPU scheduler initialization failed: {exc}",
                       file=sys.stderr, flush=True)
 
+        # Initialize Metal Optimizations (Week 1: Native C++/Metal GPU optimizations)
+        if METAL_OPTIMIZATIONS_AVAILABLE and config.metal_optimizations_enabled:
+            try:
+                metal_config = config.metal_optimizations
+
+                # Initialize Metal Memory Pool
+                if metal_config.get('memory_pool', {}).get('enabled', False):
+                    pool_config = MetalMemoryPoolConfig()
+                    pool_cfg = metal_config['memory_pool']
+                    pool_config.heap_size_mb = pool_cfg.get('heap_size_mb', 256)
+                    pool_config.num_heaps = pool_cfg.get('num_heaps', 4)
+                    pool_config.warmup_sizes = pool_cfg.get('warmup_sizes', [])
+                    pool_config.track_statistics = pool_cfg.get('track_statistics', True)
+                    pool_config.log_exhaustion = pool_cfg.get('log_exhaustion', True)
+
+                    self.metal_pool = MetalMemoryPool(pool_config)
+                    self.metal_pool.warmup()
+                    logging.info(f"Metal Memory Pool initialized: {pool_config.num_heaps} heaps x {pool_config.heap_size_mb}MB")
+
+                # Initialize Blit Queue
+                if metal_config.get('blit_queue', {}).get('enabled', False):
+                    blit_config = BlitQueueConfig()
+                    blit_cfg = metal_config['blit_queue']
+                    blit_config.enabled = True
+                    blit_config.max_pending_ops = blit_cfg.get('max_pending_ops', 8)
+                    blit_config.use_shared_events = blit_cfg.get('use_shared_events', True)
+                    blit_config.track_metrics = blit_cfg.get('track_metrics', True)
+
+                    self.blit_queue = BlitQueue(blit_config)
+                    logging.info(f"Blit Queue initialized: max_pending={blit_config.max_pending_ops}")
+
+                # Initialize Command Buffer Ring
+                if metal_config.get('command_buffer_ring', {}).get('enabled', False):
+                    ring_config = CommandBufferRingConfig()
+                    ring_cfg = metal_config['command_buffer_ring']
+                    ring_config.ring_size = ring_cfg.get('ring_size', 2)
+                    ring_config.timeout_ms = ring_cfg.get('timeout_ms', 0)
+                    ring_config.track_statistics = ring_cfg.get('track_statistics', True)
+                    ring_config.log_wait_events = ring_cfg.get('log_wait_events', False)
+
+                    self.command_ring = CommandBufferRing(ring_config)
+                    logging.info(f"Command Buffer Ring initialized: ring_size={ring_config.ring_size}")
+
+                if self.metal_pool or self.blit_queue or self.command_ring:
+                    logging.info("Metal optimizations initialized successfully")
+
+            except Exception as exc:
+                logging.error(f"Failed to initialize Metal optimizations: {exc}")
+                if not metal_config.get('graceful_fallback', True):
+                    raise
+                logging.warning("Continuing without Metal optimizations (graceful fallback)")
+
+        # Initialize Week 2 Optimizations
+        # CPU Tokenizer (Parallel Tokenization)
+        if CPU_TOKENIZER_AVAILABLE and config.cpu_optimizations_enabled:
+            try:
+                cpu_config = config.cpu_optimizations
+                tokenizer_cfg = cpu_config.get('parallel_tokenizer', {})
+
+                if tokenizer_cfg.get('enabled', False):
+                    tokenizer_config = ParallelTokenizerConfig()
+                    tokenizer_config.num_threads = tokenizer_cfg.get('num_threads', 4)
+                    tokenizer_config.use_accelerate = tokenizer_cfg.get('use_accelerate', True)
+                    tokenizer_config.batch_size = tokenizer_cfg.get('batch_size', 16)
+                    tokenizer_config.prefetch_enabled = tokenizer_cfg.get('prefetch_enabled', True)
+                    tokenizer_config.cache_vocab = tokenizer_cfg.get('cache_vocab', True)
+                    tokenizer_config.track_statistics = tokenizer_cfg.get('track_statistics', True)
+
+                    self.cpu_tokenizer = ParallelTokenizer(tokenizer_config)
+                    logging.info(
+                        f"CPU tokenizer initialized: {tokenizer_config.num_threads} threads, "
+                        f"batch_size={tokenizer_config.batch_size}, "
+                        f"accelerate={tokenizer_config.use_accelerate}"
+                    )
+
+            except Exception as exc:
+                logging.error(f"Failed to initialize CPU tokenizer: {exc}")
+                if not cpu_config.get('graceful_fallback', True):
+                    raise
+                logging.warning("Continuing without CPU tokenizer (graceful fallback)")
+
+        # KV Cache Pool
+        if KV_CACHE_AVAILABLE and config.kv_cache_pool_enabled:
+            try:
+                kv_config = config.kv_cache_pool
+                cache_config = KVCachePoolConfig(
+                    max_size=kv_config.get('max_size', 50),
+                    ttl_seconds=kv_config.get('ttl_seconds', 300.0),
+                    enable_prefix_sharing=kv_config.get('enable_prefix_sharing', True),
+                    prefix_length_ratio=kv_config.get('prefix_length_ratio', 0.6),
+                    enable_statistics=kv_config.get('enable_statistics', True),
+                    log_operations=kv_config.get('log_operations', False)
+                )
+
+                self.kv_cache_pool = KVCachePool(cache_config)
+                logging.info(
+                    f"KV cache pool initialized: max_size={cache_config.max_size}, "
+                    f"ttl={cache_config.ttl_seconds}s, "
+                    f"prefix_sharing={cache_config.enable_prefix_sharing}"
+                )
+
+            except Exception as exc:
+                logging.error(f"Failed to initialize KV cache pool: {exc}")
+                # KV cache is optional, so always gracefully fallback
+                logging.warning("Continuing without KV cache pool (graceful fallback)")
+
+        # Week 3: Weight Management
+        if config.advanced_optimizations_enabled and config.weight_management_enabled:
+            if WEIGHT_MANAGER_AVAILABLE:
+                try:
+                    wm_config = config.weight_management
+                    logging.info("Initializing Week 3 WeightManager...")
+                    # WeightManager initialization will happen per-model on load
+                    # Store config for later use
+                    logging.info(
+                        f"WeightManager config loaded: "
+                        f"pin_critical={wm_config.get('pin_critical_weights', True)}, "
+                        f"prefetch={wm_config.get('prefetch_enabled', True)}, "
+                        f"critical_layers={wm_config.get('critical_layers', 3)}"
+                    )
+                except Exception as exc:
+                    logging.error(f"Failed to load WeightManager config: {exc}")
+                    logging.warning("Continuing without WeightManager (graceful fallback)")
+            else:
+                logging.warning("WeightManager requested but native module unavailable")
+
+        # Week 3: Model Registry (multi-model serving)
+        if config.advanced_optimizations_enabled and config.multi_model_enabled:
+            if MODEL_REGISTRY_AVAILABLE:
+                try:
+                    mm_config = config.multi_model
+                    registry_config = ModelRegistryConfig(
+                        max_cached_models=mm_config.get('max_cached_models', 3),
+                        eviction_strategy=mm_config.get('eviction_strategy', 'lru'),
+                        memory_aware_eviction=True,
+                        gpu_memory_threshold=0.9,
+                        track_access_patterns=True
+                    )
+                    self.model_registry = ModelRegistry(registry_config)
+                    logging.info(
+                        f"Week 3 ModelRegistry initialized: "
+                        f"max_models={registry_config.max_cached_models}, "
+                        f"strategy={registry_config.eviction_strategy}"
+                    )
+                except Exception as exc:
+                    logging.error(f"Failed to initialize ModelRegistry: {exc}")
+                    logging.warning("Continuing without ModelRegistry (graceful fallback)")
+            else:
+                logging.warning("ModelRegistry requested but not available")
+
         buffer = ""
         # Bug Fix #66: Enforce max buffer size to prevent memory exhaustion attack
         # Default: 1MB (configurable via config/runtime.yaml python_bridge.max_buffer_size)
@@ -1314,13 +1761,14 @@ class RuntimeServer:
                 if not line:
                     break
 
-                buffer += line
+                # Bug Fix #66 & BUG-018: Check buffer size BEFORE appending (TOCTOU fix)
+                # Check line size BEFORE concatenation to prevent temporary overflow
+                line_bytes = len(line.encode('utf-8'))
+                current_buffer_bytes = len(buffer.encode('utf-8'))
 
-                # Bug Fix #66: Check buffer size limit in BYTES (not characters) for UTF-8
-                # Multi-byte UTF-8 characters could bypass character-based limits
-                buffer_bytes = len(buffer.encode('utf-8'))
-                if buffer_bytes > max_buffer_size:
-                    # Try to extract id from partial message
+                # Would concatenation exceed limit?
+                if current_buffer_bytes + line_bytes > max_buffer_size:
+                    # Try to extract id from current buffer (not from line!)
                     msg_id = None
                     try:
                         partial = orjson.loads(buffer)
@@ -1335,12 +1783,14 @@ class RuntimeServer:
                         "id": msg_id,  # Include id (can be null for unknown)
                         "error": {
                             "code": -32600,  # Invalid Request
-                            "message": f"Buffer overflow: exceeded {max_buffer_size} bytes",
+                            "message": f"Buffer overflow: would exceed {max_buffer_size} bytes",
                         },
                     }
                     print(orjson.dumps(error_response).decode("utf-8"), flush=True)
                     buffer = ""  # Reset buffer
-                    continue
+                    continue  # Skip appending this line
+
+                buffer += line  # SAFE: Already checked size
 
                 # Try to parse complete JSON-RPC message
                 try:

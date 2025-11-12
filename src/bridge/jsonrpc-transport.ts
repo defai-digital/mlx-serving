@@ -29,6 +29,8 @@ import {
   type JsonRpcErrorCode,
   type Codec,
   JsonCodec,
+  FastJsonCodec,
+  FAST_JSON_CODEC,
 } from './serializers.js';
 import { getConfig } from '../config/loader.js';
 import { EngineClientError, createTimeoutError } from '../api/errors.js';
@@ -115,7 +117,9 @@ export class JsonRpcTransport extends EventEmitter<JsonRpcTransportEvents> {
     this.stdin = options.stdin;
     this.stdout = options.stdout;
     this.stderr = options.stderr;
-    this.codec = options.codec ?? new JsonCodec();
+    // OPTIMIZATION: Use singleton FastJsonCodec to amortize JIT warmup cost
+    // Bob's fix: Avoids per-transport instantiation overhead
+    this.codec = options.codec ?? FAST_JSON_CODEC;
     this.logger = options.logger;
     this.defaultTimeout = options.defaultTimeout ?? config.json_rpc.default_timeout_ms;
     this.maxPendingRequests = config.json_rpc.max_pending_requests;

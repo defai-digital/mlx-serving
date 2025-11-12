@@ -48,6 +48,17 @@ export interface GeneratorParams {
    */
   draftModel?: string;
 
+  /**
+   * TTFT hints for pipeline optimization (Week 1 Day 2-3)
+   *
+   * Optional hints to guide TTFT acceleration:
+   * - tenantId: Tenant identifier for per-tenant budgets
+   * - speculationAllowed: Whether to enable speculative token prediction
+   *
+   * @internal
+   */
+  hints?: Record<string, unknown>;
+
   // P2-2: Extra kwargs for mlx-engine compatibility
   promptTokens?: number[];        // Pre-tokenized prompt for reuse
   [key: string]: unknown;          // Allow passthrough of additional kwargs

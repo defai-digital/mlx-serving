@@ -125,6 +125,13 @@ export class QosEvaluator extends EventEmitter<QosEvaluatorEvents> {
   }
 
   /**
+   * Register a single SLO definition (convenience wrapper)
+   */
+  public registerSlo(slo: SloDefinition): void {
+    this.registerSlos([slo]);
+  }
+
+  /**
    * Record a metric sample
    */
   public recordMetric(sample: MetricSample): void {
@@ -154,6 +161,13 @@ export class QosEvaluator extends EventEmitter<QosEvaluatorEvents> {
     tracker.samples = tracker.samples.filter((s) => s.timestamp >= cutoff);
 
     this.logger?.trace({ sample }, 'Recorded metric sample');
+  }
+
+  /**
+   * Record a sample (alias for recordMetric)
+   */
+  public recordSample(sample: MetricSample): void {
+    this.recordMetric(sample);
   }
 
   /**
@@ -268,15 +282,19 @@ export class QosEvaluator extends EventEmitter<QosEvaluatorEvents> {
         currentValue = windowDigest.percentile(0.95);
         break;
 
-      case 'error_rate':
+      case 'error_rate': {
         // Calculate error rate from samples (0-1)
+        // BUG FIX: Guard against division by zero when filteredSamples is empty
         const errorCount = filteredSamples.filter((s) => s.value === 1).length;
-        currentValue = errorCount / filteredSamples.length;
+        currentValue = filteredSamples.length > 0 ? errorCount / filteredSamples.length : 0;
         break;
+      }
 
       case 'throughput':
         // Samples per second
-        currentValue = filteredSamples.length / (slo.windowMs / 1000);
+        // BUG FIX: Guard against division by zero when windowMs is 0
+        // Use max(windowMs / 1000, 0.001) to ensure minimum 1ms window
+        currentValue = filteredSamples.length / Math.max(slo.windowMs / 1000, 0.001);
         break;
 
       default:

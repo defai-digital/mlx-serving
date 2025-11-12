@@ -38,6 +38,7 @@
  * - If pool below min → create replacement connections
  */
 
+import { safeAverage, safeDivide } from '@/utils/math-helpers.js';
 import { EventEmitter } from 'eventemitter3';
 import type { Logger } from 'pino';
 import { randomUUID } from 'node:crypto';
@@ -460,13 +461,9 @@ export class ConnectionPool extends EventEmitter<ConnectionPoolEvents> {
       totalUseCount += connection.useCount;
     }
 
-    const reuseRate =
-      this.connections.size > 0 ? totalUseCount / this.connections.size : 0;
+    const reuseRate = safeDivide(totalUseCount, this.connections.size);
 
-    const avgAcquireTimeMs =
-      this.acquireTimeSamples.length > 0
-        ? this.acquireTimeSamples.reduce((a, b) => a + b, 0) / this.acquireTimeSamples.length
-        : 0;
+    const avgAcquireTimeMs = safeAverage(this.acquireTimeSamples);
 
     return {
       enabled: this.config.enabled,

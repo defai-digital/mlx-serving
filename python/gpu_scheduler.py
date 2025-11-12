@@ -284,7 +284,7 @@ class GPUScheduler:
                 try:
                     await self.commit_task
                 except asyncio.CancelledError:
-                    pass
+                    logger.warning("Commit task was cancelled during shutdown")
 
         # v1.4.1: Stop Prometheus exporter
         if self.prometheus_exporter.is_running():

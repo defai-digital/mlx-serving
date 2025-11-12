@@ -270,32 +270,42 @@ export class OpsMultiplexer {
         options,
       } as AnyQueueEntry;
 
-      // Type assertion needed due to union type limitations
-      (bucket.entries as AnyQueueEntry[]).push(entry);
+      try {
+        // Type assertion needed due to union type limitations
+        (bucket.entries as AnyQueueEntry[]).push(entry);
 
-      if (priority === 'high') {
-        this.flushBucket(key, 'highPriority').catch((error) => {
-          this.logger?.error({ err: error, method }, 'High priority flush failed');
-        });
-        return;
-      }
-
-      const targetSize = this.computeAdaptiveBatchSize();
-      if (bucket.entries.length >= targetSize) {
-        this.flushBucket(key, 'maxSize').catch((error) => {
-          this.logger?.error({ err: error, method }, 'Max size flush failed');
-        });
-        return;
-      }
-
-      if (!this.timers.has(key)) {
-        const delay = this.computeHoldDelay(priority);
-        const timer = setTimeout(() => {
-          this.flushBucket(key, 'timer').catch((error) => {
-            this.logger?.error({ err: error, method }, 'Timer flush failed');
+        if (priority === 'high') {
+          this.flushBucket(key, 'highPriority').catch((error) => {
+            this.logger?.error({ err: error, method }, 'High priority flush failed');
           });
-        }, delay);
-        this.timers.set(key, timer);
+          return;
+        }
+
+        const targetSize = this.computeAdaptiveBatchSize();
+        if (bucket.entries.length >= targetSize) {
+          this.flushBucket(key, 'maxSize').catch((error) => {
+            this.logger?.error({ err: error, method }, 'Max size flush failed');
+          });
+          return;
+        }
+
+        if (!this.timers.has(key)) {
+          const delay = this.computeHoldDelay(priority);
+          const timer = setTimeout(() => {
+            this.flushBucket(key, 'timer').catch((error) => {
+              this.logger?.error({ err: error, method }, 'Timer flush failed');
+            });
+          }, delay);
+          this.timers.set(key, timer);
+        }
+      } catch (error) {
+        // Cleanup timer on error (defensive - timer might have been created before error)
+        const timer = this.timers.get(key);
+        if (timer) {
+          clearTimeout(timer);
+          this.timers.delete(key);
+        }
+        throw error; // Re-throw to reject Promise
       }
     });
   }

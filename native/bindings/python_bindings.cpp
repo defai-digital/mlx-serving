@@ -3,9 +3,20 @@
 
 #include "../include/kr_command_buffer_pool.h"
 #include "../include/kr_metrics_collector.h"
+#include "../include/kr_metal_memory_pool.h"
+#include "../include/kr_command_buffer_ring.h"
+#include "../include/kr_blit_queue.h"
+#include "../include/kr_parallel_tokenizer.h"
 
 namespace py = pybind11;
 using namespace krserve;
+
+// Forward declarations for binding functions
+void bind_metal_memory_pool(py::module& m);
+void bind_blit_queue(py::module& m);
+void bind_command_buffer_ring(py::module& m);
+void bind_parallel_tokenizer(py::module& m);
+void bind_weight_manager(py::module& m);
 
 PYBIND11_MODULE(krserve_native, m) {
     m.doc() = "KR-Serve-MLX native acceleration module (C++/ObjC++)";
@@ -86,4 +97,19 @@ PYBIND11_MODULE(krserve_native, m) {
                    ", avg_latency=" + std::to_string(m.avg_latency_ms) + "ms" +
                    ", p99=" + std::to_string(m.p99_latency_ms) + "ms)";
         });
+
+    // Metal Memory Pool (Week 1 optimization)
+    bind_metal_memory_pool(m);
+
+    // Command Buffer Ring (Week 1 optimization - instruction interleaving)
+    bind_command_buffer_ring(m);
+
+    // Blit Queue (Week 1 optimization - I/O overlap)
+    bind_blit_queue(m);
+
+    // Parallel Tokenizer (Week 2 optimization - CPU parallelization)
+    bind_parallel_tokenizer(m);
+
+    // Weight Manager (Week 3 optimization - memory pinning & prefetching)
+    bind_weight_manager(m);
 }

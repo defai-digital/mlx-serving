@@ -54,6 +54,41 @@ from validators import validate_generation_params
 _metal_sync_counter = 0
 _metal_sync_interval = int(os.getenv('MLX_METAL_SYNC_INTERVAL', '3'))  # Sync every 3 requests by default
 
+# LAYER 2 FIX: Global semaphore for MLX thread serialization
+# This prevents concurrent Metal GPU access that causes SIGTRAP crashes
+_mlx_semaphore: Optional[asyncio.Semaphore] = None
+_semaphore_lock = threading.Lock()
+
+
+def _get_mlx_semaphore() -> asyncio.Semaphore:
+    """
+    Get global MLX semaphore for thread serialization (lazy init, thread-safe)
+
+    This semaphore prevents concurrent MLX operations from causing Metal GPU
+    command buffer assertion failures (SIGTRAP/SIGABRT crashes).
+
+    The limit is configured via config/runtime.yaml:mlx.concurrency_limit
+    Default: 1 (safest, required for 30B+ models)
+
+    Returns:
+        Semaphore limiting concurrent MLX operations
+    """
+    global _mlx_semaphore
+    if _mlx_semaphore is None:
+        with _semaphore_lock:
+            if _mlx_semaphore is None:
+                # Get limit from config (default 1 for safety)
+                config = get_config()
+                limit = getattr(config, 'mlx_concurrency_limit', 1)
+                _mlx_semaphore = asyncio.Semaphore(limit)
+                print(
+                    f"[Generator] MLX semaphore initialized: limit={limit} "
+                    f"(prevents concurrent Metal GPU access)",
+                    file=sys.stderr,
+                    flush=True
+                )
+    return _mlx_semaphore
+
 
 def ensure_model_dtype(handle: ModelHandle, params: Dict[str, Any]) -> None:
     """
@@ -214,254 +249,264 @@ async def stream_generate(
     # Validate dtype compatibility
     ensure_model_dtype(handle, params)
 
-    prompt = params.get("prompt", "")
-    stream_id = params.get("stream_id")
-    if not stream_id:
-        raise GenerationError(handle.model_id, "stream_id required")
+    # LAYER 2 FIX: Acquire MLX semaphore BEFORE spawning thread
+    # This serializes MLX operations to prevent Metal GPU crashes
+    semaphore = _get_mlx_semaphore()
 
-    # Apply chat template for models that require it (e.g. Gemma 2)
-    prompt = apply_chat_template(prompt, handle.model_id, handle.tokenizer)
+    async with semaphore:
+        # All MLX operations protected by semaphore - prevents concurrent Metal GPU access
+        prompt = params.get("prompt", "")
+        stream_id = params.get("stream_id")
+        if not stream_id:
+            raise GenerationError(handle.model_id, "stream_id required")
 
-    generation_kwargs = build_generation_kwargs(params)
+        # Apply chat template for models that require it (e.g. Gemma 2)
+        prompt = apply_chat_template(prompt, handle.model_id, handle.tokenizer)
 
-    # Prepare generator callable (optionally wrapped with Outlines guidance)
-    def base_generator(prompt_text: str, **kwargs: Any):
-        return mlx_generate(
-            handle.model, handle.tokenizer, prompt_text, **kwargs
-        )
+        generation_kwargs = build_generation_kwargs(params)
 
-    generator_callable = base_generator
-
-    guidance_params = params.get("guidance")
-    if guidance_params:
-        guidance_config = dict(guidance_params)
-        guidance_config.setdefault("model_id", handle.model_id)
-
-        try:
-            outlines_adapter.validate_guidance_params(handle, guidance_config)
-            guidance_plan = outlines_adapter.prepare_guidance(guidance_config)
-            generator_callable = outlines_adapter.apply_guidance(
-                base_generator,
-                guidance_plan,
-                tokenizer=handle.tokenizer,
-                model=handle.model,
-                generation_params=params,
+        # Prepare generator callable (optionally wrapped with Outlines guidance)
+        def base_generator(prompt_text: str, **kwargs: Any):
+            return mlx_generate(
+                handle.model, handle.tokenizer, prompt_text, **kwargs
             )
-        except GuidanceError:
-            raise
-        except Exception as exc:
-            raise GuidanceError(handle.model_id, f"Failed to initialize guidance: {exc}") from exc
 
-    # Load config for queue and backpressure settings
-    config = get_config()
+        generator_callable = base_generator
 
-    # Async queue for thread-safe communication with backpressure
-    loop = asyncio.get_running_loop()
-    queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=config.stream_queue_size)
+        guidance_params = params.get("guidance")
+        if guidance_params:
+            guidance_config = dict(guidance_params)
+            guidance_config.setdefault("model_id", handle.model_id)
 
-    # Timing and metrics
-    started_at = perf_counter()
-    first_token_at: Optional[float] = None
-    token_count = 0
-    caught_error: Optional[Exception] = None
-    last_item = None
+            try:
+                outlines_adapter.validate_guidance_params(handle, guidance_config)
+                guidance_plan = outlines_adapter.prepare_guidance(guidance_config)
+                generator_callable = outlines_adapter.apply_guidance(
+                    base_generator,
+                    guidance_plan,
+                    tokenizer=handle.tokenizer,
+                    model=handle.model,
+                    generation_params=params,
+                )
+            except GuidanceError:
+                raise
+            except Exception as exc:
+                raise GuidanceError(handle.model_id, f"Failed to initialize guidance: {exc}") from exc
 
-    # P1-2: Track cumulative text for mlx-engine compatibility
-    cumulative_text = ""
+        # Load config for queue and backpressure settings
+        config = get_config()
 
-    # Cancellation event to stop producer thread gracefully
-    cancel_event = threading.Event()
+        # Async queue for thread-safe communication with backpressure
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=config.stream_queue_size)
 
-    def producer() -> None:
-        """Worker thread that runs blocking MLX generator"""
-        nonlocal caught_error, last_item
+        # Timing and metrics
+        started_at = perf_counter()
+        first_token_at: Optional[float] = None
+        token_count = 0
+        caught_error: Optional[Exception] = None
+        last_item = None
+
+        # P1-2: Track cumulative text for mlx-engine compatibility
+        cumulative_text = ""
+
+        # Cancellation event to stop producer thread gracefully
+        cancel_event = threading.Event()
+
+        def producer() -> None:
+            """Worker thread that runs blocking MLX generator"""
+            nonlocal caught_error, last_item
+            try:
+                generator = generator_callable(prompt, **generation_kwargs)
+
+                for chunk in generator:
+                    # Check cancellation before processing chunk
+                    if cancel_event.is_set():
+                        # Close generator to stop MLX immediately
+                        if hasattr(generator, 'close'):
+                            try:
+                                generator.close()
+                            except Exception:
+                                pass  # Ignore errors during cleanup
+                        break
+
+                    # Use run_coroutine_threadsafe to properly respect backpressure
+                    # This correctly waits for queue space, unlike put_nowait
+                    future = asyncio.run_coroutine_threadsafe(queue.put(chunk), loop)
+                    try:
+                        # Wait with timeout to detect dead consumer or cancellation
+                        future.result(timeout=config.queue_put_max_retries * config.get_queue_put_backoff_seconds())
+                    except TimeoutError:
+                        # Consumer likely dead - abort generation
+                        raise GenerationError(
+                            handle.model_id,
+                            f"Queue put timeout - consumer may be dead or too slow"
+                        )
+
+                    # BUG-002 FIX: Always update last_item after successful queue.put()
+                    # Even if cancellation is detected, the chunk is ALREADY in the queue
+                    # and the consumer may read it. We must track it for correct finish_reason.
+                    # The cancellation flag is for stopping FUTURE generation, not invalidating
+                    # chunks that are already queued and may be consumed.
+                    last_item = chunk
+
+                    # Double-check cancellation after updating last_item
+                    # If cancelled, stop generating NEW chunks but don't invalidate the one we just queued
+                    if cancel_event.is_set():
+                        # Close generator to stop MLX immediately
+                        if hasattr(generator, 'close'):
+                            try:
+                                generator.close()
+                            except Exception:
+                                pass  # Ignore errors during cleanup
+                        break
+            except Exception as exc:
+                caught_error = exc
+                # Ensure error signal gets through (unless cancelled)
+                if not cancel_event.is_set():
+                    future = asyncio.run_coroutine_threadsafe(queue.put(None), loop)
+                    try:
+                        future.result(timeout=5.0)  # 5 second timeout for error signal
+                    except TimeoutError:
+                        pass  # Best effort - consumer may be dead
+            else:
+                # Ensure completion signal gets through (unless cancelled)
+                if not cancel_event.is_set():
+                    future = asyncio.run_coroutine_threadsafe(queue.put(StopAsyncIteration), loop)
+                    try:
+                        future.result(timeout=5.0)  # 5 second timeout for completion signal
+                    except TimeoutError:
+                        pass  # Best effort - consumer may be dead
+
+        # Launch producer in thread
+        producer_task = asyncio.create_task(asyncio.to_thread(producer))
+
         try:
-            generator = generator_callable(prompt, **generation_kwargs)
+            # Consume queue and emit notifications
+            while True:
+                item = await queue.get()
 
-            for chunk in generator:
-                # Check cancellation before processing chunk
-                if cancel_event.is_set():
-                    # Close generator to stop MLX immediately
-                    if hasattr(generator, 'close'):
-                        try:
-                            generator.close()
-                        except Exception:
-                            pass  # Ignore errors during cleanup
+                # Check for completion or error
+                if item is StopAsyncIteration:
                     break
+                if item is None:
+                    if isinstance(caught_error, GuidanceError):
+                        raise caught_error
+                    raise GenerationError(handle.model_id, str(caught_error))
 
-                # Use run_coroutine_threadsafe to properly respect backpressure
-                # This correctly waits for queue space, unlike put_nowait
-                future = asyncio.run_coroutine_threadsafe(queue.put(chunk), loop)
-                try:
-                    # Wait with timeout to detect dead consumer or cancellation
-                    future.result(timeout=config.queue_put_max_retries * config.get_queue_put_backoff_seconds())
-                except TimeoutError:
-                    # Consumer likely dead - abort generation
+                # Extract token data from GenerationResponse (dataclass or dict for compatibility)
+                if hasattr(item, 'text'):  # GenerationResponse object
+                    token_text = item.text
+                    token_id = item.token
+                    # logprobs is an MLX array, get first value if available
+                    logprob = float(item.logprobs[0]) if hasattr(item.logprobs, '__getitem__') and len(item.logprobs) > 0 else None
+                elif isinstance(item, dict):  # Legacy dict format
+                    token_text = item.get("text", "")
+                    token_id = item.get("token_id")
+                    logprob = item.get("logprob")
+                else:
                     raise GenerationError(
                         handle.model_id,
-                        f"Queue put timeout - consumer may be dead or too slow"
+                        f"MLX generator returned invalid chunk type: {type(item).__name__}"
                     )
+                token_count += 1
 
-                # BUG-002 FIX: Always update last_item after successful queue.put()
-                # Even if cancellation is detected, the chunk is ALREADY in the queue
-                # and the consumer may read it. We must track it for correct finish_reason.
-                # The cancellation flag is for stopping FUTURE generation, not invalidating
-                # chunks that are already queued and may be consumed.
-                last_item = chunk
+                # P1-2: Update cumulative text for mlx-engine compatibility
+                cumulative_text += token_text
 
-                # Double-check cancellation after updating last_item
-                # If cancelled, stop generating NEW chunks but don't invalidate the one we just queued
-                if cancel_event.is_set():
-                    # Close generator to stop MLX immediately
-                    if hasattr(generator, 'close'):
-                        try:
-                            generator.close()
-                        except Exception:
-                            pass  # Ignore errors during cleanup
-                    break
+                # Measure TTFT on first token
+                if first_token_at is None:
+                    first_token_at = perf_counter()
+
+                # Emit chunk notification
+                chunk_data = {
+                    "stream_id": stream_id,
+                    "token": token_text,
+                    "token_id": token_id,
+                    "is_final": False,
+                    "cumulative_text": cumulative_text,  # P1-2: Include cumulative text
+                }
+
+                # Only add logprob if not None (avoid JSON null vs TypeScript undefined)
+                if logprob is not None:
+                    chunk_data["logprob"] = logprob
+
+                await emit_chunk(chunk_data)
+
+            # Calculate final metrics
+            total_elapsed = perf_counter() - started_at
+            ttft = (first_token_at - started_at) if first_token_at else total_elapsed
+
+            # Throughput: tokens per second in steady state (post-TTFT)
+            steady_state_time = max(total_elapsed - ttft, 1e-6)
+            throughput = token_count / steady_state_time if token_count > 0 else 0.0
+
+            # Emit statistics notification
+            await emit_stats(
+                {
+                    "stream_id": stream_id,
+                    "tokens_generated": token_count,
+                    "tokens_per_second": throughput,
+                    "time_to_first_token": ttft,
+                    "total_time": total_elapsed,
+                }
+            )
+
+            # Determine finish reason
+            finish_reason = "completed"
+            if last_item:
+                # Handle both GenerationResponse (object) and dict formats
+                if hasattr(last_item, 'stop_reason'):  # GenerationResponse object
+                    finish_reason = last_item.stop_reason if last_item.stop_reason else "completed"
+                elif isinstance(last_item, dict) and "stop_reason" in last_item:  # Legacy dict format
+                    finish_reason = last_item["stop_reason"]
+            elif token_count == 0:
+                finish_reason = "no_output"
+
+            # Emit completion event
+            await emit_event(
+                {
+                    "stream_id": stream_id,
+                    "event": "completed",
+                    "is_final": True,
+                    "finish_reason": finish_reason,
+                }
+            )
+
+        except GuidanceError:
+            raise
+        except GenerationError:
+            # Re-raise generation errors
+            raise
         except Exception as exc:
-            caught_error = exc
-            # Ensure error signal gets through (unless cancelled)
-            if not cancel_event.is_set():
-                future = asyncio.run_coroutine_threadsafe(queue.put(None), loop)
-                try:
-                    future.result(timeout=5.0)  # 5 second timeout for error signal
-                except TimeoutError:
-                    pass  # Best effort - consumer may be dead
-        else:
-            # Ensure completion signal gets through (unless cancelled)
-            if not cancel_event.is_set():
-                future = asyncio.run_coroutine_threadsafe(queue.put(StopAsyncIteration), loop)
-                try:
-                    future.result(timeout=5.0)  # 5 second timeout for completion signal
-                except TimeoutError:
-                    pass  # Best effort - consumer may be dead
+            # Wrap unexpected errors
+            raise GenerationError(handle.model_id, f"Unexpected generation error: {exc}") from exc
+        finally:
+            # Signal producer thread to stop
+            cancel_event.set()
 
-    # Launch producer in thread
-    producer_task = asyncio.create_task(asyncio.to_thread(producer))
+            # Wait for producer thread to finish
+            # This ensures the MLX thread is fully stopped before returning
+            await producer_task
 
-    try:
-        # Consume queue and emit notifications
-        while True:
-            item = await queue.get()
-
-            # Check for completion or error
-            if item is StopAsyncIteration:
-                break
-            if item is None:
-                if isinstance(caught_error, GuidanceError):
-                    raise caught_error
-                raise GenerationError(handle.model_id, str(caught_error))
-
-            # Extract token data from GenerationResponse (dataclass or dict for compatibility)
-            if hasattr(item, 'text'):  # GenerationResponse object
-                token_text = item.text
-                token_id = item.token
-                # logprobs is an MLX array, get first value if available
-                logprob = float(item.logprobs[0]) if hasattr(item.logprobs, '__getitem__') and len(item.logprobs) > 0 else None
-            elif isinstance(item, dict):  # Legacy dict format
-                token_text = item.get("text", "")
-                token_id = item.get("token_id")
-                logprob = item.get("logprob")
-            else:
-                raise GenerationError(
-                    handle.model_id,
-                    f"MLX generator returned invalid chunk type: {type(item).__name__}"
-                )
-            token_count += 1
-
-            # P1-2: Update cumulative text for mlx-engine compatibility
-            cumulative_text += token_text
-
-            # Measure TTFT on first token
-            if first_token_at is None:
-                first_token_at = perf_counter()
-
-            # Emit chunk notification
-            chunk_data = {
-                "stream_id": stream_id,
-                "token": token_text,
-                "token_id": token_id,
-                "is_final": False,
-                "cumulative_text": cumulative_text,  # P1-2: Include cumulative text
-            }
-
-            # Only add logprob if not None (avoid JSON null vs TypeScript undefined)
-            if logprob is not None:
-                chunk_data["logprob"] = logprob
-
-            await emit_chunk(chunk_data)
-
-        # Calculate final metrics
-        total_elapsed = perf_counter() - started_at
-        ttft = (first_token_at - started_at) if first_token_at else total_elapsed
-
-        # Throughput: tokens per second in steady state (post-TTFT)
-        steady_state_time = max(total_elapsed - ttft, 1e-6)
-        throughput = token_count / steady_state_time if token_count > 0 else 0.0
-
-        # Emit statistics notification
-        await emit_stats(
-            {
-                "stream_id": stream_id,
-                "tokens_generated": token_count,
-                "tokens_per_second": throughput,
-                "time_to_first_token": ttft,
-                "total_time": total_elapsed,
-            }
-        )
-
-        # Determine finish reason
-        finish_reason = "completed"
-        if last_item:
-            # Handle both GenerationResponse (object) and dict formats
-            if hasattr(last_item, 'stop_reason'):  # GenerationResponse object
-                finish_reason = last_item.stop_reason if last_item.stop_reason else "completed"
-            elif isinstance(last_item, dict) and "stop_reason" in last_item:  # Legacy dict format
-                finish_reason = last_item["stop_reason"]
-        elif token_count == 0:
-            finish_reason = "no_output"
-
-        # Emit completion event
-        await emit_event(
-            {
-                "stream_id": stream_id,
-                "event": "completed",
-                "is_final": True,
-                "finish_reason": finish_reason,
-            }
-        )
-
-    except GuidanceError:
-        raise
-    except GenerationError:
-        # Re-raise generation errors
-        raise
-    except Exception as exc:
-        # Wrap unexpected errors
-        raise GenerationError(handle.model_id, f"Unexpected generation error: {exc}") from exc
-    finally:
-        # Signal producer thread to stop
-        cancel_event.set()
-
-        # Wait for producer thread to finish
-        # This ensures the MLX thread is fully stopped before returning
-        await producer_task
-
-        # BUGFIX: Sync Metal GPU buffers to prevent command buffer assertion failures
-        # WITHOUT THIS: Metal command buffers can remain uncommitted, causing
-        # "_status < MTLCommandBufferStatusCommitted" assertion failures on subsequent requests
-        # CRITICAL: Must sync EVERY request for stability (conditional sync caused 90% failure rate)
-        try:
-            import mlx.core as mx
-            import gc
-            # Force completion of all pending GPU operations
-            mx.metal.sync()
-            # Collect garbage to release Metal resources
-            gc.collect()
-        except Exception:
-            # Best effort - don't fail if MLX/Metal not available
-            pass
+            # BUGFIX: Sync Metal GPU buffers to prevent command buffer assertion failures
+            # WITHOUT THIS: Metal command buffers can remain uncommitted, causing
+            # "_status < MTLCommandBufferStatusCommitted" assertion failures on subsequent requests
+            # CRITICAL: Must sync EVERY request for stability (conditional sync caused 90% failure rate)
+            #
+            # OPTIMIZATION: Removed gc.collect() which added 5-10ms overhead
+            # - mx.metal.sync() is sufficient to flush GPU commands (10-20ms)
+            # - gc.collect() is a full stop-the-world GC (5-10ms extra)
+            # - Python's incremental GC handles most cases automatically
+            # - Expected gain: 5-10ms per generation (0.5-1% improvement)
+            try:
+                import mlx.core as mx
+                # Force completion of all pending GPU operations
+                mx.metal.sync()
+                # REMOVED: gc.collect() - let Python's automatic GC handle cleanup
+            except Exception:
+                # Best effort - don't fail if MLX/Metal not available
+                pass
 
 
 # Note: validate_generation_params is now imported from validators module

@@ -76,7 +76,6 @@ describe('Telemetry Bridge', () => {
         const mockModel: ModelHandle = {
           descriptor: {
             id: 'llama-3-8b',
-            variant: undefined,
             source: 'huggingface',
             path: 'meta-llama/Llama-3-8B',
             modality: 'text',
@@ -101,7 +100,6 @@ describe('Telemetry Bridge', () => {
         const mockModel: ModelHandle = {
           descriptor: {
             id: 'test-model',
-            variant: undefined,
             source: 'local',
             path: '/test/path',
             modality: 'text',

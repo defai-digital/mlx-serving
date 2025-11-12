@@ -19,6 +19,7 @@
  * - Graceful cleanup on errors/timeout
  */
 
+import { safeAverage, safeDivide } from '@/utils/math-helpers.js';
 import { EventEmitter } from 'eventemitter3';
 import type { Logger } from 'pino';
 import { getConfig } from '../config/loader.js';
@@ -26,6 +27,7 @@ import type { Config } from '../config/loader.js';
 import { AdaptiveGovernor } from '../streaming/governor/AdaptiveGovernor.js';
 import { CleanupScheduler } from '../streaming/governor/CleanupScheduler.js';
 import type { StreamCleanupEvent, StreamGovernorConfig } from '../streaming/governor/types.js';
+import { ModelConcurrencyLimiter } from '../core/model-concurrency-limiter.js';
 import type {
   StreamChunkNotification,
   StreamStatsNotification,
@@ -91,6 +93,8 @@ interface StreamHandle {
   unackedChunks: number; // Count of unacked chunks (for backpressure)
   blockedSince?: number; // Timestamp when stream was blocked
   metricsExported: boolean; // Whether metrics have been exported
+  // Phase 5 Week 3: Concurrency limiting
+  modelId?: string; // Model ID for concurrency slot release
 }
 
 /**
@@ -258,6 +262,7 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
   private readonly slowConsumerThresholdMs: number;
   private readonly cleanupScheduler?: CleanupScheduler;
   private readonly adaptiveGovernor?: AdaptiveGovernor;
+  private readonly concurrencyLimiter?: ModelConcurrencyLimiter;
 
   constructor(options: StreamRegistryOptions = {}) {
     super();
@@ -317,6 +322,28 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
       );
     }
 
+    // Phase 5 Week 3: Initialize model-size-aware concurrency limiter
+    // Prevents Metal GPU crashes from concurrent command buffer submissions
+    const concurrencyLimiterEnabled = config.model_concurrency_limiter?.enabled ?? true;
+    if (concurrencyLimiterEnabled) {
+      this.concurrencyLimiter = new ModelConcurrencyLimiter(this.logger);
+
+      // Forward concurrency limiter events to stream registry events
+      this.concurrencyLimiter.on('queued', (modelId, tier, queueDepth) => {
+        this.logger?.info(
+          { modelId, tier, queueDepth },
+          'Request queued by concurrency limiter'
+        );
+      });
+
+      this.concurrencyLimiter.on('rejected', (modelId, reason) => {
+        this.logger?.error(
+          { modelId, reason },
+          'Request rejected by concurrency limiter'
+        );
+      });
+    }
+
     // BUG-014 FIX: Extract timer initialization into separate method
     // so it can be called after cleanup during restarts
     this.initializeTimers();
@@ -332,23 +359,41 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     const pooling = config.stream_registry.chunk_pooling;
     const metrics = config.stream_registry.metrics;
 
+    // Clear old chunk pool cleanup interval (prevent leaks on reinitialize)
+    if (this.poolCleanupInterval) {
+      clearInterval(this.poolCleanupInterval);
+      this.poolCleanupInterval = undefined;
+    }
+
     // Initialize chunk pool cleanup interval
-    if (this.chunkPoolingEnabled && !this.poolCleanupInterval) {
+    if (this.chunkPoolingEnabled) {
       this.poolCleanupInterval = setInterval(() => {
         this.chunkPool?.clear();
         this.logger?.debug('Chunk pool cleaned');
       }, pooling.pool_cleanup_interval_ms);
     }
 
+    // Clear old metrics export interval (prevent leaks on reinitialize)
+    if (this.metricsExportInterval) {
+      clearInterval(this.metricsExportInterval);
+      this.metricsExportInterval = undefined;
+    }
+
     // Initialize metrics export interval
-    if (this.metricsEnabled && !this.metricsExportInterval) {
+    if (this.metricsEnabled) {
       this.metricsExportInterval = setInterval(() => {
         this.exportMetrics();
       }, metrics.export_interval_ms);
     }
 
+    // Clear old adaptive limits adjustment interval (prevent leaks on reinitialize)
+    if (this.adjustmentInterval) {
+      clearInterval(this.adjustmentInterval);
+      this.adjustmentInterval = undefined;
+    }
+
     // Initialize adaptive limits adjustment interval
-    if (this.adaptiveLimitsEnabled && !this.adjustmentInterval) {
+    if (this.adaptiveLimitsEnabled) {
       this.adjustmentInterval = setInterval(() => {
         this.adjustStreamLimits();
       }, adaptive.adjustment_interval_ms);
@@ -361,15 +406,23 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
    * @param streamId - Unique stream identifier from Python runtime
    * @param signal - Optional AbortSignal for cancellation
    * @param timeout - Optional custom timeout (overrides default)
+   * @param modelId - Optional model ID for concurrency limiting (Phase 5 Week 3)
    * @returns Promise that resolves with final stream stats
    */
-  public register(
+  public async register(
     streamId: string,
     signal?: AbortSignal,
-    timeout?: number
+    timeout?: number,
+    modelId?: string
   ): Promise<StreamStats> {
     if (this.streams.has(streamId)) {
       throw new Error(`Stream ${streamId} already registered`);
+    }
+
+    // Phase 5 Week 3: Acquire concurrency slot before checking stream limits
+    // This prevents Metal GPU crashes from too many concurrent streams
+    if (this.concurrencyLimiter && modelId) {
+      await this.concurrencyLimiter.acquire(modelId, streamId);
     }
 
     // Phase 4: Use adaptive limit instead of fixed maxActiveStreams
@@ -378,6 +431,11 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
       : this.maxActiveStreams;
 
     if (this.streams.size >= effectiveLimit) {
+      // Release concurrency slot if stream limit check fails
+      if (this.concurrencyLimiter && modelId) {
+        this.concurrencyLimiter.release(modelId, streamId);
+      }
+
       throw new Error(
         `Max active streams (${effectiveLimit}) exceeded. Consider increasing maxActiveStreams or waiting for streams to complete.`
       );
@@ -402,6 +460,8 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
         // Phase 4: Initialize optimization fields
         unackedChunks: 0,
         metricsExported: false,
+        // Phase 5 Week 3: Store model ID for concurrency slot release
+        modelId,
       };
 
       // Setup abort signal
@@ -724,13 +784,9 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     const throughputSnapshot = [...this.throughputSamples];
 
     // Calculate averages
-    const avgTTFT = ttftSnapshot.length > 0
-      ? ttftSnapshot.reduce((a, b) => a + b, 0) / ttftSnapshot.length
-      : 0;
+    const avgTTFT = safeAverage(ttftSnapshot);
 
-    const avgThroughput = throughputSnapshot.length > 0
-      ? throughputSnapshot.reduce((a, b) => a + b, 0) / throughputSnapshot.length
-      : 0;
+    const avgThroughput = safeAverage(throughputSnapshot);
 
     return {
       timestamp: Date.now(),
@@ -935,6 +991,11 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     // Resolve promise
     handle.resolve(stats);
 
+    // Phase 5 Week 3: Release concurrency slot
+    if (this.concurrencyLimiter && handle.modelId) {
+      this.concurrencyLimiter.release(handle.modelId, streamId);
+    }
+
     // Remove from registry immediately
     this.streams.delete(streamId);
   }
@@ -983,6 +1044,11 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     // Reject promise
     handle.reject(new Error(error));
 
+    // Phase 5 Week 3: Release concurrency slot
+    if (this.concurrencyLimiter && handle.modelId) {
+      this.concurrencyLimiter.release(handle.modelId, streamId);
+    }
+
     // Remove from registry
     this.streams.delete(streamId);
   }
@@ -1008,15 +1074,14 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
    */
   private handleTimeout(streamId: string): void {
     const handle = this.streams.get(streamId);
-    if (!handle) {
+
+    // Atomic check-and-set: Check handle exists AND not completed in single expression
+    // This prevents race condition with completeStream()
+    if (!handle || handle.completed) {
       return;
     }
 
-    // Atomic check-and-set: Mark as completed FIRST before any operations
-    // This prevents completeStream() from executing if timeout fires first
-    if (handle.completed) {
-      return;
-    }
+    // Set completed IMMEDIATELY before any other operations
     handle.completed = true;
 
     this.logger?.warn(
@@ -1060,6 +1125,11 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
 
     // Reject promise
     handle.reject(new Error(errorMsg));
+
+    // Phase 5 Week 3: Release concurrency slot
+    if (this.concurrencyLimiter && handle.modelId) {
+      this.concurrencyLimiter.release(handle.modelId, streamId);
+    }
 
     // Remove from registry
     this.streams.delete(streamId);

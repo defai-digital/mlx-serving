@@ -127,7 +127,7 @@ export class SseWriter {
     );
 
     return new Promise<void>((resolve) => {
-      const onDrain = () => {
+      const onDrain = (): void => {
         this.stream.off('drain', onDrain);
         resolve();
       };

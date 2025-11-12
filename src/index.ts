@@ -47,3 +47,6 @@ export {
   type ListOptions,
   type CacheOptions,
 } from './utils/model-downloader.js';
+
+// Week 2: A/B Testing Framework
+export * from './testing/index.js';

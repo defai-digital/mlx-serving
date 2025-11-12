@@ -13,6 +13,7 @@
  * - Expose batching statistics for observability
  */
 
+import { safeAverage } from '@/utils/math-helpers.js';
 import type { Logger } from 'pino';
 import type { JsonRpcTransport } from '../bridge/jsonrpc-transport.js';
 import type { StreamRegistry, AggregateMetrics } from '../bridge/stream-registry.js';
@@ -179,11 +180,7 @@ function percentile(values: number[], p: number): number {
  * Compute a rolling average for instrumentation.
  */
 function average(values: number[]): number {
-  if (values.length === 0) {
-    return 0;
-  }
-  const total = values.reduce((acc, value) => acc + value, 0);
-  return total / values.length;
+  return safeAverage(values);
 }
 
 /**

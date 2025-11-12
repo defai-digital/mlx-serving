@@ -7,11 +7,11 @@
  * Phase 4.3 Implementation
  */
 
+import { safeAverage, safeDivide } from '@/utils/math-helpers.js';
 import { EventEmitter } from 'eventemitter3';
 import type { Logger } from 'pino';
 import type {
   SpeculationCandidate,
-  SpeculationResult,
   SpeculationStats,
 } from './types.js';
 
@@ -243,10 +243,7 @@ export class SpeculativeProvider extends EventEmitter<SpeculationEvents> {
    * Get accuracy rate
    */
   public getAccuracyRate(): number {
-    if (this.totalAttempts === 0) {
-      return 0;
-    }
-    return this.successCount / this.totalAttempts;
+    return safeDivide(this.successCount, this.totalAttempts);
   }
 
   /**
@@ -254,10 +251,7 @@ export class SpeculativeProvider extends EventEmitter<SpeculationEvents> {
    */
   public getStats(): SpeculationStats {
     const confidences = Array.from(this.candidates.values()).map((c) => c.confidence);
-    const avgConfidence =
-      confidences.length > 0
-        ? confidences.reduce((a, b) => a + b, 0) / confidences.length
-        : 0;
+    const avgConfidence = safeAverage(confidences);
 
     return {
       totalAttempts: this.totalAttempts,

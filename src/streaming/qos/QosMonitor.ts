@@ -18,6 +18,8 @@ import type {
 } from './RemediationExecutor.js';
 import { SloPolicyStore } from './SloPolicyStore.js';
 import type { PolicyStoreConfig } from './SloPolicyStore.js';
+import { PolicyEngine } from './PolicyEngine.js';
+import type { PolicyEngineConfig, PolicyEngineEvents } from './PolicyEngine.js';
 import type {
   MetricSample,
   SloEvaluation,
@@ -34,12 +36,13 @@ export interface QosMonitorConfig {
   evaluator: QosEvaluatorConfig;
   executor: RemediationExecutorConfig;
   policyStore: PolicyStoreConfig;
+  usePolicyEngine?: boolean; // Phase 5 Week 1 Day 3-4: Enable PolicyEngine integration
 }
 
 /**
  * Monitor events
  */
-export interface QosMonitorEvents extends QosEvaluatorEvents, RemediationExecutorEvents {
+export interface QosMonitorEvents extends QosEvaluatorEvents, RemediationExecutorEvents, PolicyEngineEvents {
   telemetry: (snapshot: QosTelemetry) => void;
 }
 
@@ -58,6 +61,7 @@ export class QosMonitor extends EventEmitter<QosMonitorEvents> {
   private evaluator: QosEvaluator;
   private executor: RemediationExecutor;
   private policyStore: SloPolicyStore;
+  private policyEngine?: PolicyEngine; // Phase 5 Week 1 Day 3-4: Optional PolicyEngine
   private lastEvaluations: SloEvaluation[] = [];
   private lastRemediations: RemediationResult[] = [];
 
@@ -66,20 +70,44 @@ export class QosMonitor extends EventEmitter<QosMonitorEvents> {
     this.config = config;
     this.logger = logger;
 
-    // Initialize components
-    this.policyStore = new SloPolicyStore(config.policyStore, logger);
+    // Phase 5 Week 1 Day 3-4: Use PolicyEngine if enabled
+    if (config.usePolicyEngine) {
+      const policyEngineConfig: PolicyEngineConfig = {
+        enabled: config.enabled,
+        evaluationIntervalMs: config.evaluator.evaluationIntervalMs,
+        dryRun: config.executor.enabled === false,
+        evaluator: config.evaluator,
+        executor: config.executor,
+        policyStore: config.policyStore,
+      };
 
-    this.evaluator = new QosEvaluator(config.evaluator, logger);
-    this.executor = new RemediationExecutor(config.executor, logger);
+      this.policyEngine = new PolicyEngine(policyEngineConfig, logger);
 
-    // Register SLOs from policies
-    const slos = this.policyStore.getAllSlos();
-    this.evaluator.registerSlos(slos);
+      // BUG FIX: Get component references FROM PolicyEngine instead of creating new instances
+      // This prevents memory leaks and ensures we use the same instances that PolicyEngine uses
+      this.policyStore = this.policyEngine.getPolicyStore();
+      this.evaluator = this.policyEngine.getEvaluator();
+      this.executor = this.policyEngine.getExecutor();
 
-    // Forward events
-    this.setupEventForwarding();
+      // Forward PolicyEngine events
+      this.setupPolicyEngineEventForwarding();
 
-    this.logger?.info('QoS monitor initialized');
+      this.logger?.info('QoS monitor initialized with PolicyEngine');
+    } else {
+      // Legacy mode: Direct component usage
+      this.policyStore = new SloPolicyStore(config.policyStore, logger);
+      this.evaluator = new QosEvaluator(config.evaluator, logger);
+      this.executor = new RemediationExecutor(config.executor, logger);
+
+      // Register SLOs from policies
+      const slos = this.policyStore.getAllSlos();
+      this.evaluator.registerSlos(slos);
+
+      // Forward events
+      this.setupEventForwarding();
+
+      this.logger?.info('QoS monitor initialized (legacy mode)');
+    }
   }
 
   /**
@@ -91,7 +119,11 @@ export class QosMonitor extends EventEmitter<QosMonitorEvents> {
       return;
     }
 
-    this.evaluator.start();
+    if (this.policyEngine) {
+      this.policyEngine.start();
+    } else {
+      this.evaluator.start();
+    }
 
     this.logger?.info('Started QoS monitor');
   }
@@ -100,7 +132,11 @@ export class QosMonitor extends EventEmitter<QosMonitorEvents> {
    * Stop monitoring
    */
   public stop(): void {
-    this.evaluator.stop();
+    if (this.policyEngine) {
+      this.policyEngine.stop();
+    } else {
+      this.evaluator.stop();
+    }
 
     this.logger?.info('Stopped QoS monitor');
   }
@@ -109,7 +145,11 @@ export class QosMonitor extends EventEmitter<QosMonitorEvents> {
    * Record a metric sample
    */
   public recordMetric(sample: MetricSample): void {
-    this.evaluator.recordMetric(sample);
+    if (this.policyEngine) {
+      this.policyEngine.recordMetric(sample);
+    } else {
+      this.evaluator.recordMetric(sample);
+    }
   }
 
   /**
@@ -134,11 +174,16 @@ export class QosMonitor extends EventEmitter<QosMonitorEvents> {
    * Add a policy
    */
   public addPolicy(policy: QosPolicy): void {
-    this.policyStore.addPolicy(policy);
+    // BUG FIX: Use PolicyEngine's addPolicy if available
+    if (this.policyEngine) {
+      this.policyEngine.addPolicy(policy);
+    } else {
+      this.policyStore.addPolicy(policy);
 
-    // Re-register SLOs
-    const slos = this.policyStore.getAllSlos();
-    this.evaluator.registerSlos(slos);
+      // Re-register SLOs
+      const slos = this.policyStore.getAllSlos();
+      this.evaluator.registerSlos(slos);
+    }
 
     this.logger?.info({ policyId: policy.id }, 'Added QoS policy');
   }
@@ -147,13 +192,22 @@ export class QosMonitor extends EventEmitter<QosMonitorEvents> {
    * Remove a policy
    */
   public removePolicy(policyId: string): boolean {
-    const removed = this.policyStore.removePolicy(policyId);
+    let removed: boolean;
+
+    // BUG FIX: Use PolicyEngine's removePolicy if available
+    if (this.policyEngine) {
+      removed = this.policyEngine.removePolicy(policyId);
+    } else {
+      removed = this.policyStore.removePolicy(policyId);
+
+      if (removed) {
+        // Re-register SLOs
+        const slos = this.policyStore.getAllSlos();
+        this.evaluator.registerSlos(slos);
+      }
+    }
 
     if (removed) {
-      // Re-register SLOs
-      const slos = this.policyStore.getAllSlos();
-      this.evaluator.registerSlos(slos);
-
       this.logger?.info({ policyId }, 'Removed QoS policy');
     }
 
@@ -171,8 +225,13 @@ export class QosMonitor extends EventEmitter<QosMonitorEvents> {
    * Clear all state
    */
   public clear(): void {
-    this.evaluator.clear();
-    this.executor.clear();
+    if (this.policyEngine) {
+      this.policyEngine.clear();
+    } else {
+      this.evaluator.clear();
+      this.executor.clear();
+    }
+
     this.lastEvaluations = [];
     this.lastRemediations = [];
 
@@ -251,6 +310,71 @@ export class QosMonitor extends EventEmitter<QosMonitorEvents> {
         this.emit('rateLimited', actionType);
       } catch (err) {
         this.logger?.error({ err }, 'Error emitting rateLimited event');
+      }
+    });
+  }
+
+  /**
+   * Setup event forwarding from PolicyEngine (Phase 5 Week 1 Day 3-4)
+   */
+  private setupPolicyEngineEventForwarding(): void {
+    if (!this.policyEngine) {
+      return;
+    }
+
+    // Forward policy violation events
+    this.policyEngine.on('policyViolation', (policy, evaluation) => {
+      try {
+        this.emit('violation', evaluation);
+      } catch (err) {
+        this.logger?.error({ err }, 'Error emitting violation event from PolicyEngine');
+      }
+    });
+
+    // Forward policy recovery events
+    this.policyEngine.on('policyRecovery', (policy, evaluation) => {
+      try {
+        this.emit('recovery', evaluation);
+      } catch (err) {
+        this.logger?.error({ err }, 'Error emitting recovery event from PolicyEngine');
+      }
+    });
+
+    // Forward remediation executed events
+    this.policyEngine.on('remediationExecuted', (policy, result) => {
+      this.lastRemediations.push(result);
+
+      try {
+        this.emit('executed', result);
+      } catch (err) {
+        this.logger?.error({ err }, 'Error emitting executed event from PolicyEngine');
+      }
+    });
+
+    // Forward remediation failed events
+    this.policyEngine.on('remediationFailed', (policy, action, error) => {
+      try {
+        this.emit('failed', action, error);
+      } catch (err) {
+        this.logger?.error({ err }, 'Error emitting failed event from PolicyEngine');
+      }
+    });
+
+    // Forward evaluation events
+    this.policyEngine.on('evaluation', (evaluations) => {
+      this.lastEvaluations = evaluations;
+
+      try {
+        this.emit('evaluation', evaluations);
+      } catch (err) {
+        this.logger?.error({ err }, 'Error emitting evaluation event from PolicyEngine');
+      }
+
+      // Emit telemetry snapshot
+      try {
+        this.emit('telemetry', this.getTelemetry());
+      } catch (err) {
+        this.logger?.error({ err }, 'Error emitting telemetry event');
       }
     });
   }

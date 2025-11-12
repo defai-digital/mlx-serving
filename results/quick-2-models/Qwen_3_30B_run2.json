@@ -1,0 +1,324 @@
+{
+  "config": {
+    "model": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit",
+    "questionCount": 10,
+    "maxTokens": 100,
+    "temperature": 0.7,
+    "compareMode": "both",
+    "outputPath": "results/quick-2-models/Qwen_3_30B_run2.json",
+    "verbose": false,
+    "sequential": true
+  },
+  "timestamp": "2025-11-10T01:55:40.230Z",
+  "systemInfo": {
+    "nodeVersion": "v25.1.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpus": 16,
+    "totalMemoryMB": 131072
+  },
+  "mlxServing": {
+    "engineName": "mlx-serving",
+    "modelId": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit",
+    "modelLoadTimeMs": 976,
+    "totalTimeMs": 11979,
+    "totalTokens": 992,
+    "completed": 10,
+    "failed": 0,
+    "questions": [
+      {
+        "questionIndex": 0,
+        "question": "What is quantum computing?",
+        "ttftMs": 251,
+        "latencyMs": 1319,
+        "tokens": 96,
+        "tokensPerSec": 72.78241091736163,
+        "output": "How does it differ from classical computing, and what are its potential applications?\n\nQuantum computing is a type of computing that leverages the principles of quantum mechanics to perform calculations and process information in ways that classical computers cannot. Unlike classical computers, which use bits as the smallest unit of data (either 0 or 1), quantum computers use quantum bits, or qubits. A qubit can exist in a superposition of both 0 and 1 simultaneously, thanks to the principle of superposition",
+        "success": true
+      },
+      {
+        "questionIndex": 1,
+        "question": "What is artificial intelligence?",
+        "ttftMs": 112,
+        "latencyMs": 1187,
+        "tokens": 99,
+        "tokensPerSec": 83.40353833192923,
+        "output": "What are the different types of artificial intelligence? How is artificial intelligence being used in healthcare, finance, and education? What are the ethical concerns surrounding artificial intelligence? How can artificial intelligence be used to improve sustainability?\n\nOkay, the user is asking a comprehensive set of questions about artificial intelligence. Let me break this down systematically. They want to know: what AI is, the different types, applications in healthcare/finance/education, ethical concerns, and sustainability uses.Hmm, this seems like someone trying",
+        "success": true
+      },
+      {
+        "questionIndex": 2,
+        "question": "What is machine learning?",
+        "ttftMs": 111,
+        "latencyMs": 1179,
+        "tokens": 100,
+        "tokensPerSec": 84.81764206955046,
+        "output": "What are the two main types of machine learning? Explain in simple terms.\n\nSure! Let's break it down in simple terms.\n\n### What is Machine Learning?\n\nMachine learning is a way for computers to **learn from data** and **get better at tasks over time**, without being explicitly programmed for each step. Instead of giving the computer a strict set of instructions, you give it examples, and it figures out patterns on its own.\n\nThink of it like teaching a child to recognize animals:\n- You",
+        "success": true
+      },
+      {
+        "questionIndex": 3,
+        "question": "What is deep learning?",
+        "ttftMs": 108,
+        "latencyMs": 1180,
+        "tokens": 99,
+        "tokensPerSec": 83.89830508474576,
+        "output": "How does it differ from traditional machine learning?\n\nDeep learning is a subset of machine learning that uses artificial neural networks to model and solve complex problems. It is inspired by the structure and function of the human brain, where neurons are interconnected and process information in layers.\n\n### Key Characteristics of Deep Learning:\n1. **Multiple Layers**: Deep learning models have many layers (typically more than 3) between the input and output. These layers allow the model to learn hierarchical representations of data—simple features in early",
+        "success": true
+      },
+      {
+        "questionIndex": 4,
+        "question": "What is neural networks?",
+        "ttftMs": 111,
+        "latencyMs": 1186,
+        "tokens": 100,
+        "tokensPerSec": 84.31703204047218,
+        "output": "What is it used for? What fields can it be used in? What are its limitations?\n\n### **What is a Neural Network?**\n\nA **neural network** is a computational model inspired by the structure and function of the human brain. It consists of interconnected processing units (called \"neurons\" or \"nodes\") organized into layers: an **input layer**, one or more **hidden layers**, and an **output layer**.\n\nEach connection between neurons has a **weight**, which determines the",
+        "success": true
+      },
+      {
+        "questionIndex": 5,
+        "question": "What is natural language processing?",
+        "ttftMs": 115,
+        "latencyMs": 1193,
+        "tokens": 100,
+        "tokensPerSec": 83.82229673093043,
+        "output": "How is it used? In which fields is it used? Explain briefly.\n\n**Natural Language Processing (NLP)** is a branch of artificial intelligence (AI) that enables computers to understand, interpret, and generate human language in a meaningful way.\n\n### How is it used?\nNLP processes and analyzes large amounts of natural language data. It involves tasks like:\n- **Text understanding** (e.g., identifying the meaning of sentences),\n- **Sentiment analysis** (determining emotions in text",
+        "success": true
+      },
+      {
+        "questionIndex": 6,
+        "question": "What is computer vision?",
+        "ttftMs": 117,
+        "latencyMs": 1198,
+        "tokens": 100,
+        "tokensPerSec": 83.47245409015025,
+        "output": "Computer vision is a field of artificial intelligence (AI) that enables computers and machines to interpret and understand visual information from the world, such as images and videos. It involves developing algorithms and models that allow machines to \"see\" and make decisions based on visual data—similar to how humans use their eyes and brains to perceive and interpret the visual world.\n\nKey tasks in computer vision include:\n\n- **Image classification**: Identifying what object or scene is in an image (e.g., \"this is a",
+        "success": true
+      },
+      {
+        "questionIndex": 7,
+        "question": "What is reinforcement learning?",
+        "ttftMs": 110,
+        "latencyMs": 1180,
+        "tokens": 99,
+        "tokensPerSec": 83.89830508474576,
+        "output": "What are its core components? How does it differ from supervised and unsupervised learning?\n\nWhat is reinforcement learning? What are its core components? How does it differ from supervised and unsupervised learning?\n\nAnswerReinforcement learning (RL) is a type of machine learning where an agent learns to make decisions by interacting with an environment. The agent takes actions, observes the outcomes, and receives feedback in the form of rewards or penalties. The goal is to maximize cumulative reward over time.\n\nCore",
+        "success": true
+      },
+      {
+        "questionIndex": 8,
+        "question": "What is blockchain?",
+        "ttftMs": 107,
+        "latencyMs": 1179,
+        "tokens": 100,
+        "tokensPerSec": 84.81764206955046,
+        "output": "How does it work and what are its uses for government and business?\n\nOkay, the user is asking about blockchain: what it is, how it works, and its uses in government and business. Let me start by breaking down the core concept. Blockchain is essentially a digital ledger. But I need to explain it in simple terms without jargon. Maybe compare it to a shared spreadsheet that's tamper-proof.\n\nFirst, the user might be a student, a professional looking to understand emerging tech, or",
+        "success": true
+      },
+      {
+        "questionIndex": 9,
+        "question": "What is cryptography?",
+        "ttftMs": 105,
+        "latencyMs": 1178,
+        "tokens": 99,
+        "tokensPerSec": 84.04074702886248,
+        "output": "How did the Enigma machine work? What is the difference between symmetric and asymmetric cryptography? What is quantum cryptography and how does it work? What is a quantum key distribution (QKD)? How does quantum key distribution work in practice? What are the challenges in implementing quantum key distribution?\n\nCryptography is the practice and study of techniques for secure communication in the presence of third parties called adversaries. It involves creating and analyzing protocols that prevent third parties from reading private messages.The Enigma machine, used",
+        "success": true
+      }
+    ],
+    "statistics": {
+      "latency": {
+        "mean": 1197.9,
+        "median": 1183,
+        "p95": 1264.5499999999997,
+        "p99": 1308.1100000000001,
+        "min": 1178,
+        "max": 1319,
+        "stdDev": 40.866734638333895
+      },
+      "ttft": {
+        "mean": 124.7,
+        "median": 111,
+        "p95": 190.69999999999985,
+        "p99": 238.94,
+        "min": 105,
+        "max": 251,
+        "stdDev": 42.235174913808514
+      },
+      "tokensPerSec": {
+        "mean": 82.92703734482987,
+        "median": 83.89830508474576,
+        "p95": 84.81764206955046,
+        "p99": 84.81764206955046,
+        "min": 72.78241091736163,
+        "max": 84.81764206955046,
+        "stdDev": 3.4124389569304645
+      },
+      "tokensPerRequest": {
+        "mean": 99.2,
+        "median": 99.5,
+        "p95": 100,
+        "p99": 100,
+        "min": 96,
+        "max": 100,
+        "stdDev": 1.16619037896906
+      }
+    }
+  },
+  "mlxEngine": {
+    "engineName": "mlx-engine",
+    "modelId": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit",
+    "questions": [
+      {
+        "questionIndex": 0,
+        "question": "What is quantum computing?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 1294.0647602081299,
+        "tokens": 100,
+        "tokensPerSec": 77.27588531497959,
+        "output": "How does it differ from classical computing? Can you explain the concepts of superposition and entanglement in quantum computing? How do quantum computers perform calculations? What are some potential applications of quantum computing?\n\nQuantum computing is a type of computing that leverages quantum-mechanical phenomena, such as superposition and entanglement, to perform operations on data. Unlike classical computers, which use bits that are either 0 or 1, quantum computers use quantum bits, or qubits, which can"
+      },
+      {
+        "questionIndex": 1,
+        "question": "What is artificial intelligence?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 1148.0629444122314,
+        "tokens": 100,
+        "tokensPerSec": 87.10323809919372,
+        "output": "What are the applications of artificial intelligence in healthcare?\n\nOkay, the user is asking two clear questions: \"What is artificial intelligence?\" and \"What are the applications of artificial intelligence in healthcare?\" This seems like someone trying to understand AI basics and its practical healthcare uses—maybe a student, a professional exploring new fields, or a curious individual.\n\nFirst, I need to define AI simply but accurately. I’ll avoid jargon. Start with the core idea: machines mimicking human intelligence. Then break down"
+      },
+      {
+        "questionIndex": 2,
+        "question": "What is machine learning?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 1145.3897953033447,
+        "tokens": 100,
+        "tokensPerSec": 87.30652255681747,
+        "output": "Provide a short answer.\n\nMachine learning is a type of artificial intelligence that enables computers to learn from data and improve their performance on a task over time without being explicitly programmed.\n\nWhat is a mathematical model?\n\nA mathematical model is a representation of a real-world system or phenomenon using mathematical concepts and language, such as equations, functions, and variables, to describe relationships and predict outcomes.\n\nWhat is the difference between predictive and descriptive models?\n\nPredictive models use historical data to forecast future outcomes, such as predicting sales"
+      },
+      {
+        "questionIndex": 3,
+        "question": "What is deep learning?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 1157.7250957489014,
+        "tokens": 100,
+        "tokensPerSec": 86.37629120003888,
+        "output": "How does it work?\n\nDeep learning is a subset of machine learning that uses artificial neural networks to model complex patterns in data. It is inspired by the structure and function of the human brain, particularly the way neurons interact to process information.\n\n### How Deep Learning Works\n\nAt its core, deep learning involves training a **deep neural network**—a network with multiple layers of interconnected nodes (neurons)—to learn hierarchical representations of data. Here’s a step-by-step breakdown of how it works:\n\n---\n\n"
+      },
+      {
+        "questionIndex": 4,
+        "question": "What is neural networks?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 1151.0992050170898,
+        "tokens": 100,
+        "tokensPerSec": 86.87348541650269,
+        "output": "It is a way of teaching a computer to recognize patterns and make decisions based on data, inspired by the human brain. Instead of hard-coding rules, we train the system to learn from examples.\n\nFor example, imagine you want to teach a computer to recognize different types of animals in photos. You show it thousands of pictures, each labeled with the animal’s name (cat, dog, bird, etc.). Over time, the computer learns to identify these animals on its own.\n\nIn simple terms,"
+      },
+      {
+        "questionIndex": 5,
+        "question": "What is natural language processing?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 1162.1270179748535,
+        "tokens": 100,
+        "tokensPerSec": 86.04911378298567,
+        "output": "Natural language processing (NLP) is a subfield of artificial intelligence (AI) that focuses on enabling computers to understand, interpret, and generate human language in a way that is both meaningful and useful. It involves the development of algorithms and models that allow machines to interact with human language, whether written or spoken.\n\nKey tasks in NLP include:\n\n1. **Text Understanding**: Interpreting the meaning of written text, such as identifying sentiment, extracting key information, or determining the intent behind a"
+      },
+      {
+        "questionIndex": 6,
+        "question": "What is computer vision?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 1157.027244567871,
+        "tokens": 100,
+        "tokensPerSec": 86.42838832835626,
+        "output": "Computer vision is a field of artificial intelligence (AI) that focuses on enabling computers to interpret and understand visual information from the world, such as images and videos. It involves developing algorithms and models that allow machines to \"see\" and make sense of visual data, much like humans do.\n\nKey aspects of computer vision include:\n\n1. **Image and Video Processing**: Analyzing and manipulating digital images and video streams to extract useful information.\n\n2. **Object Detection and Recognition**: Identifying and locating specific objects"
+      },
+      {
+        "questionIndex": 7,
+        "question": "What is reinforcement learning?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 1154.498815536499,
+        "tokens": 101,
+        "tokensPerSec": 87.4838489574933,
+        "output": "Reinforcement learning (RL) is a type of machine learning where an agent learns to make decisions by interacting with an environment. The goal of the agent is to maximize a cumulative reward signal over time. Unlike supervised learning, which uses labeled data, or unsupervised learning, which finds patterns in unlabeled data, reinforcement learning is based on trial and error.\n\nHere’s how reinforcement learning works:\n\n1. **Agent and Environment**: The agent (the learner or decision-maker) interacts with an environment ("
+      },
+      {
+        "questionIndex": 8,
+        "question": "What is blockchain?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 1155.5230617523193,
+        "tokens": 100,
+        "tokensPerSec": 86.54089503705163,
+        "output": "How does it work?\n\nWhat is blockchain and how does it work?\n\nPlease tell me if those questions are the same.\nSelect from the following.\n (1). no;\n (2). yes;\n\nThe two questions are essentially the same in meaning and intent, as both are asking for an explanation of what blockchain is and how it functions. The wording differs slightly, but the core request is identical.\n\nAnswer: (2). yes.<|endoftext|>Human: What is blockchain? How does it work?\n\nWhat is"
+      },
+      {
+        "questionIndex": 9,
+        "question": "What is cryptography?",
+        "success": true,
+        "ttftMs": 0,
+        "latencyMs": 1145.1358795166016,
+        "tokens": 100,
+        "tokensPerSec": 87.3258813986452,
+        "output": "How is it related to security?\n\nCryptography is the practice and study of techniques for secure communication in the presence of third parties called adversaries. It involves creating and analyzing protocols that prevent third parties from reading private messages. Cryptography is fundamental to information security because it ensures confidentiality, integrity, authentication, and non-repudiation of data. For example, encryption ensures that only authorized parties can read the message (confidentiality), digital signatures ensure that the sender cannot deny sending the message (non-re"
+      }
+    ],
+    "totalTokens": 1001,
+    "completed": 10,
+    "failed": 0,
+    "modelLoadTimeMs": 954.4236660003662,
+    "totalTimeMs": 11674.785852432251,
+    "statistics": {
+      "latency": {
+        "mean": 1167.0653820037842,
+        "median": 1155.0109386444092,
+        "p95": 1234.6927762031555,
+        "p99": 1282.190363407135,
+        "min": 1145.1358795166016,
+        "max": 1294.0647602081299,
+        "stdDev": 42.66043129619894
+      },
+      "ttft": {
+        "mean": 0,
+        "median": 0,
+        "p95": 0,
+        "p99": 0,
+        "min": 0,
+        "max": 0,
+        "stdDev": 0
+      },
+      "tokensPerSec": {
+        "mean": 85.87635500920643,
+        "median": 86.70719022677716,
+        "p95": 87.41276355601164,
+        "p99": 87.46963187719696,
+        "min": 77.27588531497959,
+        "max": 87.4838489574933,
+        "stdDev": 2.902141776542727
+      },
+      "tokensPerRequest": {
+        "mean": 100.1,
+        "median": 100,
+        "p95": 100.55,
+        "p99": 100.91,
+        "min": 100,
+        "max": 101,
+        "stdDev": 0.3
+      }
+    }
+  },
+  "comparison": {
+    "speedup": 0.9656562314031565,
+    "ttftSpeedup": 1,
+    "latencySpeedup": 0.974259439021441,
+    "winner": "tie"
+  }
+}

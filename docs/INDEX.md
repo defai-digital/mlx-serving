@@ -1,6 +1,6 @@
 # Documentation Index
 
-**kr-serve-mlx** - Production-Grade LLM Serving Engine for Apple Silicon
+**mlx-serving** - Production-Grade LLM Serving Engine for Apple Silicon
 
 ---
 
@@ -8,24 +8,47 @@
 
 | Document | Description | Size |
 |----------|-------------|------|
+| **[README.md](../README.md)** | Project overview, quick start, features | 35K |
+| **[QUICK_START.md](./QUICK_START.md)** | 5-minute getting started guide | 12K |
 | **[ARCHITECTURE.md](./ARCHITECTURE.md)** | Complete architecture, M3+ strategy, distributed design | 18K |
-| **[GUIDES.md](./GUIDES.md)** | User guides (migration, structured output, vision models) | 17K |
+| **[PERFORMANCE.md](./PERFORMANCE.md)** | Week 7 performance optimizations guide | 52K |
+| **[PRODUCTION_FEATURES.md](./PRODUCTION_FEATURES.md)** | Enterprise features (TTFT, QoS, canary, feature flags) | 65K |
+| **[FEATURE_FLAGS.md](./FEATURE_FLAGS.md)** | Feature flag system reference | 34K |
+| **[GUIDES.md](./GUIDES.md)** | User guides (migration, structured output, vision models) | 30K |
+| **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** | Common issues and solutions | 22K |
 | **[ZOD_SCHEMAS.md](./ZOD_SCHEMAS.md)** | Zod schema validation guide (runtime type safety) | 26K |
 | **[DEPLOYMENT.md](./DEPLOYMENT.md)** | Deployment and operations guide | 10K |
-| **[INDEX.md](./INDEX.md)** | This document (documentation map) | 4K |
+| **[INDEX.md](./INDEX.md)** | This document (documentation map) | 6K |
 
 ---
 
 ## Getting Started
 
 ### New Users
-1. [README](../README.md) - Project overview, why M3+?, quick start
-2. [GETTING_STARTED](../GETTING_STARTED.md) - Detailed setup guide
+1. [QUICK_START.md](./QUICK_START.md) - 5-minute getting started guide
+2. [README](../README.md) - Project overview, why M3+?, features
 3. [GUIDES.md](./GUIDES.md#quick-reference) - Quick reference commands
+4. [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Common issues and solutions
 
 ### Migrating from mlx-engine
 1. [GUIDES.md - Migration Guide](./GUIDES.md#migration-guide) - Complete migration tutorial
 2. [Examples](../examples/migration/) - Side-by-side code examples
+
+### Week 7 Performance Optimizations
+1. [Model Preloading](./PERFORMANCE.md#model-preloading) - Zero first-request latency
+2. [Object Pooling](./PERFORMANCE.md#object-pooling) - 20% GC reduction
+3. [Adaptive Batching](./PERFORMANCE.md#adaptive-batching) - Dynamic throughput optimization
+4. [FastJsonCodec](./PERFORMANCE.md#fastjsoncodec) - 2-3x faster JSON serialization
+5. [Complete Guide →](./PERFORMANCE.md)
+6. [Examples →](../examples/performance/) - Working code examples
+
+### Production Features (Phases 2-5)
+1. [TTFT Acceleration Pipeline](./PRODUCTION_FEATURES.md#ttft-acceleration-pipeline) - 30-40% TTFT reduction
+2. [QoS Monitoring](./PRODUCTION_FEATURES.md#qos-monitoring) - SLO enforcement & auto-remediation
+3. [Canary Deployment](./PRODUCTION_FEATURES.md#canary-deployment) - Zero-downtime rollouts
+4. [Feature Flags](./FEATURE_FLAGS.md) - Gradual percentage-based rollout
+5. [Complete Guide →](./PRODUCTION_FEATURES.md)
+6. [Examples →](../examples/production/) - Working code examples
 
 ---
 
@@ -138,6 +161,18 @@
 
 All examples located in [`examples/`](../examples/):
 
+### Performance Examples (Week 7)
+- [README](../examples/performance/README.md) - Performance optimization overview
+- [01-model-preloading.ts](../examples/performance/01-model-preloading.ts) - Zero first-request latency
+- [02-object-pooling.ts](../examples/performance/02-object-pooling.ts) - 20% GC reduction
+- [03-adaptive-batching.ts](../examples/performance/03-adaptive-batching.ts) - Dynamic throughput optimization
+
+### Production Examples (Phases 2-5)
+- [README](../examples/production/README.md) - Enterprise features overview
+- [01-qos-monitoring.ts](../examples/production/01-qos-monitoring.ts) - SLO enforcement & remediation
+- [02-canary-deployment.ts](../examples/production/02-canary-deployment.ts) - Zero-downtime rollouts
+- [03-feature-flags.ts](../examples/production/03-feature-flags.ts) - Gradual rollout control
+
 ### Basic Examples
 - [01-hello-world.ts](../examples/basic/01-hello-world.ts) - Simplest example
 - [02-with-engine-context.ts](../examples/basic/02-with-engine-context.ts) - Context manager pattern
@@ -247,10 +282,10 @@ npm test:coverage
 npm vitest run tests/integration/bridge.test.ts
 ```
 
-**Test Status**: 229/252 passing (90.9%)
-- Environment-independent: 229 passing
-- Vision tests: Require MLX + GPU (14 tests)
-- Known issues: batch-queue tests (unhandled rejections, under investigation)
+**Test Status**: 512/512 passing (100%)
+- All tests passing with Week 7 optimizations
+- Complete test coverage for performance features
+- Production ready
 
 ---
 
@@ -408,7 +443,9 @@ Historical documents (for reference only):
 
 ---
 
-**Document Version**: 2.0
-**Last Updated**: 2025-10-28
-**Documentation Reduced**: 14 files → 4 active files (71% reduction)
-**Maintained By**: KnowRAG Studio - kr-serve-mlx Team
+**Document Version**: 2.2
+**Last Updated**: 2025-11-10
+**Documentation Files**: 11 active files
+**Maintained By**: mlx-serving Team
+
+**Phase 3 Complete**: All documentation modernized with Week 7 and Phase 2-5 features

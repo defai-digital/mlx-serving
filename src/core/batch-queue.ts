@@ -21,6 +21,7 @@
  * - Enhanced statistics (throughput, latency percentiles, efficiency metrics)
  */
 
+import { safeAverage } from '@/utils/math-helpers.js';
 import type { Logger } from 'pino';
 import type { JsonRpcTransport } from '../bridge/jsonrpc-transport.js';
 import type {
@@ -144,6 +145,14 @@ export class BatchQueue {
   // Week 2 Day 3: Keep only recent samples (rolling window)
   private readonly MAX_SAMPLES = 100;
 
+  // Week 7 Phase 7.1.3: Adaptive batch sizing state
+  private currentMaxBatchSize: number;
+  private readonly initialMaxBatchSize: number;
+  private readonly MIN_BATCH_SIZE = 1;
+  private readonly MAX_BATCH_SIZE_LIMIT = 100;
+  private lastAdaptiveAdjustment = 0;
+  private readonly ADAPTIVE_ADJUSTMENT_INTERVAL_MS = 1000; // Adjust at most once per second
+
   constructor(transport: JsonRpcTransport, config?: Partial<BatchQueueConfig>) {
     this.transport = transport;
 
@@ -162,6 +171,10 @@ export class BatchQueue {
     };
 
     this.logger = this.config.logger;
+
+    // Week 7 Phase 7.1.3: Initialize adaptive batch sizing
+    this.initialMaxBatchSize = this.config.maxBatchSize;
+    this.currentMaxBatchSize = this.config.maxBatchSize;
 
     this.logger?.info(
       {
@@ -254,7 +267,8 @@ export class BatchQueue {
    */
   private scheduleTokenizeFlush(): void {
     // Immediate flush if max batch size reached
-    if (this.tokenizeQueue.length >= this.config.maxBatchSize) {
+    // Week 7 Phase 7.1.3: Use dynamic currentMaxBatchSize instead of static config
+    if (this.tokenizeQueue.length >= this.currentMaxBatchSize) {
       // Bug #82 FIX: Use queueMicrotask to avoid blocking and ensure async execution
       // This maintains the flush-in-progress lock protection from Bug #74
       queueMicrotask(() => {
@@ -278,7 +292,8 @@ export class BatchQueue {
    */
   private scheduleCheckDraftFlush(): void {
     // Immediate flush if max batch size reached
-    if (this.checkDraftQueue.length >= this.config.maxBatchSize) {
+    // Week 7 Phase 7.1.3: Use dynamic currentMaxBatchSize instead of static config
+    if (this.checkDraftQueue.length >= this.currentMaxBatchSize) {
       // Bug #82 FIX: Use queueMicrotask to avoid blocking and ensure async execution
       // This maintains the flush-in-progress lock protection from Bug #74
       queueMicrotask(() => {
@@ -521,11 +536,86 @@ export class BatchQueue {
         method,
         batchTime,
         batchSize,
-        avgQueueLatency: queueLatencies.reduce((a, b) => a + b, 0) / queueLatencies.length,
+        avgQueueLatency: safeAverage(queueLatencies),
         samplesRecorded: metrics.batchTimes.length,
       },
       'Batch metrics recorded'
     );
+
+    // Week 7 Phase 7.1.3: Trigger adaptive batch sizing adjustment
+    this.adjustBatchSize(method);
+  }
+
+  /**
+   * Adaptive batch size adjustment (Week 7 Phase 7.1.3)
+   *
+   * Dynamically adjusts maxBatchSize based on recent performance metrics:
+   * - If batch processing time > target: decrease batch size (batches too large)
+   * - If batch processing time < target: increase batch size (underutilized)
+   *
+   * Uses exponential moving average for smooth adjustments.
+   *
+   * @param method - Method type ('tokenize' or 'checkDraft')
+   */
+  private adjustBatchSize(method: 'tokenize' | 'checkDraft'): void {
+    if (!this.config.adaptiveSizing) {
+      return; // Adaptive sizing disabled
+    }
+
+    const now = Date.now();
+    if (now - this.lastAdaptiveAdjustment < this.ADAPTIVE_ADJUSTMENT_INTERVAL_MS) {
+      return; // Throttle adjustments (avoid thrashing)
+    }
+
+    const metrics = this.performanceMetrics[method];
+    if (metrics.batchTimes.length < 10) {
+      return; // Need sufficient samples before adjusting
+    }
+
+    // Calculate average batch processing time (recent samples)
+    const recentBatchTimes = metrics.batchTimes.slice(-10); // Last 10 batches
+    const avgBatchTime = safeAverage(recentBatchTimes);
+
+    const targetTime = this.config.targetBatchTimeMs ?? 10;
+    const currentSize = this.currentMaxBatchSize;
+
+    // Calculate adjustment factor based on how far we are from target
+    const ratio = avgBatchTime / targetTime;
+
+    let newSize = currentSize;
+
+    if (ratio > 1.5) {
+      // Batch time significantly above target: decrease batch size aggressively
+      newSize = Math.max(this.MIN_BATCH_SIZE, Math.floor(currentSize * 0.7));
+    } else if (ratio > 1.2) {
+      // Batch time moderately above target: decrease batch size gradually
+      newSize = Math.max(this.MIN_BATCH_SIZE, Math.floor(currentSize * 0.85));
+    } else if (ratio < 0.5) {
+      // Batch time significantly below target: increase batch size aggressively
+      newSize = Math.min(this.MAX_BATCH_SIZE_LIMIT, Math.ceil(currentSize * 1.5));
+    } else if (ratio < 0.8) {
+      // Batch time moderately below target: increase batch size gradually
+      newSize = Math.min(this.MAX_BATCH_SIZE_LIMIT, Math.ceil(currentSize * 1.15));
+    }
+    // else: ratio between 0.8 and 1.2 is good, no adjustment needed
+
+    if (newSize !== currentSize) {
+      this.currentMaxBatchSize = newSize;
+      this.lastAdaptiveAdjustment = now;
+
+      this.logger?.info(
+        {
+          method,
+          oldSize: currentSize,
+          newSize,
+          avgBatchTime: avgBatchTime.toFixed(2),
+          targetTime,
+          ratio: ratio.toFixed(2),
+          samplesUsed: recentBatchTimes.length,
+        },
+        `Adaptive batch sizing: ${currentSize} → ${newSize} (${ratio > 1 ? 'reducing load' : 'increasing utilization'})`
+      );
+    }
   }
 
   /**
@@ -564,7 +654,7 @@ export class BatchQueue {
   }
 
   /**
-   * Get batching statistics (Week 2 Day 3: Enhanced)
+   * Get batching statistics (Week 2 Day 3: Enhanced, Week 7: Adaptive sizing)
    */
   public getStats(): {
     tokenizeBatches: number;
@@ -577,6 +667,10 @@ export class BatchQueue {
     checkDraftEfficiency: number;
     tokenizeFallbacks: number;
     checkDraftFallbacks: number;
+    // Week 7: Adaptive sizing stats
+    currentMaxBatchSize: number;
+    initialMaxBatchSize: number;
+    adaptiveSizingEnabled: boolean;
     tokenizePerformance: {
       avgBatchTime: number;
       p50BatchTime: number;
@@ -613,6 +707,11 @@ export class BatchQueue {
         this.stats.checkDraftBatches > 0
           ? this.stats.checkDraftRequests / this.stats.checkDraftBatches
           : 0,
+
+      // Week 7 Phase 7.1.3: Adaptive sizing stats
+      currentMaxBatchSize: this.currentMaxBatchSize,
+      initialMaxBatchSize: this.initialMaxBatchSize,
+      adaptiveSizingEnabled: this.config.adaptiveSizing ?? false,
 
       // Week 2 Day 3: Enhanced performance metrics
       tokenizePerformance: {

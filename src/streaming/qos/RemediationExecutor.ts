@@ -60,6 +60,7 @@ export class RemediationExecutor extends EventEmitter<RemediationExecutorEvents>
   private states = new Map<string, RemediationState>();
   private history: ExecutionHistory[] = [];
   private circuitBreakers = new Map<string, boolean>(); // actionType -> isOpen
+  private cooldownTimeouts = new Map<string, NodeJS.Timeout>(); // actionKey -> timeout handle
 
   constructor(config: RemediationExecutorConfig, logger?: Logger) {
     super();
@@ -173,13 +174,24 @@ export class RemediationExecutor extends EventEmitter<RemediationExecutorEvents>
 
     this.states.set(actionKey, newState);
 
+    // Clear any existing cooldown timeout for this action
+    const existingTimeout = this.cooldownTimeouts.get(actionKey);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
     // Reset cooldown after period
-    setTimeout(() => {
+    const timeoutHandle = setTimeout(() => {
       const currentState = this.states.get(actionKey);
       if (currentState) {
         currentState.inCooldown = false;
       }
+      // Remove timeout handle from map once it fires
+      this.cooldownTimeouts.delete(actionKey);
     }, this.config.cooldownMs);
+
+    // Store timeout handle for cleanup
+    this.cooldownTimeouts.set(actionKey, timeoutHandle);
 
     // Add to history
     this.history.push({
@@ -348,16 +360,23 @@ export class RemediationExecutor extends EventEmitter<RemediationExecutorEvents>
    * Detect remediation loop (oscillation)
    */
   private detectLoop(actionKey: string): boolean {
-    const recentActions = this.history
-      .slice(-this.config.loopDetectionWindow)
-      .map((entry) => this.getActionKey(entry.action));
+    const windowSize = Math.max(1, this.config.loopDetectionWindow);
+    const historyCount = Math.max(0, windowSize - 1);
+    const recentActions =
+      historyCount > 0
+        ? this.history
+            .slice(-historyCount)
+            .map((entry) => this.getActionKey(entry.action))
+        : [];
 
-    if (recentActions.length < this.config.loopDetectionWindow) {
+    const actionWindow = [...recentActions, actionKey];
+
+    if (actionWindow.length < windowSize) {
       return false;
     }
 
     // Check for alternating pattern (A-B-A-B...)
-    const actionTypes = [...new Set(recentActions)];
+    const actionTypes = [...new Set(actionWindow)];
 
     if (actionTypes.length === 2) {
       // Check if actions are opposite (scale_up/scale_down)
@@ -368,8 +387,8 @@ export class RemediationExecutor extends EventEmitter<RemediationExecutorEvents>
       if (isOpposite) {
         // Check if pattern is alternating
         let isAlternating = true;
-        for (let i = 0; i < recentActions.length - 1; i++) {
-          if (recentActions[i] === recentActions[i + 1]) {
+        for (let i = 0; i < actionWindow.length - 1; i++) {
+          if (actionWindow[i] === actionWindow[i + 1]) {
             isAlternating = false;
             break;
           }
@@ -424,6 +443,13 @@ export class RemediationExecutor extends EventEmitter<RemediationExecutorEvents>
     this.history = [];
     this.states.clear();
     this.circuitBreakers.clear();
+
+    // Clear all pending cooldown timeouts to prevent memory leaks
+    for (const timeoutHandle of this.cooldownTimeouts.values()) {
+      clearTimeout(timeoutHandle);
+    }
+    this.cooldownTimeouts.clear();
+
     this.logger?.info('Cleared remediation executor state');
   }
 }

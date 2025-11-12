@@ -17,6 +17,8 @@ import type {
   PromptPayload,
   TtftPipelineResult,
   TtftStageMetrics,
+  QueueStats,
+  SpeculationStats,
 } from './types.js';
 
 /**
@@ -246,6 +248,11 @@ export class TtftPipeline extends EventEmitter<TtftPipelineEvents> {
     candidateTokens: string[] | null
   ): void {
     const firstTokenAt = Date.now();
+
+    // Save reference to current stage timings to prevent deleting a new stream's data
+    // if streamId is reused between recordStageEnd and cleanup
+    const currentStages = this.stageTimings.get(streamId);
+
     this.recordStageEnd(streamId, 'firstToken', firstTokenAt);
 
     try {
@@ -305,8 +312,11 @@ export class TtftPipeline extends EventEmitter<TtftPipelineEvents> {
       );
     }
 
-    // Clean up stage timings
-    this.stageTimings.delete(streamId);
+    // Clean up stage timings - only if it's still the same reference
+    // This prevents deleting timing data from a new stream if streamId was reused
+    if (currentStages && this.stageTimings.get(streamId) === currentStages) {
+      this.stageTimings.delete(streamId);
+    }
   }
 
   /**
@@ -337,7 +347,11 @@ export class TtftPipeline extends EventEmitter<TtftPipelineEvents> {
   /**
    * Get pipeline statistics
    */
-  public getStats() {
+  public getStats(): {
+    warmQueue: QueueStats;
+    speculation: SpeculationStats;
+    activeStreams: number;
+  } {
     return {
       warmQueue: this.warmQueue.getStats(),
       speculation: this.speculativeProvider.getStats(),

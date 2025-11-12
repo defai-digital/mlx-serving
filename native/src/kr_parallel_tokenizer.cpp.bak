@@ -1,0 +1,427 @@
+#include "../include/kr_parallel_tokenizer.h"
+
+#include <chrono>
+#include <algorithm>
+#include <cstring>
+
+// OpenMP support (optional - graceful fallback if unavailable)
+#ifdef _OPENMP
+#include <omp.h>
+#define HAS_OPENMP 1
+#else
+#define HAS_OPENMP 0
+#endif
+
+// Apple Accelerate framework (SIMD string operations)
+#ifdef __APPLE__
+#include <Accelerate/Accelerate.h>
+#define HAS_ACCELERATE 1
+#else
+#define HAS_ACCELERATE 0
+#endif
+
+namespace krserve {
+
+namespace {
+
+/**
+ * Get current time in microseconds
+ */
+inline uint64_t getCurrentTimeMicros() {
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::high_resolution_clock::now().time_since_epoch()
+    ).count();
+}
+
+/**
+ * Check if position is a valid UTF-8 character boundary
+ */
+inline bool isUtf8Boundary(const char* text, size_t pos) {
+    if (pos == 0) return true;
+    unsigned char c = static_cast<unsigned char>(text[pos]);
+    // UTF-8 continuation bytes start with 10xxxxxx
+    return (c & 0xC0) != 0x80;
+}
+
+/**
+ * Find the nearest UTF-8 boundary at or before pos
+ */
+inline size_t findUtf8Boundary(const char* text, size_t pos, size_t max_len) {
+    if (pos >= max_len) return max_len;
+
+    // Search backwards up to 4 bytes (max UTF-8 char length)
+    for (size_t i = 0; i < 4 && pos > 0; ++i, --pos) {
+        if (isUtf8Boundary(text, pos)) {
+            return pos;
+        }
+    }
+    return pos; // Fallback
+}
+
+} // anonymous namespace
+
+// Static methods
+bool ParallelTokenizer::isOpenMPAvailable() {
+    return HAS_OPENMP;
+}
+
+bool ParallelTokenizer::isAccelerateAvailable() {
+    return HAS_ACCELERATE;
+}
+
+uint32_t ParallelTokenizer::getOptimalThreadCount() {
+    uint32_t hw_threads = std::thread::hardware_concurrency();
+    if (hw_threads == 0) hw_threads = 8; // Fallback
+
+    // Use 75% of available threads to leave headroom for system
+    uint32_t optimal = static_cast<uint32_t>(hw_threads * 0.75);
+    return std::max(1u, std::min(optimal, 16u)); // Clamp to [1, 16]
+}
+
+// Constructor
+ParallelTokenizer::ParallelTokenizer(const ParallelTokenizerConfig& config)
+    : config_(config) {
+
+    // Validate configuration
+    if (config_.num_threads == 0) {
+        config_.num_threads = getOptimalThreadCount();
+    }
+    if (config_.thread_pool_size == 0) {
+        config_.thread_pool_size = 4;
+    }
+    if (config_.min_chunk_size == 0) {
+        config_.min_chunk_size = 1024;
+    }
+
+    // Disable Accelerate if not available
+    if (config_.use_accelerate && !isAccelerateAvailable()) {
+        config_.use_accelerate = false;
+    }
+
+    // Start thread pool
+    for (uint32_t i = 0; i < config_.thread_pool_size; ++i) {
+        thread_pool_.emplace_back(&ParallelTokenizer::workerThread, this);
+    }
+
+#if HAS_OPENMP
+    // Set OpenMP thread count
+    omp_set_num_threads(config_.num_threads);
+    stats_.active_threads.store(config_.num_threads);
+#else
+    stats_.active_threads.store(1);
+#endif
+}
+
+// Destructor
+ParallelTokenizer::~ParallelTokenizer() {
+    // Shutdown thread pool
+    {
+        std::unique_lock<std::mutex> lock(queue_mutex_);
+        shutdown_.store(true);
+    }
+    queue_cv_.notify_all();
+
+    for (auto& thread : thread_pool_) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+}
+
+// Thread pool worker
+void ParallelTokenizer::workerThread() {
+    while (true) {
+        TokenizerTask task;
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex_);
+            queue_cv_.wait(lock, [this] {
+                return shutdown_.load() || !task_queue_.empty();
+            });
+
+            if (shutdown_.load() && task_queue_.empty()) {
+                return;
+            }
+
+            if (!task_queue_.empty()) {
+                task = std::move(task_queue_.front());
+                task_queue_.pop();
+            } else {
+                continue;
+            }
+        }
+
+        // Execute task
+        try {
+            task.task();
+            task.promise.set_value();
+        } catch (...) {
+            task.promise.set_exception(std::current_exception());
+        }
+    }
+}
+
+// Submit task to thread pool
+std::future<void> ParallelTokenizer::submitTask(std::function<void()> task) {
+    auto task_wrapper = TokenizerTask{
+        .task = std::move(task),
+        .promise = std::promise<void>{}
+    };
+    auto future = task_wrapper.promise.get_future();
+
+    {
+        std::unique_lock<std::mutex> lock(queue_mutex_);
+        task_queue_.push(std::move(task_wrapper));
+    }
+    queue_cv_.notify_one();
+
+    return future;
+}
+
+// Split text into chunks
+std::vector<std::string> ParallelTokenizer::splitIntoChunks(
+    const std::string& text,
+    size_t num_chunks
+) const {
+    std::vector<std::string> chunks;
+    if (text.empty() || num_chunks == 0) {
+        return chunks;
+    }
+
+    if (num_chunks == 1 || text.size() < config_.min_chunk_size * num_chunks) {
+        chunks.push_back(text);
+        return chunks;
+    }
+
+    const char* data = text.data();
+    size_t len = text.size();
+    size_t chunk_size = len / num_chunks;
+
+    chunks.reserve(num_chunks);
+    size_t start = 0;
+
+    for (size_t i = 0; i < num_chunks - 1; ++i) {
+        size_t end = start + chunk_size;
+        // Find UTF-8 boundary
+        end = findUtf8Boundary(data, end, len);
+
+        chunks.emplace_back(data + start, end - start);
+        start = end;
+    }
+
+    // Last chunk gets remaining text
+    if (start < len) {
+        chunks.emplace_back(data + start, len - start);
+    }
+
+    return chunks;
+}
+
+// Merge tokens from chunks
+std::vector<uint32_t> ParallelTokenizer::mergeTokens(
+    const std::vector<std::vector<uint32_t>>& chunks
+) const {
+    size_t total_size = 0;
+    for (const auto& chunk : chunks) {
+        total_size += chunk.size();
+    }
+
+    std::vector<uint32_t> result;
+    result.reserve(total_size);
+
+    for (const auto& chunk : chunks) {
+        result.insert(result.end(), chunk.begin(), chunk.end());
+    }
+
+    return result;
+}
+
+// Apple Accelerate string operation
+void ParallelTokenizer::accelerateStringOp(const char* src, char* dst, size_t len) const {
+#if HAS_ACCELERATE
+    if (config_.use_accelerate) {
+        // Use Accelerate's optimized memory copy (SIMD)
+        cblas_dcopy(static_cast<int>(len), reinterpret_cast<const double*>(src), 1,
+                    reinterpret_cast<double*>(dst), 1);
+
+        if (config_.enable_stats) {
+            stats_.accelerate_ops.fetch_add(1, std::memory_order_relaxed);
+        }
+        return;
+    }
+#endif
+    // Fallback to standard memcpy
+    std::memcpy(dst, src, len);
+}
+
+// Record timing
+void ParallelTokenizer::recordTiming(uint64_t start_time_us, size_t num_tokens, size_t num_bytes) {
+    if (!config_.enable_stats) return;
+
+    uint64_t elapsed_us = getCurrentTimeMicros() - start_time_us;
+    stats_.total_encode_time_us.fetch_add(elapsed_us, std::memory_order_relaxed);
+    stats_.total_tokens.fetch_add(num_tokens, std::memory_order_relaxed);
+    stats_.total_bytes.fetch_add(num_bytes, std::memory_order_relaxed);
+}
+
+// Encode single text
+std::vector<uint32_t> ParallelTokenizer::encode(
+    const std::string& text,
+    const std::function<std::vector<uint32_t>(const std::string&)>& tokenizer_fn
+) {
+    uint64_t start_time = config_.enable_stats ? getCurrentTimeMicros() : 0;
+
+    std::vector<uint32_t> result;
+
+    // For small texts, use serial processing
+    if (text.size() < config_.min_chunk_size * config_.num_threads) {
+        result = tokenizer_fn(text);
+
+        if (config_.enable_stats) {
+            stats_.total_encodes.fetch_add(1, std::memory_order_relaxed);
+            recordTiming(start_time, result.size(), text.size());
+        }
+        return result;
+    }
+
+#if HAS_OPENMP
+    // Parallel processing with OpenMP
+    auto chunks = splitIntoChunks(text, config_.num_threads);
+    std::vector<std::vector<uint32_t>> chunk_results(chunks.size());
+
+    #pragma omp parallel for schedule(dynamic)
+    for (size_t i = 0; i < chunks.size(); ++i) {
+        chunk_results[i] = tokenizer_fn(chunks[i]);
+    }
+
+    result = mergeTokens(chunk_results);
+
+    // Calculate speedup ratio
+    if (config_.enable_stats) {
+        // Estimate serial time based on current parallel time and thread count
+        uint64_t parallel_time_us = getCurrentTimeMicros() - start_time;
+        double estimated_serial_time = static_cast<double>(parallel_time_us) * chunks.size();
+        double speedup = estimated_serial_time / std::max(1.0, static_cast<double>(parallel_time_us));
+        stats_.speedup_ratio.store(speedup, std::memory_order_relaxed);
+    }
+#else
+    // Fallback to serial processing if OpenMP not available
+    result = tokenizer_fn(text);
+#endif
+
+    if (config_.enable_stats) {
+        stats_.total_encodes.fetch_add(1, std::memory_order_relaxed);
+        recordTiming(start_time, result.size(), text.size());
+    }
+
+    return result;
+}
+
+// Encode batch
+std::vector<std::vector<uint32_t>> ParallelTokenizer::encodeBatch(
+    const std::vector<std::string>& texts,
+    const std::function<std::vector<uint32_t>(const std::string&)>& tokenizer_fn
+) {
+    uint64_t start_time = config_.enable_stats ? getCurrentTimeMicros() : 0;
+
+    std::vector<std::vector<uint32_t>> results(texts.size());
+
+    if (texts.empty()) {
+        return results;
+    }
+
+    // For small batches, use serial processing
+    if (texts.size() <= 2) {
+        for (size_t i = 0; i < texts.size(); ++i) {
+            results[i] = encode(texts[i], tokenizer_fn);
+        }
+
+        if (config_.enable_stats) {
+            stats_.total_batch_encodes.fetch_add(1, std::memory_order_relaxed);
+            size_t total_tokens = 0;
+            size_t total_bytes = 0;
+            for (size_t i = 0; i < texts.size(); ++i) {
+                total_tokens += results[i].size();
+                total_bytes += texts[i].size();
+            }
+            recordTiming(start_time, total_tokens, total_bytes);
+        }
+        return results;
+    }
+
+#if HAS_OPENMP
+    // Parallel batch processing with OpenMP
+    #pragma omp parallel for schedule(dynamic)
+    for (size_t i = 0; i < texts.size(); ++i) {
+        results[i] = encode(texts[i], tokenizer_fn);
+    }
+#else
+    // Fallback to serial processing
+    for (size_t i = 0; i < texts.size(); ++i) {
+        results[i] = encode(texts[i], tokenizer_fn);
+    }
+#endif
+
+    if (config_.enable_stats) {
+        stats_.total_batch_encodes.fetch_add(1, std::memory_order_relaxed);
+        size_t total_tokens = 0;
+        size_t total_bytes = 0;
+        for (size_t i = 0; i < texts.size(); ++i) {
+            total_tokens += results[i].size();
+            total_bytes += texts[i].size();
+        }
+        recordTiming(start_time, total_tokens, total_bytes);
+    }
+
+    return results;
+}
+
+// Async encode
+std::future<std::vector<uint32_t>> ParallelTokenizer::encodeAsync(
+    const std::string& text,
+    const std::function<std::vector<uint32_t>(const std::string&)>& tokenizer_fn
+) {
+    auto promise = std::make_shared<std::promise<std::vector<uint32_t>>>();
+    auto future = promise->get_future();
+
+    // Capture by value to ensure lifetime
+    auto task = [this, text, tokenizer_fn, promise]() {
+        try {
+            auto result = encode(text, tokenizer_fn);
+            promise->set_value(std::move(result));
+        } catch (...) {
+            promise->set_exception(std::current_exception());
+        }
+    };
+
+    // Submit to thread pool (wrapped in void task)
+    submitTask([task]() { task(); });
+
+    return future;
+}
+
+// Get statistics
+ParallelTokenizerStatistics ParallelTokenizer::getStatistics() const {
+    return {
+        .total_encodes = stats_.total_encodes.load(),
+        .total_batch_encodes = stats_.total_batch_encodes.load(),
+        .total_tokens = stats_.total_tokens.load(),
+        .total_bytes = stats_.total_bytes.load(),
+        .total_encode_time_us = stats_.total_encode_time_us.load(),
+        .speedup_ratio = stats_.speedup_ratio.load(),
+        .active_threads = stats_.active_threads.load(),
+        .accelerate_ops = stats_.accelerate_ops.load()
+    };
+}
+
+// Reset statistics
+void ParallelTokenizer::resetStatistics() {
+    stats_.total_encodes.store(0);
+    stats_.total_batch_encodes.store(0);
+    stats_.total_tokens.store(0);
+    stats_.total_bytes.store(0);
+    stats_.total_encode_time_us.store(0);
+    stats_.speedup_ratio.store(1.0);
+    stats_.accelerate_ops.store(0);
+}
+
+} // namespace krserve

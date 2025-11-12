@@ -8,6 +8,7 @@
  * Phase 4.3 Implementation
  */
 
+import { safeAverage } from '@/utils/math-helpers.js';
 import { EventEmitter } from 'eventemitter3';
 import type { Logger } from 'pino';
 import type { TtftHint, PromptPayload, WarmQueueItem, QueueStats } from './types.js';
@@ -163,7 +164,6 @@ export class TokenizerWarmQueue extends EventEmitter<WarmQueueEvents> {
     let evicted = 0;
 
     // Remove all expired items
-    const originalLength = this.queue.length;
     this.queue = this.queue.filter((item) => {
       if (item.expiresAt <= now) {
         try {
@@ -189,10 +189,7 @@ export class TokenizerWarmQueue extends EventEmitter<WarmQueueEvents> {
    * Get queue statistics
    */
   public getStats(): QueueStats {
-    const avgWaitTimeMs =
-      this.waitTimes.length > 0
-        ? this.waitTimes.reduce((a, b) => a + b, 0) / this.waitTimes.length
-        : 0;
+    const avgWaitTimeMs = safeAverage(this.waitTimes);
 
     // Calculate P95 wait time
     const sortedWaitTimes = [...this.waitTimes].sort((a, b) => a - b);

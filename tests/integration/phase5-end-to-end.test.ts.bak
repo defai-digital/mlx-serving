@@ -1,0 +1,625 @@
+/**
+ * Phase 5 End-to-End Integration Tests
+ *
+ * End-to-end integration tests for Phase 5 components:
+ * - Full request flow with Phase 4/5 enabled
+ * - Multiple concurrent requests
+ * - Event flow verification
+ * - Metrics collection
+ * - Component coordination
+ *
+ * Phase 5 Week 1 Day 4-5
+ */
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { createPhase4Integration, Phase4IntegrationFactory } from '../../src/integration/phase4-integration-factory.js';
+import { initializeFeatureFlags, resetFeatureFlags } from '../../src/config/feature-flag-loader.js';
+import {
+  createMockLogger,
+  MockStreamRegistry,
+  createTestConfig,
+  createTestFeatureFlags,
+  generateStreamId,
+  generateRequestId,
+  sleep,
+  waitForEvent,
+} from './helpers/test-fixtures.js';
+import {
+  assertPhase4ComponentsValid,
+  assertQosIntegrationValid,
+  assertTtftIntegrationValid,
+} from './helpers/assertions.js';
+import { writeFileSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
+import * as yaml from 'js-yaml';
+
+describe('Phase 5 End-to-End Integration', () => {
+  let streamRegistry: MockStreamRegistry;
+  let logger: ReturnType<typeof createMockLogger>;
+  let featureFlagPath: string;
+
+  beforeEach(() => {
+    streamRegistry = new MockStreamRegistry();
+    logger = createMockLogger();
+    Phase4IntegrationFactory.reset();
+    resetFeatureFlags();
+
+    // Create temporary feature flags file
+    featureFlagPath = join(process.cwd(), 'config', 'feature-flags-test-e2e.yaml');
+    const flags = createTestFeatureFlags();
+    writeFileSync(featureFlagPath, yaml.dump(flags));
+    initializeFeatureFlags(featureFlagPath);
+  });
+
+  afterEach(() => {
+    Phase4IntegrationFactory.reset();
+    resetFeatureFlags();
+
+    // Cleanup temporary feature flags file
+    try {
+      unlinkSync(featureFlagPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+  });
+
+  describe('Full Request Flow', () => {
+    it('should handle complete request lifecycle with Phase 5 enabled', async () => {
+      const config = createTestConfig();
+      const requestId = generateRequestId('e2e-full-flow');
+
+      // 1. Create Phase 4/5 components
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId,
+      });
+
+      assertPhase4ComponentsValid(components);
+      assertQosIntegrationValid(components);
+      assertTtftIntegrationValid(components);
+
+      // 2. Simulate TTFT preprocessing
+      const streamId = generateStreamId('e2e-stream');
+      if (components.ttftIntegration) {
+        const preprocessResult = await components.ttftIntegration.preprocessGenerate({
+          modelId: 'test-model',
+          prompt: 'Tell me a story',
+          streamId,
+          maxTokens: 100,
+        });
+
+        expect(preprocessResult === null || typeof preprocessResult === 'object').toBe(true);
+      }
+
+      // 3. Simulate stream completion
+      streamRegistry.simulateCompletion(streamId, {
+        tokensGenerated: 100,
+        tokensPerSecond: 50,
+        timeToFirstToken: 200,
+      });
+
+      // 4. Wait for QoS metrics to be recorded
+      await sleep(100);
+
+      // 5. Verify QoS integration stats
+      if (components.qosIntegration) {
+        const stats = components.qosIntegration.getStats();
+        expect(stats.enabled).toBe(true);
+        expect(stats.totalStreams).toBeGreaterThanOrEqual(1);
+      }
+
+      // 6. Cleanup TTFT
+      if (components.ttftIntegration) {
+        await components.ttftIntegration.cleanup(streamId);
+      }
+
+      // 7. Shutdown
+      await Phase4IntegrationFactory.shutdown(components);
+    });
+
+    it('should coordinate TTFT and QoS components', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-coordination'),
+      });
+
+      expect(components.ttftIntegration).toBeDefined();
+      expect(components.qosIntegration).toBeDefined();
+
+      // TTFT preprocessing
+      const streamId = generateStreamId('coordination-test');
+      await components.ttftIntegration!.preprocessGenerate({
+        modelId: 'test-model',
+        prompt: 'Hello',
+        streamId,
+      });
+
+      // Simulate generation and completion
+      streamRegistry.simulateCompletion(streamId, {
+        tokensGenerated: 50,
+        tokensPerSecond: 40,
+        timeToFirstToken: 150,
+      });
+
+      await sleep(100);
+
+      // Both components should have processed the stream
+      const qosStats = components.qosIntegration!.getStats();
+      expect(qosStats.totalStreams).toBeGreaterThan(0);
+
+      const ttftStats = components.ttftIntegration!.getStats();
+      expect(ttftStats.enabled).toBe(true);
+    });
+  });
+
+  describe('Multiple Concurrent Requests', () => {
+    it('should handle multiple streams concurrently', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-concurrent'),
+      });
+
+      const streamIds = [
+        generateStreamId('concurrent-1'),
+        generateStreamId('concurrent-2'),
+        generateStreamId('concurrent-3'),
+        generateStreamId('concurrent-4'),
+        generateStreamId('concurrent-5'),
+      ];
+
+      // Preprocess all streams concurrently
+      if (components.ttftIntegration) {
+        const preprocessPromises = streamIds.map((streamId) =>
+          components.ttftIntegration!.preprocessGenerate({
+            modelId: 'test-model',
+            prompt: `Test prompt for ${streamId}`,
+            streamId,
+          })
+        );
+
+        await Promise.all(preprocessPromises);
+      }
+
+      // Simulate concurrent completions
+      for (const streamId of streamIds) {
+        streamRegistry.simulateCompletion(streamId, {
+          tokensGenerated: 100 + Math.floor(Math.random() * 50),
+          tokensPerSecond: 40 + Math.floor(Math.random() * 20),
+          timeToFirstToken: 150 + Math.floor(Math.random() * 100),
+        });
+      }
+
+      await sleep(200);
+
+      // Verify all streams were processed
+      if (components.qosIntegration) {
+        const stats = components.qosIntegration.getStats();
+        expect(stats.totalStreams).toBe(streamIds.length);
+      }
+
+      // Cleanup all streams
+      if (components.ttftIntegration) {
+        for (const streamId of streamIds) {
+          await components.ttftIntegration.cleanup(streamId);
+        }
+      }
+    });
+
+    it('should handle concurrent requests from different tenants', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-tenants'),
+      });
+
+      const tenants = ['tenant-a', 'tenant-b', 'tenant-c'];
+      const streams: Array<{ streamId: string; tenantId: string }> = [];
+
+      // Create streams for each tenant
+      for (const tenantId of tenants) {
+        for (let i = 0; i < 3; i++) {
+          streams.push({
+            streamId: generateStreamId(`${tenantId}-stream`),
+            tenantId,
+          });
+        }
+      }
+
+      // Process all streams
+      for (const { streamId, tenantId } of streams) {
+        if (components.ttftIntegration) {
+          await components.ttftIntegration.preprocessGenerate({
+            modelId: 'test-model',
+            prompt: 'Test',
+            streamId,
+            hints: { tenantId },
+          });
+        }
+
+        streamRegistry.simulateCompletion(streamId, {
+          tokensGenerated: 100,
+          tokensPerSecond: 50,
+          timeToFirstToken: 200,
+        });
+      }
+
+      await sleep(200);
+
+      // All streams should be processed
+      if (components.qosIntegration) {
+        const stats = components.qosIntegration.getStats();
+        expect(stats.totalStreams).toBe(streams.length);
+      }
+    });
+  });
+
+  describe('Event Flow Verification', () => {
+    it('should emit and handle stream completion events', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-events'),
+      });
+
+      const completedStreams: string[] = [];
+      streamRegistry.on('completed', (streamId) => {
+        completedStreams.push(streamId);
+      });
+
+      const streamId = generateStreamId('event-test');
+
+      // Trigger completion event
+      streamRegistry.simulateCompletion(streamId, {
+        tokensGenerated: 100,
+        tokensPerSecond: 50,
+        timeToFirstToken: 200,
+      });
+
+      await sleep(100);
+
+      expect(completedStreams).toContain(streamId);
+    });
+
+    it('should handle stream error events', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-error-events'),
+      });
+
+      const errorStreams: string[] = [];
+      streamRegistry.on('error', (streamId) => {
+        errorStreams.push(streamId);
+      });
+
+      const streamId = generateStreamId('error-test');
+
+      // Trigger error event
+      streamRegistry.simulateError(streamId, 'Test error');
+
+      await sleep(100);
+
+      expect(errorStreams).toContain(streamId);
+
+      // QoS should have recorded the error
+      if (components.qosIntegration) {
+        const stats = components.qosIntegration.getStats();
+        expect(stats.errorCount).toBeGreaterThan(0);
+      }
+    });
+
+    it('should emit metrics export events', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-metrics-export'),
+      });
+
+      let metricsExported = false;
+      streamRegistry.on('metricsExport', () => {
+        metricsExported = true;
+      });
+
+      // Trigger metrics export
+      streamRegistry.simulateMetricsExport();
+
+      await sleep(100);
+
+      expect(metricsExported).toBe(true);
+    });
+  });
+
+  describe('Metrics Collection', () => {
+    it('should collect TTFT metrics', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-ttft-metrics'),
+      });
+
+      // Simulate multiple streams with different TTFT
+      for (let i = 0; i < 10; i++) {
+        const streamId = generateStreamId(`ttft-${i}`);
+        streamRegistry.simulateCompletion(streamId, {
+          tokensGenerated: 100,
+          tokensPerSecond: 50,
+          timeToFirstToken: 100 + i * 50, // Varying TTFT
+        });
+      }
+
+      await sleep(200);
+
+      if (components.qosIntegration) {
+        const stats = components.qosIntegration.getStats();
+        expect(stats.averageTTFT).toBeGreaterThan(0);
+        expect(stats.totalStreams).toBe(10);
+      }
+    });
+
+    it('should collect throughput metrics', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-throughput-metrics'),
+      });
+
+      // Simulate streams with different throughput
+      for (let i = 0; i < 10; i++) {
+        const streamId = generateStreamId(`throughput-${i}`);
+        streamRegistry.simulateCompletion(streamId, {
+          tokensGenerated: 100,
+          tokensPerSecond: 30 + i * 5, // Varying throughput
+          timeToFirstToken: 200,
+        });
+      }
+
+      await sleep(200);
+
+      if (components.qosIntegration) {
+        const stats = components.qosIntegration.getStats();
+        expect(stats.averageThroughput).toBeGreaterThan(0);
+        expect(stats.totalStreams).toBe(10);
+      }
+    });
+
+    it('should collect error rate metrics', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-error-metrics'),
+      });
+
+      // Simulate mix of successful and failed streams
+      for (let i = 0; i < 10; i++) {
+        const streamId = generateStreamId(`error-${i}`);
+
+        if (i < 3) {
+          // 30% error rate
+          streamRegistry.simulateError(streamId, 'Test error');
+        } else {
+          streamRegistry.simulateCompletion(streamId, {
+            tokensGenerated: 100,
+            tokensPerSecond: 50,
+            timeToFirstToken: 200,
+          });
+        }
+      }
+
+      await sleep(200);
+
+      if (components.qosIntegration) {
+        const stats = components.qosIntegration.getStats();
+        expect(stats.errorCount).toBe(3);
+        expect(stats.totalStreams).toBe(10);
+      }
+    });
+  });
+
+  describe('Component Coordination', () => {
+    it('should coordinate all Phase 5 components', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-full-coordination'),
+      });
+
+      // Verify all components created
+      expect(components.enabled).toBe(true);
+      expect(components.ttftIntegration).toBeDefined();
+      expect(components.qosIntegration).toBeDefined();
+      expect(components.adaptiveGovernor).toBeDefined();
+
+      // Test complete flow
+      const streamId = generateStreamId('coordination-full');
+
+      // 1. TTFT preprocessing
+      await components.ttftIntegration!.preprocessGenerate({
+        modelId: 'test-model',
+        prompt: 'Test prompt',
+        streamId,
+      });
+
+      // 2. Simulate generation
+      streamRegistry.simulateCompletion(streamId, {
+        tokensGenerated: 100,
+        tokensPerSecond: 50,
+        timeToFirstToken: 200,
+      });
+
+      // 3. Report first token
+      components.ttftIntegration!.reportFirstToken(streamId, 'test-hash', 'Hello');
+
+      await sleep(100);
+
+      // 4. Verify QoS recorded metrics
+      const qosStats = components.qosIntegration!.getStats();
+      expect(qosStats.totalStreams).toBeGreaterThan(0);
+
+      // 5. Cleanup
+      await components.ttftIntegration!.cleanup(streamId);
+      await Phase4IntegrationFactory.shutdown(components);
+    });
+
+    it('should handle partial component availability', async () => {
+      // Disable some features
+      const partialFlags = createTestFeatureFlags({
+        adaptive_governor: {
+          enabled: false,
+          rollout_percentage: 0,
+          hash_seed: 'test-seed',
+        },
+      });
+
+      writeFileSync(featureFlagPath, yaml.dump(partialFlags));
+      resetFeatureFlags();
+      initializeFeatureFlags(featureFlagPath);
+
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-partial'),
+      });
+
+      // Should still work with partial components
+      expect(components.enabled).toBe(true);
+      expect(components.adaptiveGovernor).toBeUndefined(); // Disabled
+      expect(components.ttftIntegration).toBeDefined(); // Enabled
+      expect(components.qosIntegration).toBeDefined(); // Enabled
+
+      // Flow should still work
+      const streamId = generateStreamId('partial-test');
+      await components.ttftIntegration!.preprocessGenerate({
+        modelId: 'test-model',
+        prompt: 'Test',
+        streamId,
+      });
+
+      streamRegistry.simulateCompletion(streamId, {
+        tokensGenerated: 100,
+        tokensPerSecond: 50,
+        timeToFirstToken: 200,
+      });
+
+      await sleep(100);
+
+      const qosStats = components.qosIntegration!.getStats();
+      expect(qosStats.totalStreams).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Stress Testing', () => {
+    it('should handle high volume of concurrent requests', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-stress'),
+      });
+
+      const streamCount = 50;
+      const streamIds: string[] = [];
+
+      // Create many streams
+      for (let i = 0; i < streamCount; i++) {
+        streamIds.push(generateStreamId(`stress-${i}`));
+      }
+
+      // Process all streams concurrently
+      const promises = streamIds.map(async (streamId) => {
+        if (components.ttftIntegration) {
+          await components.ttftIntegration.preprocessGenerate({
+            modelId: 'test-model',
+            prompt: 'Stress test',
+            streamId,
+          });
+        }
+
+        streamRegistry.simulateCompletion(streamId, {
+          tokensGenerated: 100,
+          tokensPerSecond: 50,
+          timeToFirstToken: 200,
+        });
+      });
+
+      await Promise.all(promises);
+      await sleep(500);
+
+      // Verify all processed
+      if (components.qosIntegration) {
+        const stats = components.qosIntegration.getStats();
+        expect(stats.totalStreams).toBe(streamCount);
+      }
+    });
+  });
+
+  describe('Graceful Degradation', () => {
+    it('should continue operation when TTFT fails', async () => {
+      const config = createTestConfig();
+      const components = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-degradation'),
+      });
+
+      const streamId = generateStreamId('degradation-test');
+
+      // TTFT may fail, but QoS should still work
+      streamRegistry.simulateCompletion(streamId, {
+        tokensGenerated: 100,
+        tokensPerSecond: 50,
+        timeToFirstToken: 200,
+      });
+
+      await sleep(100);
+
+      if (components.qosIntegration) {
+        const stats = components.qosIntegration.getStats();
+        expect(stats.totalStreams).toBeGreaterThan(0);
+      }
+    });
+
+    it('should handle QoS sampling rate', async () => {
+      const config = createTestConfig();
+      const samplingComponents = createPhase4Integration({
+        streamRegistry: streamRegistry as never,
+        config,
+        logger,
+        requestId: generateRequestId('e2e-sampling'),
+      });
+
+      // Verify sampling configuration
+      if (samplingComponents.qosIntegration) {
+        const stats = samplingComponents.qosIntegration.getStats();
+        expect(stats.sampleRate).toBeGreaterThan(0);
+      }
+    });
+  });
+});
