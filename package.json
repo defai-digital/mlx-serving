@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/mlx-serving",
-  "version": "0.1.0-alpha.0",
+  "version": "0.8.0",
   "description": "Modern TypeScript MLX serving engine for Apple Silicon with Zod validation and ReScript state management",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -13,18 +13,22 @@
       "require": "./dist/index.cjs"
     }
   },
-  "bin": {
-    "mlx-serving": "./dist/cli.js",
-    "mlx-download": "./dist/cli/mlx-download.js"
-  },
   "files": [
     "dist",
-    "python",
-    "native",
-    "scripts",
+    "python/**/*.py",
+    "native/src",
+    "native/include",
+    "native/bindings",
+    "native/CMakeLists.txt",
+    "scripts/*.ts",
+    "scripts/*.cjs",
+    "scripts/*.sh",
+    "!scripts/test-*.sh",
+    "!scripts/bench-*.sh",
     "config",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -54,6 +58,7 @@
     "bench:flexible": "tsx benchmarks/flexible-benchmark.ts",
     "bench:quick": "tsx benchmarks/flexible-benchmark.ts -q 10",
     "bench:compare": "tsx benchmarks/flexible-benchmark.ts -q 100 -c both",
+    "test:ab": "tsx examples/ab-test-example.ts",
     "docs:generate": "typedoc"
   },
   "keywords": [
@@ -66,36 +71,48 @@
     "knowrag"
   ],
   "author": "DEFAI",
-  "license": "Elastic-2.0",
+  "license": "Apache-2.0",
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-prometheus": "^0.52.1",
     "@opentelemetry/sdk-metrics": "^1.26.0",
     "eventemitter3": "^5.0.1",
     "execa": "^7.2.0",
+    "fast-json-stringify": "^6.1.1",
     "js-yaml": "^4.1.0",
+    "lru-cache": "^11.2.2",
+    "nats": "^2.29.3",
     "pino": "^8.16.1",
+    "ts-pattern": "^5.9.0",
+    "ts-results": "^3.3.0",
+    "uuid": "^9.0.1",
     "yaml": "^2.8.1",
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.11.30",
+    "@types/uuid": "^9.0.8",
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^7.5.0",
     "@typescript-eslint/parser": "^7.5.0",
     "@vitest/coverage-v8": "^1.4.0",
+    "cors": "^2.8.5",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-prettier": "^5.1.3",
+    "express": "^4.21.2",
     "prettier": "^3.2.5",
     "tsup": "^8.0.1",
     "tsx": "^4.7.1",
     "typedoc": "^0.28.0",
     "typedoc-plugin-markdown": "^4.0.0",
     "typescript": "~5.4.5",
-    "vitest": "^1.4.0"
+    "vitest": "^1.4.0",
+    "ws": "^8.18.3"
   },
   "repository": {
     "type": "git",
