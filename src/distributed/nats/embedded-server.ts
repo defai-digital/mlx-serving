@@ -9,6 +9,9 @@ import { createLogger, type Logger } from '../utils/logger.js';
 import { EmbeddedServerError } from '../utils/errors.js';
 import type { EmbeddedServerOptions } from '../types/index.js';
 
+// Bug Fix #24: Track allocated ports across all instances to prevent collisions
+const allocatedPorts = new Set<number>();
+
 /**
  * Embedded NATS server manager
  *
@@ -29,6 +32,7 @@ export class EmbeddedNatsServer {
   private readonly logger: Logger;
   private readonly logs: string[] = [];
   private port = 4222;
+  private httpPort?: number; // Bug Fix #24: Track HTTP port for cleanup
 
   constructor() {
     this.logger = createLogger('EmbeddedNatsServer');
@@ -41,19 +45,37 @@ export class EmbeddedNatsServer {
    * @throws {EmbeddedServerError} if server fails to start
    */
   async start(options?: EmbeddedServerOptions): Promise<void> {
-    const opts = options ?? {};
+    const opts = (options ?? {}) as EmbeddedServerOptions;
     if (this.running) {
       this.logger.warn('Server already running');
       return;
     }
 
     // Use random ports in test environment to avoid conflicts
+    // Bug Fix #30: Expanded port ranges to reduce collision probability
     const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
-    const port = opts.port ?? (isTest ? this.getRandomPort(5000, 6000) : 4222);
-    const httpPort = opts.httpPort ?? (isTest ? this.getRandomPort(9000, 10000) : 8222);
-    const _logLevel = opts.logLevel ?? 'info';
+    const port = opts.port ?? (isTest ? this.getRandomPort(5000, 7000) : 4222);
+    const httpPort = opts.httpPort ?? (isTest ? this.getRandomPort(9000, 11000) : 8222);
+    const logLevel = opts.logLevel ?? 'info';
 
-    this.port = port;
+    const resolvedOptions: EmbeddedServerOptions = {
+      ...opts,
+      port,
+      httpPort,
+      logLevel,
+    };
+
+    this.port = resolvedOptions.port;
+    this.httpPort = resolvedOptions.httpPort; // Bug Fix #24: Track HTTP port
+    this.logs.length = 0;
+
+    // Bug Fix #24 & #28: Register allocated ports
+    // Note: getRandomPort() reserves ports atomically, but if ports were
+    // explicitly provided via options, we register them here (Set is idempotent)
+    allocatedPorts.add(this.port);
+    if (this.httpPort) {
+      allocatedPorts.add(this.httpPort);
+    }
 
     this.logger.info('Starting embedded NATS server', { port, httpPort });
 
@@ -62,7 +84,7 @@ export class EmbeddedNatsServer {
       await this.checkNatsServerAvailable();
 
       // Build command line arguments
-      const args = this.buildArgs(opts);
+      const args = this.buildArgs(resolvedOptions);
 
       // Spawn nats-server process
       this.process = spawn('nats-server', args, {
@@ -103,10 +125,13 @@ export class EmbeddedNatsServer {
       });
 
       // Wait for server to be ready
-      await this.waitForReady(port);
+      await this.waitForReady(resolvedOptions.port);
 
       this.running = true;
-      this.logger.info('NATS server started successfully', { port, httpPort });
+      this.logger.info('NATS server started successfully', {
+        port: resolvedOptions.port,
+        httpPort: resolvedOptions.httpPort,
+      });
     } catch (error) {
       this.logger.error('Failed to start NATS server', error as Error);
       throw new EmbeddedServerError(
@@ -120,8 +145,21 @@ export class EmbeddedNatsServer {
    * Stop the embedded NATS server
    */
   async stop(): Promise<void> {
+    // Bug Fix #29: Always release ports, even if server failed to start
+    const shouldCleanupPorts = this.port !== undefined;
+
     if (!this.running || !this.process) {
       this.logger.warn('Server not running');
+
+      // Bug Fix #29: Release ports even when server is not running
+      if (shouldCleanupPorts) {
+        allocatedPorts.delete(this.port);
+        if (this.httpPort) {
+          allocatedPorts.delete(this.httpPort);
+        }
+        this.logger.debug('Ports released (server not running)');
+      }
+
       return;
     }
 
@@ -132,6 +170,13 @@ export class EmbeddedNatsServer {
         this.logger.warn('Server did not stop gracefully, killing');
         this.process?.kill('SIGKILL');
         this.running = false;
+
+        // Bug Fix #24: Release allocated ports even on force kill
+        allocatedPorts.delete(this.port);
+        if (this.httpPort) {
+          allocatedPorts.delete(this.httpPort);
+        }
+
         resolve();
       }, 5000);
 
@@ -139,6 +184,13 @@ export class EmbeddedNatsServer {
         clearTimeout(timeout);
         this.running = false;
         this.process = undefined;
+
+        // Bug Fix #24: Release allocated ports
+        allocatedPorts.delete(this.port);
+        if (this.httpPort) {
+          allocatedPorts.delete(this.httpPort);
+        }
+
         this.logger.info('NATS server stopped');
         resolve();
       });
@@ -170,6 +222,16 @@ export class EmbeddedNatsServer {
   }
 
   /**
+   * Get server URL for client connections
+   * Bug Fix #14: Add getServerUrl() method for integration tests
+   *
+   * @returns NATS server URL (e.g., "nats://localhost:4222")
+   */
+  getServerUrl(): string {
+    return `nats://localhost:${this.port}`;
+  }
+
+  /**
    * Get server logs
    */
   getLogs(): string[] {
@@ -178,9 +240,33 @@ export class EmbeddedNatsServer {
 
   /**
    * Get a random port in the specified range
+   * Bug Fix #24: Avoid already-allocated ports to prevent collisions
+   * Bug Fix #28: Atomically reserve port to prevent race conditions
    */
   private getRandomPort(min: number, max: number): number {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+    let attempts = 0;
+    const maxAttempts = 100;
+
+    while (attempts < maxAttempts) {
+      const port = Math.floor(Math.random() * (max - min + 1)) + min;
+      if (!allocatedPorts.has(port)) {
+        // Bug Fix #28: Reserve port atomically before returning
+        allocatedPorts.add(port);
+        return port;
+      }
+      attempts++;
+    }
+
+    // Fallback: find first available port in range
+    for (let port = min; port <= max; port++) {
+      if (!allocatedPorts.has(port)) {
+        // Bug Fix #28: Reserve port atomically before returning
+        allocatedPorts.add(port);
+        return port;
+      }
+    }
+
+    throw new Error(`Unable to allocate random port in range ${min}-${max} after ${maxAttempts} attempts`);
   }
 
   /**

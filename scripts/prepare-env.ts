@@ -1,89 +1,115 @@
 #!/usr/bin/env tsx
 /**
- * Prepare Python environment for kr-mlx-lm
- * Creates venv and installs dependencies
+ * Prepare Python environment for mlx-serving.
+ * Creates/updates .mlx-serving-venv and installs MLX dependencies.
  */
 
 import { execa } from 'execa';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 
-const VENV_PATH = resolve(process.cwd(), '.kr-mlx-venv');
-const REQUIREMENTS_PATH = resolve(process.cwd(), 'python/requirements.txt');
+const PROJECT_ROOT = process.cwd();
+const VENV_PATH = resolve(PROJECT_ROOT, '.mlx-serving-venv');
+const REQUIREMENTS_PATH = resolve(PROJECT_ROOT, 'python', 'requirements.txt');
+const IS_WINDOWS = process.platform === 'win32';
 
-async function main() {
-  console.log('🐍 Setting up Python environment for kr-mlx-lm...\n');
+async function findPythonCommand(): Promise<string> {
+  const candidates = ['python3.12', 'python3.11', 'python3'];
 
-  // Determine Python command - prefer python3.11 or python3.12 for MLX compatibility
-  let pythonCmd = 'python3';
-  try {
-    await execa('python3.11', ['--version']);
-    pythonCmd = 'python3.11';
-    console.log('✓ Using Python 3.11 (MLX compatible)\n');
-  } catch {
+  for (const candidate of candidates) {
     try {
-      await execa('python3.12', ['--version']);
-      pythonCmd = 'python3.12';
-      console.log('✓ Using Python 3.12 (MLX compatible)\n');
+      const { stdout } = await execa(candidate, ['--version']);
+      console.log(`✓ Found ${candidate}: ${stdout.trim()}`);
+      return candidate;
     } catch {
-      console.log('⚠️  Warning: Using default python3 (may not be MLX compatible)\n');
+      // Try next candidate
     }
   }
 
-  // Check if venv already exists
-  if (existsSync(VENV_PATH)) {
-    console.log('✓ Virtual environment already exists');
-  } else {
-    console.log('Creating virtual environment...');
-    await execa(pythonCmd, ['-m', 'venv', VENV_PATH], { stdio: 'inherit' });
-    console.log('✓ Virtual environment created\n');
-  }
-
-  // Determine pip path based on platform
-  const pipPath =
-    process.platform === 'win32'
-      ? resolve(VENV_PATH, 'Scripts', 'pip')
-      : resolve(VENV_PATH, 'bin', 'pip');
-
-  // Upgrade pip
-  console.log('Upgrading pip...');
-  await execa(pipPath, ['install', '--upgrade', 'pip'], { stdio: 'inherit' });
-  console.log('✓ Pip upgraded\n');
-
-  // Install requirements
-  console.log('Installing Python dependencies...');
-  console.log('This may take a few minutes...\n');
-  await execa(pipPath, ['install', '-r', REQUIREMENTS_PATH], { stdio: 'inherit' });
-  console.log('\n✓ Dependencies installed\n');
-
-  // Verify installation
-  console.log('Verifying MLX installation...');
-  const pythonPath =
-    process.platform === 'win32'
-      ? resolve(VENV_PATH, 'Scripts', 'python')
-      : resolve(VENV_PATH, 'bin', 'python');
-
-  try {
-    // Newer MLX versions don't have __version__ attribute, so just check import
-    const { stdout } = await execa(pythonPath, ['-c', 'import mlx, mlx_lm, mlx_vlm; print("OK")']);
-    if (stdout.includes('OK')) {
-      console.log(`✓ MLX libraries imported successfully\n`);
-    }
-  } catch (error) {
-    console.error('✗ Failed to verify MLX installation');
-    throw error;
-  }
-
-  console.log('✅ Python environment ready!');
-  console.log(`\nTo activate manually:`);
-  console.log(
-    process.platform === 'win32'
-      ? `.kr-mlx-venv\\Scripts\\activate`
-      : `source .kr-mlx-venv/bin/activate`
+  throw new Error(
+    'Python 3.11+ is required. Install Python 3.11 or 3.12 from https://www.python.org/downloads/.'
   );
 }
 
+async function ensureVenv(pythonCmd: string): Promise<void> {
+  if (existsSync(VENV_PATH)) {
+    console.log(`✓ Virtual environment already exists at ${VENV_PATH}`);
+    return;
+  }
+
+  console.log(`Creating virtual environment at ${VENV_PATH}...`);
+  await execa(pythonCmd, ['-m', 'venv', VENV_PATH], {
+    stdio: 'inherit',
+    cwd: PROJECT_ROOT,
+  });
+  console.log('✓ Virtual environment created\n');
+}
+
+function getPipPath(): string {
+  return IS_WINDOWS ? resolve(VENV_PATH, 'Scripts', 'pip') : resolve(VENV_PATH, 'bin', 'pip');
+}
+
+function getPythonPath(): string {
+  return IS_WINDOWS ? resolve(VENV_PATH, 'Scripts', 'python') : resolve(VENV_PATH, 'bin', 'python');
+}
+
+async function upgradePip(pipPath: string): Promise<void> {
+  console.log('Upgrading pip inside virtual environment...');
+  await execa(pipPath, ['install', '--upgrade', 'pip'], {
+    stdio: 'inherit',
+    cwd: PROJECT_ROOT,
+  });
+  console.log('✓ Pip upgraded\n');
+}
+
+async function installDependencies(pipPath: string): Promise<void> {
+  if (!existsSync(REQUIREMENTS_PATH)) {
+    throw new Error(`Missing requirements file at ${REQUIREMENTS_PATH}`);
+  }
+
+  console.log('Installing MLX Python dependencies (mlx, mlx-lm, mlx-vlm)...');
+  await execa(pipPath, ['install', '-r', REQUIREMENTS_PATH], {
+    stdio: 'inherit',
+    cwd: PROJECT_ROOT,
+  });
+  console.log('✓ Dependencies installed\n');
+}
+
+async function verifyRuntime(pythonPath: string): Promise<void> {
+  console.log('Verifying MLX runtime import...');
+  const { stdout } = await execa(pythonPath, ['-c', 'import mlx, mlx_lm, mlx_vlm; print("OK")'], {
+    cwd: PROJECT_ROOT,
+  });
+
+  if (!stdout.includes('OK')) {
+    throw new Error('Failed to verify MLX runtime inside the virtual environment.');
+  }
+
+  console.log('✓ MLX runtime ready\n');
+}
+
+async function main(): Promise<void> {
+  console.log('🐍 Preparing Python environment for mlx-serving...\n');
+
+  const pythonCmd = await findPythonCommand();
+  await ensureVenv(pythonCmd);
+
+  const pipPath = getPipPath();
+  const pythonPath = getPythonPath();
+
+  await upgradePip(pipPath);
+  await installDependencies(pipPath);
+  await verifyRuntime(pythonPath);
+
+  console.log('✅ Python environment ready!');
+  if (IS_WINDOWS) {
+    console.log(`Activate with: ${VENV_PATH}\\Scripts\\activate`);
+  } else {
+    console.log(`Activate with: source ${VENV_PATH}/bin/activate`);
+  }
+}
+
 main().catch((error) => {
-  console.error('Error setting up Python environment:', error);
+  console.error('\nError setting up Python environment:', error);
   process.exit(1);
 });

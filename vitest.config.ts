@@ -16,6 +16,10 @@ export default defineConfig({
       '**/models/**',
       '**/benchmarks/**',
     ],
+    // Bug Fix #25: Disable file parallelism to prevent port collisions
+    // Controller integration tests start NATS servers which need unique ports
+    // Running in parallel causes "address already in use" errors
+    fileParallelism: false,
     // Isolate tests with mocks to prevent interference
     poolOptions: {
       threads: {
