@@ -55,18 +55,23 @@ export class EngineClientError extends Error implements EngineErrorShape {
     super(message);
     this.name = 'EngineError';
     this.code = code;
-    this.details = details;
+    if (details !== undefined) {
+      this.details = details;
+    }
   }
 
   /**
    * Serialize error into plain shape (for JSON responses/telemetry).
    */
   public toObject(): EngineErrorShape {
-    return {
+    const obj: EngineErrorShape = {
       code: this.code,
       message: this.message,
-      details: this.details,
     };
+    if (this.details !== undefined) {
+      obj.details = this.details;
+    }
+    return obj;
   }
 }
 
@@ -156,8 +161,12 @@ export class TimeoutError extends EngineClientError {
     this.name = 'TimeoutError';
     this.method = details.method;
     this.timeout = details.timeout;
-    this.requestId = details.requestId;
-    this.duration = details.duration;
+    if (details.requestId !== undefined) {
+      this.requestId = details.requestId;
+    }
+    if (details.duration !== undefined) {
+      this.duration = details.duration;
+    }
   }
 }
 
@@ -172,7 +181,17 @@ export function createTimeoutError(
 ): TimeoutError {
   // Bug #5 P2: Restore legacy phrasing so monitors detect "timed out" events.
   const message = `Request timed out after ${timeout}ms: ${method}${requestId ? ` (id: ${requestId})` : ''}`;
-  return new TimeoutError(message, { method, timeout, requestId, duration });
+  const details: { method: string; timeout: number; requestId?: string; duration?: number } = {
+    method,
+    timeout,
+  };
+  if (requestId !== undefined) {
+    details.requestId = requestId;
+  }
+  if (duration !== undefined) {
+    details.duration = duration;
+  }
+  return new TimeoutError(message, details);
 }
 
 /**
@@ -204,7 +223,7 @@ export function zodErrorToEngineError(error: ZodError): EngineClientError {
     });
   }
 
-  const firstIssue = error.issues[0];
+  const firstIssue = error.issues[0]!; // Safe: we checked length > 0 above
   const field = firstIssue.path.length > 0 ? firstIssue.path.join('.') : 'root';
   const message = `Validation error on field '${field}': ${firstIssue.message}`;
 

@@ -108,7 +108,7 @@ export class GeneratorFactory {
     // BUG-020 FIX: Check for pool exhaustion
     if (!queue) {
       throw new EngineClientError(
-        'ResourceExhausted',
+        'ServerError',
         'Generator queue pool exhausted. Maximum concurrent generators reached. Please retry later.',
         {
           poolSize: 128,

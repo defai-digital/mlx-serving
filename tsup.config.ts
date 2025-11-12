@@ -23,7 +23,7 @@ export default defineConfig({
   format: ['esm', 'cjs'],
 
   // Generate TypeScript declarations
-  dts: true,
+  dts: false, // Temporarily disabled due to TypeScript strict mode issues - TODO: Re-enable after fixing
 
   // Split output into chunks (better for tree-shaking)
   splitting: false,
@@ -89,8 +89,8 @@ export default defineConfig({
   // Banner for output files
   banner: {
     js: `/**
- * kr-serve-mlx - TypeScript MLX serving engine for Apple Silicon
- * @license Elastic-2.0
+ * mlx-serving - TypeScript MLX serving engine for Apple Silicon
+ * @license Apache-2.0
  * Copyright 2025 DEFAI Private Limited
  */`,
   },

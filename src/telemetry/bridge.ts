@@ -88,7 +88,7 @@ function createHooksFromManager(
       }
     },
 
-    onTokenGenerated: (token: string, stats: GenerationStats) => {
+    onTokenGenerated: (_token: string, stats: GenerationStats) => {
       try {
         const metrics = manager.metrics;
         metrics.tokensGenerated.add(1, {

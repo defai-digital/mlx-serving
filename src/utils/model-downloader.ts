@@ -82,12 +82,11 @@ export class ModelDownloadError extends Error {
  */
 export class MLXModelDownloader extends EventEmitter {
   private pythonPath: string;
-  private downloaderScript: string;
 
   constructor(pythonPath?: string) {
     super();
     this.pythonPath = pythonPath || process.env.PYTHON_PATH || 'python3';
-    this.downloaderScript = resolvePath(__dirname, '../../python/model_downloader.py');
+    // Downloader script path: resolvePath(__dirname, '../../python/model_downloader.py')
   }
 
   /**
