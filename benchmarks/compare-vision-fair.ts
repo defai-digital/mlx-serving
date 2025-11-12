@@ -10,7 +10,11 @@ import { writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import readline from 'readline';
 
-const MODEL = 'mlx-community/Qwen3-VL-4B-Instruct-4bit';
+// Test both Qwen2-VL-7B and Qwen2-VL-72B as requested
+const MODELS = [
+  'mlx-community/Qwen2-VL-7B-Instruct-4bit',
+  'mlx-community/Qwen2-VL-72B-Instruct-4bit',
+];
 const QUESTIONS = 10;  // Number of image+text prompts
 const CYCLES = 3;
 const MAX_TOKENS = 100;
@@ -187,7 +191,7 @@ async function benchmarkMLXEngine(cycle: number, server: MLXEngineVisionServer):
   };
 }
 
-async function benchmarkMLXServing(cycle: number, engine: any): Promise<BenchmarkResult> {
+async function benchmarkMLXServing(cycle: number, engine: any, model: string): Promise<BenchmarkResult> {
   console.log(`\n[mlx-serving] Starting cycle ${cycle}...`);
 
   const questions = generateQuestions(QUESTIONS);
@@ -207,7 +211,7 @@ async function benchmarkMLXServing(cycle: number, engine: any): Promise<Benchmar
 
       let tokenCount = 0;
       for await (const chunk of engine.createGenerator({
-        model: MODEL,
+        model,
         prompt,
         images: [`data:image/jpeg;base64,${imageBase64}`],
         maxTokens: MAX_TOKENS,
@@ -265,107 +269,118 @@ async function main() {
   console.log('MLX Vision Model FAIR Comparison Benchmark');
   console.log('(Both engines load model once, reuse for all questions)');
   console.log('='.repeat(60));
-  console.log(`Model: ${MODEL}`);
+  console.log(`Models: ${MODELS.join(', ')}`);
   console.log(`Questions: ${QUESTIONS}`);
   console.log(`Cycles: ${CYCLES}`);
   console.log(`Max Tokens: ${MAX_TOKENS}`);
   console.log(`Temperature: ${TEMP}`);
   console.log('='.repeat(60));
 
-  const mlxEngineResults: BenchmarkResult[] = [];
-  const mlxServingResults: BenchmarkResult[] = [];
+  // Loop through each model
+  for (const MODEL of MODELS) {
+    console.log('\n\n' + '🔷'.repeat(30));
+    console.log(`\n🎯 BENCHMARKING MODEL: ${MODEL}\n`);
+    console.log('🔷'.repeat(30));
 
-  // Benchmark mlx-engine
-  console.log('\n\n📊 Benchmarking mlx-engine (persistent server)...\n');
-  console.log('Loading model...');
-  const mlxEngineServer = new MLXEngineVisionServer();
-  await mlxEngineServer.start(MODEL);
-  console.log('Model loaded! Starting cycles...\n');
+    const mlxEngineResults: BenchmarkResult[] = [];
+    const mlxServingResults: BenchmarkResult[] = [];
 
-  for (let i = 1; i <= CYCLES; i++) {
-    const result = await benchmarkMLXEngine(i, mlxEngineServer);
-    mlxEngineResults.push(result);
+    // Benchmark mlx-engine
+    console.log('\n\n📊 Benchmarking mlx-engine (persistent server)...\n');
+    console.log('Loading model...');
+    const mlxEngineServer = new MLXEngineVisionServer();
+    await mlxEngineServer.start(MODEL);
+    console.log('Model loaded! Starting cycles...\n');
+
+    for (let i = 1; i <= CYCLES; i++) {
+      const result = await benchmarkMLXEngine(i, mlxEngineServer);
+      mlxEngineResults.push(result);
+    }
+
+    await mlxEngineServer.stop();
+
+    // Benchmark mlx-serving
+    console.log('\n\n📊 Benchmarking mlx-serving...\n');
+    console.log('Loading model...');
+    const { createEngine } = await import('../dist/index.js');
+    const mlxServingEngine = await createEngine();
+    await mlxServingEngine.loadModel({ model: MODEL });
+    console.log('Model loaded! Starting cycles...\n');
+
+    for (let i = 1; i <= CYCLES; i++) {
+      const result = await benchmarkMLXServing(i, mlxServingEngine, MODEL);
+      mlxServingResults.push(result);
+    }
+
+    await mlxServingEngine.dispose();
+
+    // Calculate averages
+    const mlxEngineAvg = calculateAverage(mlxEngineResults);
+    const mlxServingAvg = calculateAverage(mlxServingResults);
+
+    // Print results
+    console.log('\n\n' + '='.repeat(60));
+    console.log(`VISION BENCHMARK RESULTS: ${MODEL}`);
+    console.log('='.repeat(60));
+
+    console.log('\n📈 mlx-engine (Python - Model Loaded Once)');
+    console.log('-'.repeat(60));
+    mlxEngineResults.forEach((r) => {
+      console.log(`Cycle ${r.cycle}: ${r.tokensPerSecond.toFixed(2)} tok/s | ${r.avgLatency.toFixed(2)}s latency | ${r.successRate.toFixed(1)}% success`);
+    });
+    console.log('-'.repeat(60));
+    console.log(`Average: ${mlxEngineAvg.tokensPerSecond.toFixed(2)} tok/s | ${mlxEngineAvg.avgLatency.toFixed(2)}s latency | ${mlxEngineAvg.successRate.toFixed(1)}% success`);
+
+    console.log('\n📈 mlx-serving (TypeScript - Model Loaded Once)');
+    console.log('-'.repeat(60));
+    mlxServingResults.forEach((r) => {
+      console.log(`Cycle ${r.cycle}: ${r.tokensPerSecond.toFixed(2)} tok/s | ${r.avgLatency.toFixed(2)}s latency | ${r.successRate.toFixed(1)}% success`);
+    });
+    console.log('-'.repeat(60));
+    console.log(`Average: ${mlxServingAvg.tokensPerSecond.toFixed(2)} tok/s | ${mlxServingAvg.avgLatency.toFixed(2)}s latency | ${mlxServingAvg.successRate.toFixed(1)}% success`);
+
+    // Comparison
+    const improvement = ((mlxServingAvg.tokensPerSecond / mlxEngineAvg.tokensPerSecond - 1) * 100);
+    console.log('\n🔄 Comparison (Fair: Both Reuse Loaded Model)');
+    console.log('-'.repeat(60));
+    console.log(`mlx-serving vs mlx-engine: ${improvement > 0 ? '+' : ''}${improvement.toFixed(2)}%`);
+    console.log(`Throughput: ${mlxServingAvg.tokensPerSecond.toFixed(2)} vs ${mlxEngineAvg.tokensPerSecond.toFixed(2)} tok/s`);
+    console.log(`Latency: ${mlxServingAvg.avgLatency.toFixed(2)} vs ${mlxEngineAvg.avgLatency.toFixed(2)} seconds`);
+
+    // Save results
+    mkdirSync('results', { recursive: true });
+    const results = {
+      timestamp: new Date().toISOString(),
+      benchmark_type: 'vision_fair_comparison',
+      note: 'Both engines load model once and reuse for all questions',
+      model: MODEL,
+      questions: QUESTIONS,
+      cycles: CYCLES,
+      maxTokens: MAX_TOKENS,
+      temperature: TEMP,
+      mlxEngine: {
+        cycles: mlxEngineResults,
+        average: mlxEngineAvg,
+      },
+      mlxServing: {
+        cycles: mlxServingResults,
+        average: mlxServingAvg,
+      },
+      comparison: {
+        improvement: improvement,
+        winner: improvement > 0 ? 'mlx-serving' : 'mlx-engine',
+      },
+    };
+
+    const outputFile = join('results', `vision-fair-comparison-${Date.now()}.json`);
+    writeFileSync(outputFile, JSON.stringify(results, null, 2));
+    console.log(`\n💾 Results saved to: ${outputFile}`);
+    console.log('='.repeat(60));
   }
 
-  await mlxEngineServer.stop();
-
-  // Benchmark mlx-serving
-  console.log('\n\n📊 Benchmarking mlx-serving...\n');
-  console.log('Loading model...');
-  const { createEngine } = await import('../dist/index.js');
-  const mlxServingEngine = await createEngine();
-  await mlxServingEngine.loadModel({ model: MODEL });
-  console.log('Model loaded! Starting cycles...\n');
-
-  for (let i = 1; i <= CYCLES; i++) {
-    const result = await benchmarkMLXServing(i, mlxServingEngine);
-    mlxServingResults.push(result);
-  }
-
-  await mlxServingEngine.dispose();
-
-  // Calculate averages
-  const mlxEngineAvg = calculateAverage(mlxEngineResults);
-  const mlxServingAvg = calculateAverage(mlxServingResults);
-
-  // Print results
-  console.log('\n\n' + '='.repeat(60));
-  console.log('VISION BENCHMARK RESULTS (FAIR COMPARISON)');
-  console.log('='.repeat(60));
-
-  console.log('\n📈 mlx-engine (Python - Model Loaded Once)');
-  console.log('-'.repeat(60));
-  mlxEngineResults.forEach((r) => {
-    console.log(`Cycle ${r.cycle}: ${r.tokensPerSecond.toFixed(2)} tok/s | ${r.avgLatency.toFixed(2)}s latency | ${r.successRate.toFixed(1)}% success`);
-  });
-  console.log('-'.repeat(60));
-  console.log(`Average: ${mlxEngineAvg.tokensPerSecond.toFixed(2)} tok/s | ${mlxEngineAvg.avgLatency.toFixed(2)}s latency | ${mlxEngineAvg.successRate.toFixed(1)}% success`);
-
-  console.log('\n📈 mlx-serving (TypeScript - Model Loaded Once)');
-  console.log('-'.repeat(60));
-  mlxServingResults.forEach((r) => {
-    console.log(`Cycle ${r.cycle}: ${r.tokensPerSecond.toFixed(2)} tok/s | ${r.avgLatency.toFixed(2)}s latency | ${r.successRate.toFixed(1)}% success`);
-  });
-  console.log('-'.repeat(60));
-  console.log(`Average: ${mlxServingAvg.tokensPerSecond.toFixed(2)} tok/s | ${mlxServingAvg.avgLatency.toFixed(2)}s latency | ${mlxServingAvg.successRate.toFixed(1)}% success`);
-
-  // Comparison
-  const improvement = ((mlxServingAvg.tokensPerSecond / mlxEngineAvg.tokensPerSecond - 1) * 100);
-  console.log('\n🔄 Comparison (Fair: Both Reuse Loaded Model)');
-  console.log('-'.repeat(60));
-  console.log(`mlx-serving vs mlx-engine: ${improvement > 0 ? '+' : ''}${improvement.toFixed(2)}%`);
-  console.log(`Throughput: ${mlxServingAvg.tokensPerSecond.toFixed(2)} vs ${mlxEngineAvg.tokensPerSecond.toFixed(2)} tok/s`);
-  console.log(`Latency: ${mlxServingAvg.avgLatency.toFixed(2)} vs ${mlxEngineAvg.avgLatency.toFixed(2)} seconds`);
-
-  // Save results
-  mkdirSync('results', { recursive: true });
-  const results = {
-    timestamp: new Date().toISOString(),
-    benchmark_type: 'vision_fair_comparison',
-    note: 'Both engines load model once and reuse for all questions',
-    model: MODEL,
-    questions: QUESTIONS,
-    cycles: CYCLES,
-    maxTokens: MAX_TOKENS,
-    temperature: TEMP,
-    mlxEngine: {
-      cycles: mlxEngineResults,
-      average: mlxEngineAvg,
-    },
-    mlxServing: {
-      cycles: mlxServingResults,
-      average: mlxServingAvg,
-    },
-    comparison: {
-      improvement: improvement,
-      winner: improvement > 0 ? 'mlx-serving' : 'mlx-engine',
-    },
-  };
-
-  const outputFile = join('results', `vision-fair-comparison-${Date.now()}.json`);
-  writeFileSync(outputFile, JSON.stringify(results, null, 2));
-  console.log(`\n💾 Results saved to: ${outputFile}`);
-  console.log('='.repeat(60));
+  console.log('\n\n' + '✅'.repeat(30));
+  console.log('🎉 ALL BENCHMARKS COMPLETED!');
+  console.log('✅'.repeat(30));
 }
 
 main().catch((error) => {

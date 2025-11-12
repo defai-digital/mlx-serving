@@ -113,28 +113,85 @@ ValueError: Image features and image tokens do not match: tokens: 0, features 47
 - **Better memory layout**: Optimized for vision encoder outputs and image token sequences
 - **Forward compatibility**: Native API support for newest model architectures
 
-### Text-Only Models: Performance Scales with Model Size
+### Text-Only Models: Comprehensive Performance Analysis (141B → 0.5B)
 
-The performance improvement **increases** with model size, demonstrating superior memory management and Metal optimization:
+**TRANSPARENT RESULTS:** Showing both wins and losses across ALL model sizes to help you make informed decisions.
 
-| Model           | Size (GB) | Parameters | mlx-engine  | mlx-serving | Improvement   |
-|-----------------|-----------|------------|-------------|-------------|---------------|
-| Qwen3-30B       | ~17GB     | 30B        | 87.78 tok/s | 86.97 tok/s | -0.92% (tied) |
-| Llama-3.1-70B   | ~40GB     | 70B        | 8.53 tok/s  | 8.69 tok/s  | +1.92% ✅      |
-| Qwen2.5-72B     | ~40GB     | 72B        | 7.88 tok/s  | 8.21 tok/s  | +4.07% ✅      |
-| Mixtral-8x22B   | ~70-80GB  | 141B       | 13.42 tok/s | 14.68 tok/s | +9.38% ✅✅     |
+#### Very Large Models (70B - 141B): mlx-serving WINS ✅✅
 
-**Key Findings:**
-- ✅ **Small models (30B)**: Performance parity with baseline
-- ✅ **Medium-large models (70B)**: +2-4% faster inference
-- ✅ **Very large models (141B)**: +9.4% faster inference
-- 🚀 **Trend**: Larger models benefit MORE from mlx-serving's Metal Memory Pool, Blit Queue, and Command Buffer Ring optimizations
+| Model           | Size (GB) | Parameters | mlx-engine   | mlx-serving  | Difference    | Winner       |
+|-----------------|-----------|------------|--------------|--------------|---------------|--------------|
+| Mixtral-8x22B   | ~70-80GB  | 141B       | 13.42 tok/s  | 14.68 tok/s  | **+9.38% ✅✅** | mlx-serving |
+| Qwen2.5-72B     | ~40GB     | 72B        | 7.88 tok/s   | 8.21 tok/s   | **+4.07% ✅**  | mlx-serving |
+| Llama-3.1-70B   | ~40GB     | 70B        | 8.53 tok/s   | 8.69 tok/s   | **+1.92% ✅**  | mlx-serving |
+
+**Why mlx-serving dominates at 70B+:**
+- Metal Memory Pool critical under extreme memory pressure
+- Command Buffer Ring prevents GPU stalls
+- Blit Queue optimizations maximize throughput
+- **Trend**: Larger models = greater advantage (+2% → +9%)
+
+#### Large Models (14B - 47B): mlx-engine WINS ❌
+
+| Model           | Size (GB) | Parameters | mlx-engine   | mlx-serving  | Difference    | Winner       |
+|-----------------|-----------|------------|--------------|--------------|---------------|--------------|
+| Mixtral-8x7B    | ~26GB     | 47B        | 43.24 tok/s  | 42.69 tok/s  | **-1.28% ❌**  | mlx-engine  |
+| Qwen2.5-32B     | ~18GB     | 32B        | 17.59 tok/s  | 16.68 tok/s  | **-5.16% ❌**  | mlx-engine  |
+| Qwen3-30B       | ~17GB     | 30B        | 87.78 tok/s  | 86.97 tok/s  | **-0.92% ❌**  | mlx-engine (tied) |
+| Qwen2.5-14B     | ~8GB      | 14B        | 36.33 tok/s  | 34.83 tok/s  | **-4.14% ❌**  | mlx-engine  |
+
+**Why mlx-engine wins at 14B-47B:**
+- Further investigation needed for this size range
+- Possible overhead from TypeScript/Python bridge
+- May benefit from future optimizations
+
+#### Medium Models (7B - 8B): mlx-serving WINS ✅ **[INFLECTION POINT]**
+
+| Model           | Size (GB) | Parameters | mlx-engine   | mlx-serving  | Difference    | Winner       |
+|-----------------|-----------|------------|--------------|--------------|---------------|--------------|
+| Llama-3.1-8B    | ~4.5GB    | 8B         | 65.30 tok/s  | 65.86 tok/s  | **+0.85% ✅**  | mlx-serving |
+| Qwen2.5-7B      | ~4GB      | 7B         | 56.31 tok/s  | 60.22 tok/s  | **+6.95% ✅**  | mlx-serving |
+
+**Why mlx-serving wins at 7-8B:**
+- Metal Memory Pool optimizations start paying off
+- Efficient memory layout for GPU operations
+- **Sweet spot** where optimizations > overhead
+
+#### Small Models (0.5B - 3.8B): mlx-engine WINS ❌
+
+| Model           | Size (GB) | Parameters | mlx-engine   | mlx-serving  | Difference    | Winner       |
+|-----------------|-----------|------------|--------------|--------------|---------------|--------------|
+| Phi-3-mini      | ~2.3GB    | 3.8B       | 121.41 tok/s | 120.93 tok/s | **-0.40% ❌**  | mlx-engine  |
+| Llama-3.2-3B    | ~2GB      | 3B         | 142.87 tok/s | 139.07 tok/s | **-2.66% ❌**  | mlx-engine  |
+| Qwen2.5-1.5B    | ~1GB      | 1.5B       | 216.87 tok/s | 203.68 tok/s | **-6.08% ❌**  | mlx-engine  |
+| Llama-3.2-1B    | ~0.6GB    | 1B         | 300.85 tok/s | 288.70 tok/s | **-4.04% ❌**  | mlx-engine  |
+| Qwen2.5-0.5B    | ~0.3GB    | 0.5B       | 340.56 tok/s | 236.39 tok/s | **-30.59% ❌** | mlx-engine  |
+
+**Why mlx-engine wins on small models:**
+- TypeScript→Python bridge overhead dominates at small sizes
+- Metal optimizations designed for memory-intensive large models
+- Lower latency baseline (0.29-0.78s) makes overhead more noticeable
+
+#### Summary: When to Use Each Engine
+
+**Use mlx-serving when:**
+- ✅ **Vision models** (1.9-2.6x faster on Qwen2-VL, exclusive Qwen3-VL support)
+- ✅ **7-8B text models** (sweet spot: +1-7% faster)
+- ✅ **70B+ models** (+2-9% faster, scales with size)
+- ✅ **Production TypeScript/Node.js apps**
+- ✅ **Need distributed serving features**
+
+**Use mlx-engine when:**
+- ✅ **Small models < 7B** (lower overhead, up to 30% faster on 0.5B)
+- ✅ **Medium-large 14-47B models** (currently 1-5% faster)
+- ✅ **Simple Python scripts**
+- ✅ **Rapid prototyping**
 
 **Test Configuration:**
 - Hardware: M3 Max (128GB unified memory)
 - Method: Both engines load model once, reuse for all questions (fair comparison)
 - Metrics: Tokens per second (tok/s) averaged across 3 cycles
-- Features: All Metal optimizations enabled (Memory Pool, Blit Queue, Command Ring)
+- Models tested: 10 models from 0.5B to 141B (comprehensive coverage)
 
 ---
 
