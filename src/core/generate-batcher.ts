@@ -170,11 +170,31 @@ function percentile(values: number[], p: number): number {
   const weight = index - lower;
 
   if (lower === upper) {
-    return sorted[lower] ?? 0;
+    const val = sorted[lower];
+    // Validate instead of silently falling back to 0
+    if (val === undefined || !Number.isFinite(val)) {
+      throw new Error(
+        `Invalid percentile value at index ${lower}: ${val} (array length: ${sorted.length})`
+      );
+    }
+    return val;
   }
 
-  const lowerVal = sorted[lower] ?? 0;
-  const upperVal = sorted[upper] ?? 0;
+  const lowerVal = sorted[lower];
+  const upperVal = sorted[upper];
+
+  // Validate instead of silently falling back to 0
+  if (lowerVal === undefined || !Number.isFinite(lowerVal)) {
+    throw new Error(
+      `Invalid percentile lower value at index ${lower}: ${lowerVal} (array length: ${sorted.length})`
+    );
+  }
+  if (upperVal === undefined || !Number.isFinite(upperVal)) {
+    throw new Error(
+      `Invalid percentile upper value at index ${upper}: ${upperVal} (array length: ${sorted.length})`
+    );
+  }
+
   return lowerVal * (1 - weight) + upperVal * weight;
 }
 
@@ -696,9 +716,25 @@ export class GenerateBatcher {
       for (let i = 0; i < entries.length; i += 1) {
         const result = response.results[i];
         const entry = entries[i];
-        if (!result || !entry) {
+
+        // Handle sparse array (shouldn't happen, but defensive check)
+        if (!entry) {
+          this.logger?.error(
+            { index: i, batchSize: entries.length },
+            'Sparse array detected in batch entries'
+          );
           continue;
         }
+
+        // Handle missing result - must reject the promise to avoid hanging
+        if (!result) {
+          const error = new Error(
+            `Batch response missing result at index ${i} (received null/undefined)`
+          );
+          queueMicrotask(() => entry.reject(error));
+          continue;
+        }
+
         if (result.success && result.result) {
           const resolvedResult = result.result;
           queueMicrotask(() => entry.resolve(resolvedResult));

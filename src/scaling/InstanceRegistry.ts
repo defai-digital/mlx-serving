@@ -29,6 +29,7 @@ export class InstanceRegistry {
   private instances: Map<string, InstanceInfo> = new Map();
   private discoveryInterval?: NodeJS.Timeout;
   private cleanupInterval?: NodeJS.Timeout;
+  private autoScalingInterval?: NodeJS.Timeout; // Fix: Store auto-scaling interval
   private scalingEvents: ScalingEvent[] = [];
   private lastScaleUpTime = 0;
   private lastScaleDownTime = 0;
@@ -62,7 +63,7 @@ export class InstanceRegistry {
 
     // Start auto-scaling if enabled
     if (this.config.enableAutoScaling) {
-      setInterval(() => {
+      this.autoScalingInterval = setInterval(() => {
         this.evaluateAutoScaling().catch((_error) => {
           // console.error('Auto-scaling evaluation error:', _error);
         });
@@ -82,6 +83,12 @@ export class InstanceRegistry {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = undefined;
+    }
+
+    // Fix: Clear auto-scaling interval to prevent memory leak
+    if (this.autoScalingInterval) {
+      clearInterval(this.autoScalingInterval);
+      this.autoScalingInterval = undefined;
     }
   }
 

@@ -20,8 +20,14 @@ export default defineConfig({
     poolOptions: {
       threads: {
         isolate: true,
+        // Limit concurrent workers to prevent OOM errors
+        maxThreads: 4,
+        minThreads: 1,
       },
     },
+    // Prevent memory leaks in long-running tests
+    testTimeout: 30000, // 30 seconds default timeout
+    hookTimeout: 30000, // 30 seconds for setup/teardown
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

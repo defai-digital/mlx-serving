@@ -57,6 +57,7 @@ export class TimeoutHandler {
 
   /**
    * Execute promise with timeout
+   * Bug Fix #9: Clear timeout on success to prevent timer leak
    *
    * @param promise - Promise to execute
    * @param timeoutMs - Timeout in milliseconds
@@ -70,27 +71,31 @@ export class TimeoutHandler {
     operation: string = 'Operation'
   ): Promise<T> {
     const startTime = Date.now();
+    let timeoutHandle: NodeJS.Timeout;
 
-    return Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        setTimeout(() => {
-          const elapsed = Date.now() - startTime;
-          const error = new TimeoutError(
-            `${operation} timed out after ${elapsed}ms`,
-            timeoutMs
-          );
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        const elapsed = Date.now() - startTime;
+        const error = new TimeoutError(
+          `${operation} timed out after ${elapsed}ms`,
+          timeoutMs
+        );
 
-          this.logger.warn('Timeout exceeded', {
-            operation,
-            timeoutMs,
-            elapsedMs: elapsed,
-          });
+        this.logger.warn('Timeout exceeded', {
+          operation,
+          timeoutMs,
+          elapsedMs: elapsed,
+        });
 
-          reject(error);
-        }, timeoutMs);
-      }),
-    ]);
+        reject(error);
+      }, timeoutMs);
+    });
+
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      clearTimeout(timeoutHandle);
+    }
   }
 
   /**

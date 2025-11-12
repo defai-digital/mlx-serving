@@ -424,9 +424,25 @@ export class OpsMultiplexer {
 
       results.forEach((result, index) => {
         const entry = entries[index];
+
+        // Handle sparse array (shouldn't happen, but defensive check)
         if (!entry) {
+          this.logger?.error(
+            { index, batchSize: entries.length, method: batchMethod },
+            'Sparse array detected in batch entries'
+          );
           return;
         }
+
+        // Handle missing result - must reject the promise to avoid hanging
+        if (!result) {
+          const error = new Error(
+            `Batch response missing result at index ${index} (received null/undefined)`
+          );
+          queueMicrotask(() => entry.reject(error));
+          return;
+        }
+
         if (result.success && result.result !== undefined) {
           entry.resolve(result.result);
         } else {

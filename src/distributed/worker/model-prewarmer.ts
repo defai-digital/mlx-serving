@@ -207,18 +207,24 @@ export class ModelPreWarmer {
 
   /**
    * Execute promise with timeout
+   * Bug Fix #9: Clear timeout on success to prevent timer leak
    */
   private async withTimeout<T>(
     promise: Promise<T>,
     timeoutMs: number,
     timeoutMessage: string = 'Operation timeout'
   ): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
-      ),
-    ]);
+    let timeoutHandle: NodeJS.Timeout;
+
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      timeoutHandle = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    });
+
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      clearTimeout(timeoutHandle);
+    }
   }
 
   /**

@@ -47,8 +47,10 @@ export class EmbeddedNatsServer {
       return;
     }
 
-    const port = opts.port ?? 4222;
-    const httpPort = opts.httpPort ?? 8222;
+    // Use random ports in test environment to avoid conflicts
+    const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+    const port = opts.port ?? (isTest ? this.getRandomPort(5000, 6000) : 4222);
+    const httpPort = opts.httpPort ?? (isTest ? this.getRandomPort(9000, 10000) : 8222);
     const _logLevel = opts.logLevel ?? 'info';
 
     this.port = port;
@@ -175,6 +177,13 @@ export class EmbeddedNatsServer {
   }
 
   /**
+   * Get a random port in the specified range
+   */
+  private getRandomPort(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  /**
    * Check if nats-server binary is available
    */
   private async checkNatsServerAvailable(): Promise<void> {
@@ -241,15 +250,34 @@ export class EmbeddedNatsServer {
     const startTime = Date.now();
 
     return new Promise((resolve, reject) => {
-      const checkReady = (): string | null => {
+      let settled = false; // Prevent multiple resolve/reject calls
+
+      const checkReady = (): void => {
+        if (settled) {
+          return;
+        }
+
         if (Date.now() - startTime > timeoutMs) {
-          reject(new Error(`NATS server did not start within ${timeoutMs}ms`));
+          settled = true;
+          const logs = this.logs.join('\n');
+          reject(
+            new Error(
+              `NATS server did not start within ${timeoutMs}ms. Logs:\n${logs}`
+            )
+          );
           return;
         }
 
         // Check if process is still running
         if (!this.process || this.process.exitCode !== null) {
-          reject(new Error('NATS server process exited prematurely'));
+          settled = true;
+          const logs = this.logs.join('\n');
+          const exitCode = this.process?.exitCode ?? 'unknown';
+          reject(
+            new Error(
+              `NATS server process exited prematurely (exit code: ${exitCode}). Logs:\n${logs}`
+            )
+          );
           return;
         }
 
@@ -261,10 +289,13 @@ export class EmbeddedNatsServer {
         );
 
         if (hasReadyMessage) {
+          settled = true;
           resolve();
-        } else {
-          setTimeout(checkReady, 100);
+          return;
         }
+
+        // Continue checking
+        setTimeout(checkReady, 100);
       };
 
       // Start checking after a short delay

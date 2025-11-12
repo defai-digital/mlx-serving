@@ -563,15 +563,20 @@ export class PythonRuntimeManager extends EventEmitter<PythonRuntimeManagerEvent
     // Stop runtime
     if (worker.runtime) {
       try {
-        await Promise.race([
-          worker.runtime.stop(),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error('Worker shutdown timeout')),
-              this.config.shutdownTimeout
-            )
-          ),
-        ]);
+        // Bug Fix #9: Clear timeout to prevent timer leak
+        let timeoutHandle: NodeJS.Timeout;
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutHandle = setTimeout(
+            () => reject(new Error('Worker shutdown timeout')),
+            this.config.shutdownTimeout
+          );
+        });
+
+        try {
+          await Promise.race([worker.runtime.stop(), timeoutPromise]);
+        } finally {
+          clearTimeout(timeoutHandle);
+        }
       } catch (error) {
         this.logger?.warn(
           {

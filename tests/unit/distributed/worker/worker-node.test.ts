@@ -295,17 +295,22 @@ describe('WorkerNode', () => {
       expect(heartbeatCalls.length).toBeGreaterThanOrEqual(0);
     });
 
-    it('should stop heartbeat on stop', async () => {
-      await worker.start();
-      await worker.stop();
+    it(
+      'should stop heartbeat on stop',
+      async () => {
+        await worker.start();
+        await worker.stop();
 
-      const publishCallsBefore = mockNatsClient.publish.mock.calls.length;
-      await new Promise((resolve) => setTimeout(resolve, 6000));
-      const publishCallsAfter = mockNatsClient.publish.mock.calls.length;
+        const publishCallsBefore = mockNatsClient.publish.mock.calls.length;
+        // Wait longer than heartbeat interval to ensure no new heartbeats
+        await new Promise((resolve) => setTimeout(resolve, 6000));
+        const publishCallsAfter = mockNatsClient.publish.mock.calls.length;
 
-      // No new heartbeats after stop
-      expect(publishCallsAfter).toBe(publishCallsBefore);
-    });
+        // No new heartbeats after stop
+        expect(publishCallsAfter).toBe(publishCallsBefore);
+      },
+      10000
+    ); // Increase timeout to 10s since test waits 6s
   });
 
   describe('getState()', () => {
