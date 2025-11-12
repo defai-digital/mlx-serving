@@ -51,6 +51,9 @@ automatosx*
 # Claude Code configuration (private)
 .claude/
 
+# Specify AI configuration (private)
+.specify/
+
 # AI Agent configuration files (private)
 agents.md
 gemini.md
