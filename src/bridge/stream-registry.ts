@@ -238,7 +238,8 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
   private readonly minStreamLimit: number;
   private readonly maxStreamLimit: number;
   private readonly targetTTFT: number;
-  private readonly targetLatency: number;
+  // @ts-expect-error - Reserved for future QoS policy use
+  private readonly _targetLatency: number;
   private readonly scaleUpThreshold: number;
   private readonly scaleDownThreshold: number;
   private adjustmentInterval?: NodeJS.Timeout;
@@ -258,7 +259,8 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
   private readonly backpressureEnabled: boolean;
   private readonly metricsEnabled: boolean;
   private readonly maxUnackedChunks: number;
-  private readonly ackTimeoutMs: number;
+  // @ts-expect-error - Reserved for future backpressure policy use
+  private readonly _ackTimeoutMs: number;
   private readonly slowConsumerThresholdMs: number;
   private readonly cleanupScheduler?: CleanupScheduler;
   private readonly adaptiveGovernor?: AdaptiveGovernor;
@@ -285,7 +287,7 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     this.maxStreamLimit = adaptive.max_streams;
     this.currentStreamLimit = this.maxActiveStreams;
     this.targetTTFT = adaptive.target_ttft_ms;
-    this.targetLatency = adaptive.target_latency_ms;
+    this._targetLatency = adaptive.target_latency_ms;
     this.scaleUpThreshold = adaptive.scale_up_threshold;
     this.scaleDownThreshold = adaptive.scale_down_threshold;
 
@@ -296,7 +298,7 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
 
     this.backpressureEnabled = backpressure.enabled;
     this.maxUnackedChunks = backpressure.max_unacked_chunks;
-    this.ackTimeoutMs = backpressure.ack_timeout_ms;
+    this._ackTimeoutMs = backpressure.ack_timeout_ms;
     this.slowConsumerThresholdMs = backpressure.slow_consumer_threshold_ms;
 
     this.metricsEnabled = metrics.enabled;

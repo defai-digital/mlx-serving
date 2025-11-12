@@ -507,7 +507,7 @@ export class FastJsonCodec implements Codec {
           }
         }
       }
-    });
+    }) as (obj: unknown) => string;
   }
 
   encode<T>(message: T): Buffer {

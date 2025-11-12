@@ -53,9 +53,11 @@ export class ModelManager {
   // Phase 2: In-Memory Model Caching (v0.2.0)
   private readonly cacheEnabled: boolean;
   private readonly maxCachedModels: number;
-  private readonly evictionStrategy: string;
+  // @ts-expect-error - Reserved for future caching strategy implementation
+  private readonly _evictionStrategy: string;
   private readonly warmupOnStart: string[];
-  private readonly trackStats: boolean;
+  // @ts-expect-error - Reserved for future statistics tracking
+  private readonly _trackStats: boolean;
   private readonly accessTimes = new Map<ModelIdentifier, number>();
 
   private readonly handles = new Map<ModelIdentifier, ModelHandle>();
@@ -78,9 +80,9 @@ export class ModelManager {
     // Phase 2: In-Memory Model Caching configuration
     this.cacheEnabled = config.model.memory_cache.enabled;
     this.maxCachedModels = config.model.memory_cache.max_cached_models;
-    this.evictionStrategy = config.model.memory_cache.eviction_strategy;
+    this._evictionStrategy = config.model.memory_cache.eviction_strategy;
     this.warmupOnStart = config.model.memory_cache.warmup_on_start;
-    this.trackStats = config.model.memory_cache.track_stats;
+    this._trackStats = config.model.memory_cache.track_stats;
 
     // Initialize request queue with model loading concurrency control
     // Use 5 minute timeout for model loading (much longer than JSON-RPC timeout)
@@ -482,6 +484,7 @@ export class ModelManager {
       throw toEngineError(error, draft ? 'GenerationError' : 'ModelLoadError');
     }
 
+    // @ts-expect-error - Reserved for future performance metrics
     const _loadTimeMs = performance.now() - loadStartTime;
 
     const handle = this.createHandle(descriptor, draft, response, options);

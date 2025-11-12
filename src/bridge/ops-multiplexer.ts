@@ -361,7 +361,10 @@ export class OpsMultiplexer {
     }
 
     if (activeEntries.length === 1) {
-      this.dispatchSolo(activeEntries[0]);
+      const entry = activeEntries[0];
+      if (entry) {
+        this.dispatchSolo(entry);
+      }
       return;
     }
 
@@ -408,7 +411,8 @@ export class OpsMultiplexer {
 
     try {
       const payload = buildEnvelope(entries.map((entry) => entry.params));
-      const options = withoutPriority(entries[0].options);
+      const firstEntry = entries[0];
+      const options = firstEntry ? withoutPriority(firstEntry.options) : undefined;
       const response = await this.dispatch(batchMethod, payload, options);
       const results = extractResults(response);
 
@@ -420,6 +424,9 @@ export class OpsMultiplexer {
 
       results.forEach((result, index) => {
         const entry = entries[index];
+        if (!entry) {
+          return;
+        }
         if (result.success && result.result !== undefined) {
           entry.resolve(result.result);
         } else {
@@ -434,7 +441,9 @@ export class OpsMultiplexer {
         queueMicrotask(() => entry.reject(error));
       }
     } finally {
-      const _latency = Date.now() - batchStart;
+      // Latency tracking (currently unused but available for future metrics)
+      const __latency = Date.now() - batchStart;
+      void __latency; // Suppress unused variable warning
       this.updateAverages(entries.length, queueLatencies);
       this.inflightBatches = Math.max(0, this.inflightBatches - 1);
     }

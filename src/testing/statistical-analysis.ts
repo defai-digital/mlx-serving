@@ -86,8 +86,8 @@ export function calculateSampleStatistics(values: number[]): SampleStatistics {
     mean,
     variance,
     stdDev,
-    min: sorted[0],
-    max: sorted[sorted.length - 1],
+    min: sorted[0]!,
+    max: sorted[sorted.length - 1]!,
     median,
     p95,
     p99,
@@ -108,10 +108,10 @@ function percentile(sortedValues: number[], p: number): number {
   const weight = index % 1;
 
   if (lower === upper) {
-    return sortedValues[lower];
+    return sortedValues[lower]!;
   }
 
-  return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+  return sortedValues[lower]! * (1 - weight) + sortedValues[upper]! * weight;
 }
 
 /**
@@ -407,23 +407,23 @@ function normalQuantile(p: number): number {
     // Lower region
     const q = Math.sqrt(-2 * Math.log(p));
     return (
-      (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
-      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+      (((((c[0]! * q + c[1]!) * q + c[2]!) * q + c[3]!) * q + c[4]!) * q + c[5]!) /
+      ((((d[0]! * q + d[1]!) * q + d[2]!) * q + d[3]!) * q + 1)
     );
   } else if (p <= pHigh) {
     // Central region
     const q = p - 0.5;
     const r = q * q;
     return (
-      ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) /
-      (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+      ((((((a[0]! * r + a[1]!) * r + a[2]!) * r + a[3]!) * r + a[4]!) * r + a[5]!) * q) /
+      (((((b[0]! * r + b[1]!) * r + b[2]!) * r + b[3]!) * r + b[4]!) * r + 1)
     );
   } else {
     // Upper region
     const q = Math.sqrt(-2 * Math.log(1 - p));
     return (
-      -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
-      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+      -(((((c[0]! * q + c[1]!) * q + c[2]!) * q + c[3]!) * q + c[4]!) * q + c[5]!) /
+      ((((d[0]! * q + d[1]!) * q + d[2]!) * q + d[3]!) * q + 1)
     );
   }
 }
@@ -480,9 +480,9 @@ function gamma(z: number): number {
 
   z -= 1;
 
-  let x = c[0];
+  let x = c[0]!;
   for (let i = 1; i < g + 2; i++) {
-    x += c[i] / (z + i);
+    x += c[i]! / (z + i);
   }
 
   const t = z + g + 0.5;

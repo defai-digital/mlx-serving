@@ -286,6 +286,9 @@ export class ModelPreloader {
     for (let i = 0; i < requestCount; i++) {
       try {
         const prompt = prompts[i % prompts.length];
+        if (!prompt) {
+          continue; // Skip if prompt is missing
+        }
 
         // Use GeneratorFactory to perform actual generation (non-streaming for warmup)
         const generator = this.generatorFactory.createGenerator({

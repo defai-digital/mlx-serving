@@ -170,10 +170,12 @@ function percentile(values: number[], p: number): number {
   const weight = index - lower;
 
   if (lower === upper) {
-    return sorted[lower];
+    return sorted[lower] ?? 0;
   }
 
-  return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+  const lowerVal = sorted[lower] ?? 0;
+  const upperVal = sorted[upper] ?? 0;
+  return lowerVal * (1 - weight) + upperVal * weight;
 }
 
 /**
@@ -694,8 +696,12 @@ export class GenerateBatcher {
       for (let i = 0; i < entries.length; i += 1) {
         const result = response.results[i];
         const entry = entries[i];
+        if (!result || !entry) {
+          continue;
+        }
         if (result.success && result.result) {
-          queueMicrotask(() => entry.resolve(result.result as GenerateResponse));
+          const resolvedResult = result.result;
+          queueMicrotask(() => entry.resolve(resolvedResult));
         } else {
           const error = new Error(result.error || 'Batch generate request failed');
           queueMicrotask(() => entry.reject(error));
