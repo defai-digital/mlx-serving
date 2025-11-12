@@ -459,6 +459,7 @@ Built with:
 - **[pybind11](https://github.com/pybind/pybind11)** - Python/C++ bindings
 
 Special thanks to:
+- LL (support team key person)
 - AutomatosX multi-agent system
 - DEFAI Private Limited team
 - MLX community
