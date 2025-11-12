@@ -10,7 +10,7 @@ import { writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import readline from 'readline';
 
-const MODEL = 'mlx-community/Qwen2-VL-72B-Instruct-4bit';
+const MODEL = 'mlx-community/Qwen3-VL-4B-Instruct-4bit';
 const QUESTIONS = 10;  // Number of image+text prompts
 const CYCLES = 3;
 const MAX_TOKENS = 100;

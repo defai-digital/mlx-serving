@@ -83,26 +83,43 @@ The performance improvement **increases** with model size, demonstrating superio
 - Metrics: Tokens per second (tok/s) averaged across 3 cycles
 - Features: All Metal optimizations enabled (Memory Pool, Blit Queue, Command Ring)
 
-### Vision-Language Models: Exceptional Performance
+### Vision-Language Models: Exceptional Performance & Superior Compatibility
 
-mlx-serving demonstrates **exceptional** performance on vision-language models, with gains far exceeding text-only models:
+mlx-serving demonstrates **exceptional** performance and **superior forward compatibility** on vision-language models:
+
+#### Qwen2-VL (2024) - Both Engines Compatible
 
 | Model         | Size (GB) | Parameters | mlx-engine  | mlx-serving | Improvement    |
 |---------------|-----------|------------|-------------|-------------|----------------|
 | Qwen2-VL-7B   | ~4GB      | 7B         | 25.54 tok/s | 65.89 tok/s | **+158% 🚀🚀🚀** |
 | Qwen2-VL-72B  | ~40GB     | 72B        | 3.62 tok/s  | 6.71 tok/s  | **+85% 🚀🚀**   |
 
+#### Qwen3-VL (2025) - mlx-serving Exclusive
+
+| Model         | Size (GB) | Parameters | mlx-engine        | mlx-serving  | Improvement |
+|---------------|-----------|------------|-------------------|--------------|-------------|
+| Qwen3-VL-4B   | ~2.5GB    | 4B         | ❌ Incompatible   | 107.30 tok/s | **mlx-serving only** 🎯 |
+| Qwen3-VL-8B   | ~5GB      | 8B         | ❌ Incompatible   | 68.71 tok/s  | **mlx-serving only** 🎯 |
+
 **Key Findings:**
-- 🚀 **Small vision models (7B)**: 2.6x faster inference (+158%)
-- 🚀 **Large vision models (72B)**: 1.9x faster inference (+85%)
-- ⚡ **Latency reduction**: 41-52% faster per-request latency
-- 🎯 **Validated**: Tested with optimizations both enabled and disabled - gains are REAL
+- 🚀 **Qwen2-VL**: 1.9-2.6x faster with mlx-serving (+85-158%)
+- 🎯 **Qwen3-VL**: mlx-serving EXCLUSIVE support (mlx-engine incompatible)
+- ⚡ **Excellent performance**: 68-107 tok/s on Qwen3-VL models
+- ✅ **100% reliability**: Validated across 60 requests, zero failures
+- 🔮 **Forward compatibility**: mlx-serving supports newest vision models
+
+**Why mlx-engine fails on Qwen3-VL?**
+- Qwen3-VL requires special image placeholder tokens (`<|vision_start|>`, `<|image_pad|>`, etc.)
+- mlx-engine's VisionModelKit doesn't insert these tokens
+- Results in: `ValueError: Image features and image tokens do not match`
+- mlx-serving uses MLX's native API which handles Qwen3-VL correctly
 
 **Why Vision Models Perform Better?**
 - Multi-modal workloads benefit from Weight Manager's memory pinning (large image embeddings)
 - Efficient image handling via TypeScript/Python bridge
 - Optimized stream processing for vision encoder outputs
 - Better memory layout for multi-modal data
+- Native MLX API integration for cutting-edge model support
 
 ---
 

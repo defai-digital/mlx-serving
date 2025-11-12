@@ -94,7 +94,23 @@ def main():
 
             for generation_result in generator:
                 full_text += generation_result.text
-                token_count += len(generation_result.tokens)
+                # Debug: Check what generation_result contains
+                if hasattr(generation_result, 'tokens'):
+                    if isinstance(generation_result.tokens, list):
+                        token_count += len(generation_result.tokens)
+                    elif isinstance(generation_result.tokens, int):
+                        token_count += generation_result.tokens
+                    else:
+                        # Single token
+                        token_count += 1
+                else:
+                    # Fallback: count tokens in the generated text
+                    token_count += 1
+
+            # Fallback: If token_count is still 0, tokenize the output text
+            if token_count == 0 and full_text:
+                output_tokens = tokenize(model_kit, full_text)
+                token_count = len(output_tokens)
 
             # Send response
             result = {
