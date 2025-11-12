@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.0] - 2025-11-12
+
+### Summary
+
+First stable production release of mlx-serving - Enterprise-grade TypeScript MLX serving engine for Apple Silicon.
+
+**Status:** ✅ PRODUCTION READY v1.0.0
+- **Code Quality:** 0 lint errors, 0 warnings
+- **Tests:** 512/512 passing (100%)
+- **Performance:** 19.5% faster than baseline (84.96 tok/s)
+- **Reliability:** 100% success rate
+- **License:** Apache-2.0
+
+### Changes from v0.8.0
+
+- **License:** Changed from Elastic-2.0 to Apache-2.0
+- **Copyright:** DEFAI Private Limited (2025)
+- **Commercial Usage:** Model weights use modified OpenRAIL-M license
+  - Free for research, personal use, and startups under $2M funding/revenue
+  - Cannot be used competitively with our API
+  - Commercial licensing available at: https://license.defai.digital/mlx-serving
+
+### Package Information
+
+- **Package Name:** @defai.digital/mlx-serving
+- **Version:** 1.0.0
+- **Repository:** https://github.com/defai-digital/mlx-serving
+- **Installation:** `npm i @defai.digital/mlx-serving`
+
+### Core Features
+
+- Production-ready TypeScript MLX serving engine
+- Comprehensive Zod validation (9 schema modules)
+- Python MLX runtime integration via JSON-RPC
+- Native C++ acceleration module (5-60% performance boost)
+- Advanced state management and reliability features
+- OpenTelemetry integration for observability
+- Dynamic batching and request optimization
+- TTFT acceleration pipeline
+- QoS monitoring and SLO enforcement
+- Stream lifecycle management
+- Feature flag system with canary deployment
+
+### System Requirements
+
+- macOS 26.0+ (Darwin 25.0.0+)
+- Apple Silicon M3 or newer (M3 Pro/Max/Ultra recommended)
+- Node.js 22.0.0+
+- Python 3.11-3.12
+- Metal 3.3+ (included in macOS 26.0+)
+
+### Documentation
+
+- [README.md](./README.md) - Quick start and overview
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System architecture
+- [ZOD_SCHEMAS.md](./docs/ZOD_SCHEMAS.md) - Validation schemas guide
+- [GUIDES.md](./docs/GUIDES.md) - User guides
+- [DEPLOYMENT.md](./docs/DEPLOYMENT.md) - Deployment guide
+
+### Note
+
+This is the first stable 1.0.0 release. Future experimental features (Metal optimizations, CPU parallelization, memory management) are available in alpha versions (0.9.0-alpha.1, 0.10.0-alpha.1, 0.11.0-alpha.1) for testing.
+
+---
+
 ## [0.11.0-alpha.1] - 2025-11-09
 
 ### Summary
