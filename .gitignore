@@ -46,6 +46,9 @@ compile_commands.json
 .automatosx/
 automatosx/
 
+# Claude Code configuration (private)
+.claude/
+
 # AI Agent configuration files (private)
 agents.md
 gemini.md
