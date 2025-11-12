@@ -11,6 +11,9 @@ dist/
 # Test coverage
 coverage/
 
+# Benchmark results (generated locally)
+results/
+
 # Python
 *.pyc
 __pycache__/
