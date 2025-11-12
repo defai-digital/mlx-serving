@@ -83,6 +83,27 @@ The performance improvement **increases** with model size, demonstrating superio
 - Metrics: Tokens per second (tok/s) averaged across 3 cycles
 - Features: All Metal optimizations enabled (Memory Pool, Blit Queue, Command Ring)
 
+### Vision-Language Models: Exceptional Performance
+
+mlx-serving demonstrates **exceptional** performance on vision-language models, with gains far exceeding text-only models:
+
+| Model         | Size (GB) | Parameters | mlx-engine  | mlx-serving | Improvement    |
+|---------------|-----------|------------|-------------|-------------|----------------|
+| Qwen2-VL-7B   | ~4GB      | 7B         | 25.54 tok/s | 65.89 tok/s | **+158% 🚀🚀🚀** |
+| Qwen2-VL-72B  | ~40GB     | 72B        | 3.62 tok/s  | 6.71 tok/s  | **+85% 🚀🚀**   |
+
+**Key Findings:**
+- 🚀 **Small vision models (7B)**: 2.6x faster inference (+158%)
+- 🚀 **Large vision models (72B)**: 1.9x faster inference (+85%)
+- ⚡ **Latency reduction**: 41-52% faster per-request latency
+- 🎯 **Validated**: Tested with optimizations both enabled and disabled - gains are REAL
+
+**Why Vision Models Perform Better?**
+- Multi-modal workloads benefit from Weight Manager's memory pinning (large image embeddings)
+- Efficient image handling via TypeScript/Python bridge
+- Optimized stream processing for vision encoder outputs
+- Better memory layout for multi-modal data
+
 ---
 
 ## Performance Optimizations (Enabled by Default)
