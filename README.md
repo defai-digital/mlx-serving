@@ -61,28 +61,6 @@ Built from the ground up with modern TypeScript practices and enterprise-grade r
 
 **mlx-serving vs mlx-engine**: Fair comparison with both engines loading models once and reusing for all inferences.
 
-### Performance Scales with Model Size
-
-The performance improvement **increases** with model size, demonstrating superior memory management and Metal optimization:
-
-| Model         | Size (GB) | Parameters | mlx-engine  | mlx-serving | Improvement   |
-|---------------|-----------|------------|-------------|-------------|---------------|
-| Qwen3-30B     | ~17GB     | 30B        | 87.78 tok/s | 86.97 tok/s | -0.92% (tied) |
-| Qwen2.5-72B   | ~40GB     | 72B        | 7.88 tok/s  | 8.21 tok/s  | +4.07% ✅      |
-| Mixtral-8x22B | ~70-80GB  | 141B       | 13.42 tok/s | 14.68 tok/s | +9.38% ✅✅     |
-
-**Key Findings:**
-- ✅ **Small models (30B)**: Performance parity with baseline
-- ✅ **Medium-large models (72B)**: +4% faster inference
-- ✅ **Very large models (141B)**: +9.4% faster inference
-- 🚀 **Trend**: Larger models benefit MORE from mlx-serving's Metal Memory Pool, Blit Queue, and Command Buffer Ring optimizations
-
-**Test Configuration:**
-- Hardware: M3 Max (128GB unified memory)
-- Method: Both engines load model once, reuse for all questions (fair comparison)
-- Metrics: Tokens per second (tok/s) averaged across 3 cycles
-- Features: All Metal optimizations enabled (Memory Pool, Blit Queue, Command Ring)
-
 ### Vision-Language Models: Exceptional Performance & Superior Compatibility
 
 mlx-serving demonstrates **exceptional** performance and **superior forward compatibility** on vision-language models:
@@ -134,6 +112,29 @@ ValueError: Image features and image tokens do not match: tokens: 0, features 47
 - **Efficient streaming**: TypeScript/Python bridge optimized for multi-modal data
 - **Better memory layout**: Optimized for vision encoder outputs and image token sequences
 - **Forward compatibility**: Native API support for newest model architectures
+
+### Text-Only Models: Performance Scales with Model Size
+
+The performance improvement **increases** with model size, demonstrating superior memory management and Metal optimization:
+
+| Model           | Size (GB) | Parameters | mlx-engine  | mlx-serving | Improvement   |
+|-----------------|-----------|------------|-------------|-------------|---------------|
+| Qwen3-30B       | ~17GB     | 30B        | 87.78 tok/s | 86.97 tok/s | -0.92% (tied) |
+| Llama-3.1-70B   | ~40GB     | 70B        | 8.53 tok/s  | 8.69 tok/s  | +1.92% ✅      |
+| Qwen2.5-72B     | ~40GB     | 72B        | 7.88 tok/s  | 8.21 tok/s  | +4.07% ✅      |
+| Mixtral-8x22B   | ~70-80GB  | 141B       | 13.42 tok/s | 14.68 tok/s | +9.38% ✅✅     |
+
+**Key Findings:**
+- ✅ **Small models (30B)**: Performance parity with baseline
+- ✅ **Medium-large models (70B)**: +2-4% faster inference
+- ✅ **Very large models (141B)**: +9.4% faster inference
+- 🚀 **Trend**: Larger models benefit MORE from mlx-serving's Metal Memory Pool, Blit Queue, and Command Buffer Ring optimizations
+
+**Test Configuration:**
+- Hardware: M3 Max (128GB unified memory)
+- Method: Both engines load model once, reuse for all questions (fair comparison)
+- Metrics: Tokens per second (tok/s) averaged across 3 cycles
+- Features: All Metal optimizations enabled (Memory Pool, Blit Queue, Command Ring)
 
 ---
 
