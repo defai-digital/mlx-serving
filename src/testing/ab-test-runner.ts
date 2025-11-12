@@ -11,15 +11,15 @@
  * Week 2: A/B Testing Framework
  */
 
-import { safeAverage, safeDivide } from '@/utils/math-helpers.js';
-import type { Engine, GeneratorParams, GeneratorChunk } from '../types/index.js';
+import { safeDivide } from '@/utils/math-helpers.js';
+import type { Engine, GeneratorParams } from '../types/index.js';
 import {
   calculateSampleStatistics,
   welchTTest,
   calculateEffectSize,
-  calculateSampleSize,
+
   formatPValue,
-  getSignificanceLevel,
+
   type SampleStatistics,
   type WelchTTestResult,
   type EffectSize,

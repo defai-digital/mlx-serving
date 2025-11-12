@@ -12,7 +12,8 @@
  * - Comprehensive metrics
  */
 
-import { createClient, RedisClientType } from 'redis';
+import type { RedisClientType } from 'redis';
+import { createClient } from 'redis';
 import { promisify } from 'util';
 import { gzip, gunzip } from 'zlib';
 import type { CacheEntry, CacheMetrics, DistributedCacheConfig } from '@/types/scaling.js';

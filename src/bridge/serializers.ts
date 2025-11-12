@@ -462,7 +462,7 @@ export class JsonCodec implements Codec {
  * - Expected gain: 7-10ms per request (0.7-1% improvement)
  */
 export class FastJsonCodec implements Codec {
-  private readonly stringify: (obj: any) => string;
+  private readonly stringify: (obj: unknown) => string;
 
   constructor() {
     // Pre-compile JSON-RPC schema for maximum performance

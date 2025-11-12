@@ -10,7 +10,7 @@ import { NatsClient } from '../nats/client.js';
 import { WorkerRegistry, type WorkerInfo } from './worker-registry.js';
 import { SmartLoadBalancer } from './load-balancers/smart-load-balancer.js';
 import { ApiServer } from './api-server.js';
-import { WsServer } from './ws-server.js';
+import type { WsServer } from './ws-server.js';
 import { CircuitBreakerManager, CircuitState } from './circuit-breaker.js';
 import { RetryHandler } from './retry-handler.js';
 import { TimeoutHandler } from './timeout-handler.js';
@@ -621,7 +621,7 @@ export class ControllerNode extends EventEmitter {
     });
 
     // Initialize metrics
-    const metadata = this.initRequestMetadata(request);
+    const _metadata = this.initRequestMetadata(request);
 
     // Track active request
     this.activeRequests.set(request.requestId, {

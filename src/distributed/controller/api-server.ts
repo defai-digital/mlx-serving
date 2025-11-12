@@ -123,7 +123,7 @@ export class ApiServer {
     });
 
     // Global error handler
-    this.app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    this.app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
       this.logger.error('API error', err, {
         method: req.method,
         path: req.path,

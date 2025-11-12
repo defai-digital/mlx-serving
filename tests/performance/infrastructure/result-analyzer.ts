@@ -244,7 +244,7 @@ export class ResultAnalyzer {
       .filter(r => r.name.includes('Throughput') || r.name.includes('Scalability'))
       .sort((a, b) => a.config.workers - b.config.workers);
 
-    const workerResults = throughputResults.map((r, i) => {
+    const workerResults = throughputResults.map((r) => {
       const baselineThroughput = throughputResults[0]?.requestsPerSec || 1;
       const expectedThroughput = baselineThroughput * r.config.workers;
       const scalingEfficiency = r.requestsPerSec / expectedThroughput;

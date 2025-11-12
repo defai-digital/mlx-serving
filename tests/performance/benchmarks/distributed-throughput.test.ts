@@ -30,7 +30,7 @@ class ThroughputBenchmarkHarness extends BenchmarkHarness {
     return `Distributed Throughput - ${this.testName}`;
   }
 
-  async warmup(config: BenchmarkConfig): Promise<void> {
+  async warmup(_config: BenchmarkConfig): Promise<void> {
     // Send warmup requests to prime the system
     const warmupPromises = [];
     for (let i = 0; i < config.concurrency; i++) {
@@ -46,7 +46,7 @@ class ThroughputBenchmarkHarness extends BenchmarkHarness {
     await Promise.all(warmupPromises);
   }
 
-  async run(config: BenchmarkConfig): Promise<BenchmarkResult> {
+  async run(_config: BenchmarkConfig): Promise<BenchmarkResult> {
     const collector = new MetricsCollector();
     collector.start();
 

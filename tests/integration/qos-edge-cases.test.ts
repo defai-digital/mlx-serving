@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { QosEvaluator } from '@/streaming/qos/QosEvaluator.js';
-import type { SloConfig, MetricSample } from '@/types/qos.js';
+import type { SloConfig } from '@/types/qos.js';
 
 describe('QoS Edge Cases Integration', () => {
   let evaluator: QosEvaluator;

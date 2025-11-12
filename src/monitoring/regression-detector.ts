@@ -14,7 +14,6 @@ import {
   MetricsAggregator,
   type MetricsAggregatorConfig,
   type MetricSample,
-  type MetricStatistics,
 } from './metrics-aggregator.js';
 
 /**

@@ -24,11 +24,11 @@ import { HardwareReporter } from './hardware-reporter.js';
 import { MetricsCollector } from './metrics-collector.js';
 import { ModelScanner } from './model-scanner.js';
 import { ModelPreWarmer } from './model-prewarmer.js';
-import { ResourceManager, type ResourceLimitsConfig } from './resource-manager.js';
-import { RequestQueue, RequestPriority, type QueueConfig } from './request-queue.js';
-import { ContinuousBatcher, type BatcherConfig } from './continuous-batcher.js';
+import { ResourceManager } from './resource-manager.js';
+import { RequestQueue, RequestPriority } from './request-queue.js';
+import { ContinuousBatcher } from './continuous-batcher.js';
 import { createLogger, type Logger } from '../utils/logger.js';
-import { WorkerError, ControllerErrorCode } from '../utils/errors.js';
+import { WorkerError } from '../utils/errors.js';
 
 export enum WorkerState {
   IDLE = 'idle',
@@ -439,8 +439,8 @@ export class WorkerNode extends EventEmitter {
    * Build registration message
    */
   private buildRegistrationMessage(): WorkerRegistration {
-    const hardware = this.hardwareReporter.getHardwareProfile();
-    const capabilities = this.hardwareReporter.getCapabilities();
+    const _hardware = this.hardwareReporter.getHardwareProfile();
+    const _capabilities = this.hardwareReporter.getCapabilities();
 
     return {
       workerId: this.workerId,

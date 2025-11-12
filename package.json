@@ -42,7 +42,7 @@
     "setup": "tsx scripts/prepare-env.ts",
     "setup:mlx-engine": "bash scripts/setup-mlx-engine.sh",
     "clean": "rm -rf dist .kr-mlx-venv",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm run lint && npm run build",
     "postinstall": "node scripts/postinstall.cjs || true",
     "bench:llm": "tsx benchmarks/compare-engines-fair.ts",
     "bench:vision": "tsx benchmarks/compare-vision-fair.ts",

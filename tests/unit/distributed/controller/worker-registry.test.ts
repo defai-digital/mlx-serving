@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { WorkerRegistry, type WorkerInfo } from '@/distributed/controller/worker-registry.js';
+import { WorkerRegistry } from '@/distributed/controller/worker-registry.js';
 import type { WorkerRegistration, WorkerHeartbeat } from '@/distributed/types/messages.js';
 
 describe('WorkerRegistry', () => {

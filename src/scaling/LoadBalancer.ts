@@ -201,7 +201,7 @@ export class LoadBalancer {
   /**
    * Report request failure
    */
-  reportFailure(instanceId: string, error: Error): void {
+  reportFailure(instanceId: string, _error: Error): void {
     this.totalFailures++;
 
     const instance = this.instances.get(instanceId);
@@ -230,7 +230,7 @@ export class LoadBalancer {
    * Update circuit breaker state
    */
   private updateCircuitBreaker(instance: InstanceInfo): void {
-    const { failureThreshold, resetTimeoutMs, successThreshold } = this.config.circuitBreaker;
+    const { failureThreshold, resetTimeoutMs, successThreshold: _successThreshold } = this.config.circuitBreaker;
 
     // Open circuit if too many failures
     if (
@@ -316,7 +316,7 @@ export class LoadBalancer {
   /**
    * Estimate latency for instance
    */
-  private estimateLatency(instance: InstanceInfo, request: GeneratorParams): number {
+  private estimateLatency(instance: InstanceInfo, _request: GeneratorParams): number {
     // Base latency from historical average
     let latency = instance.avgLatencyMs || 100;
 

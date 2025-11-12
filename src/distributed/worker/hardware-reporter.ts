@@ -134,7 +134,7 @@ export class HardwareReporter {
     const recommendations = recommendConcurrency(this.hardware);
 
     // Determine best tier for this hardware
-    const tiers: ModelTier[] = ['30B+', '13-27B', '7-13B', '3-7B', '<3B'];
+    const _tiers: ModelTier[] = ['30B+', '13-27B', '7-13B', '3-7B', '<3B'];
     const supportedModelTiers: ModelTier[] = [];
 
     // Add tiers that meet minimum requirements

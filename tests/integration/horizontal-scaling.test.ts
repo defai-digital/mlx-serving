@@ -13,9 +13,6 @@ import { DistributedCache, DEFAULT_DISTRIBUTED_CACHE_CONFIG } from '@/scaling/Di
 import { InstanceRegistry, DEFAULT_INSTANCE_REGISTRY_CONFIG } from '@/scaling/InstanceRegistry.js';
 import type {
   InstanceInfo,
-  LoadBalancerConfig,
-  DistributedCacheConfig,
-  InstanceRegistryConfig,
 } from '@/types/scaling.js';
 import { HealthStatus, CircuitState } from '@/types/scaling.js';
 import type { GeneratorParams } from '@/types/generators.js';

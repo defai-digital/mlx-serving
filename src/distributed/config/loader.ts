@@ -6,7 +6,7 @@
 
 import { readFile } from 'fs/promises';
 import { parse as parseYaml } from 'yaml';
-import { createLogger, type Logger } from '../utils/logger.js';
+import { createLogger } from '../utils/logger.js';
 import { ConfigurationError, ValidationError } from '../utils/errors.js';
 import { validateClusterConfig, type ClusterConfig } from '../types/index.js';
 import { ZodError } from 'zod';

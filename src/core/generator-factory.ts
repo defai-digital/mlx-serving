@@ -522,7 +522,7 @@ export class GeneratorFactory {
     // Previous: 15 spreads × 300ns = 4.5μs + V8 GC pressure = 5-8ms amortized
     // Optimized: Single allocation + direct assignment = <1ms
     // Expected gain: 4-6ms per request (0.4-0.6% improvement)
-    const rpcParams: any = {
+    const rpcParams: Record<string, unknown> = {
       model_id: params.model,
       prompt,
       stream_id: streamId,

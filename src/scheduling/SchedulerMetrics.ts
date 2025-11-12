@@ -242,7 +242,7 @@ export class SchedulerMetrics {
     metadata: RequestMetadata,
     startedAt: number,
     completedAt: number,
-    slaConfig?: SlaConfig
+    _slaConfig?: SlaConfig
   ): void {
     const record: CompletionRecord = {
       priority: metadata.priority,

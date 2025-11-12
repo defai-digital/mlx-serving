@@ -3,7 +3,7 @@
  * Pre-loads models on worker startup to eliminate cold-start latency
  */
 
-import { Engine } from '@/api/engine.js';
+import type { Engine } from '@/api/engine.js';
 import { createLogger, type Logger } from '../utils/logger.js';
 
 export type PreWarmPriority = 'high' | 'medium' | 'low';

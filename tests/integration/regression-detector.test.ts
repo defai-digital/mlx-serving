@@ -6,7 +6,7 @@
  * Phase 5 Week 2: Automated Regression Detection
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   RegressionDetector,
   createDefaultDetectorConfig,
@@ -15,7 +15,6 @@ import {
 } from '../../src/monitoring/regression-detector.js';
 import {
   MetricsAggregator,
-  type MetricSample,
 } from '../../src/monitoring/metrics-aggregator.js';
 
 describe('RegressionDetector', () => {

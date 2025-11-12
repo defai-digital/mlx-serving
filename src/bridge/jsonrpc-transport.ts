@@ -28,8 +28,6 @@ import {
   JsonRpcMessageSchema,
   type JsonRpcErrorCode,
   type Codec,
-  JsonCodec,
-  FastJsonCodec,
   FAST_JSON_CODEC,
 } from './serializers.js';
 import { getConfig } from '../config/loader.js';

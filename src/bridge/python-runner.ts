@@ -378,6 +378,54 @@ export class PythonRunner extends EventEmitter<PythonRunnerEvents> {
       };
 
       try {
+        // Check if Python executable exists before spawning
+        if (!existsSync(this.options.pythonPath)) {
+          const packageRoot = path.resolve(__dirname, '../..');
+          const isNodeModules = this.options.pythonPath.includes('node_modules');
+
+          const errorMsg = `Python environment not found: ${this.options.pythonPath}
+
+╔══════════════════════════════════════════════════════════════╗
+║  Python Environment Missing - Installation Failed           ║
+╚══════════════════════════════════════════════════════════════╝
+
+The Python virtual environment was not created during installation.
+
+📚 Quick Fix Options:
+
+${isNodeModules ?
+`Option 1: Run setup script (Recommended)
+  cd node_modules/@defai.digital/mlx-serving
+  npm run setup
+
+Option 2: Reinstall the package
+  npm uninstall @defai.digital/mlx-serving
+  npm install @defai.digital/mlx-serving
+
+Option 3: Manual Python setup
+  cd node_modules/@defai.digital/mlx-serving
+  python3.12 -m venv .mlx-serving-venv
+  .mlx-serving-venv/bin/pip install -r python/requirements.txt` :
+`Option 1: Run setup script
+  npm run setup
+
+Option 2: Manual Python setup
+  python3.12 -m venv .mlx-serving-venv
+  .mlx-serving-venv/bin/pip install -r python/requirements.txt`}
+
+📖 Documentation: https://github.com/defai-digital/mlx-serving#installation
+
+💡 For Python developers, consider using pip package instead:
+   pip install mlx-serving
+
+Need help? https://github.com/defai-digital/mlx-serving/issues
+`;
+
+          const error = new Error(errorMsg);
+          error.name = 'PythonEnvironmentError';
+          throw error;
+        }
+
         // Spawn Python process
         this.process = spawn(this.options.pythonPath, [this.options.runtimePath], {
           stdio: ['pipe', 'pipe', 'pipe'],

@@ -295,10 +295,36 @@ These features provide 40-113% performance improvements but require building nat
 ## Installation
 
 ```bash
-npm i @defai.digital/mlx-serving
+npm install @defai.digital/mlx-serving
 ```
 
 The package automatically sets up the Python environment during installation.
+
+### Troubleshooting Installation
+
+If you get an error like `Python environment not found` or `ENOENT .mlx-serving-venv/bin/python`:
+
+**Quick Fix**:
+```bash
+# From your project directory
+cd node_modules/@defai.digital/mlx-serving
+npm run setup
+```
+
+**Manual Setup**:
+```bash
+cd node_modules/@defai.digital/mlx-serving
+python3.12 -m venv .mlx-serving-venv
+.mlx-serving-venv/bin/pip install -r python/requirements.txt
+```
+
+**For Python Developers** (coming soon):
+```bash
+# Use pip package instead (in development)
+pip install mlx-serving
+```
+
+See [Troubleshooting Guide](./docs/TROUBLESHOOTING.md) for more help.
 
 ### System Requirements
 

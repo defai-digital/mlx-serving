@@ -19,7 +19,7 @@
  * - Graceful cleanup on errors/timeout
  */
 
-import { safeAverage, safeDivide } from '@/utils/math-helpers.js';
+import { safeAverage } from '@/utils/math-helpers.js';
 import { EventEmitter } from 'eventemitter3';
 import type { Logger } from 'pino';
 import { getConfig } from '../config/loader.js';

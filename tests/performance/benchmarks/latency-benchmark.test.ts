@@ -31,7 +31,7 @@ class LatencyBenchmarkHarness extends BenchmarkHarness {
     return `Latency Distribution - ${this.testName}`;
   }
 
-  async warmup(config: BenchmarkConfig): Promise<void> {
+  async warmup(_config: BenchmarkConfig): Promise<void> {
     // Send warmup requests
     const warmupPromises = [];
     for (let i = 0; i < 10; i++) {
@@ -47,7 +47,7 @@ class LatencyBenchmarkHarness extends BenchmarkHarness {
     await Promise.all(warmupPromises);
   }
 
-  async run(config: BenchmarkConfig): Promise<BenchmarkResult> {
+  async run(_config: BenchmarkConfig): Promise<BenchmarkResult> {
     const collector = new MetricsCollector();
     collector.start();
 

@@ -49,7 +49,7 @@ export class EmbeddedNatsServer {
 
     const port = opts.port ?? 4222;
     const httpPort = opts.httpPort ?? 8222;
-    const logLevel = opts.logLevel ?? 'info';
+    const _logLevel = opts.logLevel ?? 'info';
 
     this.port = port;
 

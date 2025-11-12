@@ -225,7 +225,7 @@ describe('ParallelTokenizer', () => {
 
     it('should handle Unicode text (emoji, Chinese, etc.)', () => {
       const unicodeText = '你好世界 🌍 Hello';
-      mockTokenizer.encode.mockImplementation((text: string, fn: Function) => {
+      mockTokenizer.encode.mockImplementation((text: string, _fn: Function) => {
         // For this test, just count characters
         return Array.from(text).map((char) => char.codePointAt(0) || 0);
       });
@@ -470,7 +470,7 @@ describe('ParallelTokenizer', () => {
       // Test text with multi-byte UTF-8 characters
       const utf8Text = '你好世界 🌍 Hello'; // Mix of 3-byte and 4-byte UTF-8
 
-      mockTokenizer.encode.mockImplementation((text: string, fn: Function) => {
+      mockTokenizer.encode.mockImplementation((text: string, _fn: Function) => {
         // Simulate UTF-8 aware chunking
         return Array.from(text).map((char) => char.codePointAt(0) || 0);
       });

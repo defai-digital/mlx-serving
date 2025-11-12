@@ -6,7 +6,6 @@
  */
 
 import { createLogger, type Logger } from '../utils/logger.js';
-import type { WorkerInfo } from './worker-registry.js';
 import type { InferenceRequest } from '../types/messages.js';
 
 /**

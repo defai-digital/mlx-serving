@@ -10,7 +10,7 @@
  */
 export const PYTHON_RUNTIME = {
   /** Default Python executable path */
-  DEFAULT_PYTHON_PATH: '.kr-mlx-venv/bin/python',
+  DEFAULT_PYTHON_PATH: '.mlx-serving-venv/bin/python',
 
   /** Default runtime script path */
   DEFAULT_RUNTIME_PATH: 'python/runtime.py',
