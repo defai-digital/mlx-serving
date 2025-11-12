@@ -27,27 +27,78 @@ See [QUICK_START.md](./QUICK_START.md) for the fastest path to using mlx-serving
 
 ```bash
 npm install @defai.digital/mlx-serving
-npm run setup
+# Python environment is automatically set up via postinstall
 ```
 
-### Hello World
+> **Note**: The postinstall script automatically configures the Python environment. You don't need to run `npm run setup` manually.
+
+### Understanding Generation Methods
+
+mlx-serving provides two methods for text generation:
+
+#### Streaming with `createGenerator()` (Real-time Output)
+
+Use `createGenerator()` when you want to process tokens as they're generated:
+
+```typescript
+const generator = engine.createGenerator({
+  prompt: "Hello",
+  maxTokens: 50
+});
+
+for await (const chunk of generator) {
+  if (chunk.type === 'token') {
+    process.stdout.write(chunk.token); // Process each token in real-time
+  }
+}
+```
+
+**Best for**: Chat interfaces, streaming responses, progressive UI updates
+
+#### Non-Streaming with `generate()` (Complete Response)
+
+Use `generate()` when you want the complete text all at once:
+
+```typescript
+const text = await engine.generate({
+  prompt: "Hello",
+  maxTokens: 50
+});
+
+console.log(text); // Complete response as string
+```
+
+**Best for**: Structured output (JSON, XML), batch processing, when you need the full response before continuing
+
+> **Important**: When using structured output with `guidance` (JSON schema, regex, etc.), you must use `generate()` as it returns the complete validated result.
+
+### Hello World Example
 
 ```typescript
 import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 
-const generator = engine.generate({
+// Load the model first
+await engine.loadModel({ model: 'mlx-community/Llama-3.2-3B-Instruct-4bit' });
+
+// Stream tokens in real-time
+const generator = engine.createGenerator({
   model: 'mlx-community/Llama-3.2-3B-Instruct-4bit',
   prompt: 'What is the capital of France?',
   maxTokens: 50,
 });
 
 for await (const chunk of generator) {
-  process.stdout.write(chunk.text);
+  if (chunk.type === 'token') {
+    process.stdout.write(chunk.token);
+  }
 }
 
-await engine.close();
+console.log('\n'); // New line after streaming
+
+// Clean shutdown
+await engine.shutdown();
 ```
 
 **Run**: `npx tsx your-file.ts`
