@@ -460,7 +460,7 @@ Built with:
 
 Special thanks to:
 - AutomatosX multi-agent system
-- KnowRAG Studio team
+- DEFAI Private Limited team
 - MLX community
 
 ---
@@ -494,7 +494,7 @@ Special thanks to:
 
 <div align="center">
 
-**Made with ❤️ by KnowRAG Studio**
+**Made with ❤️ by DEFAI Private Limited**
 
 [📦 GitHub](https://github.com/defai-digital/mlx-serving) • [📖 Documentation](./docs/)
 
