@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/mlx-serving",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Modern TypeScript MLX serving engine for Apple Silicon with Zod validation and ReScript state management",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -16,6 +16,7 @@
   "files": [
     "dist",
     "python/**/*.py",
+    "python/requirements.txt",
     "native/src",
     "native/include",
     "native/bindings",
