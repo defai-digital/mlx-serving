@@ -45,3 +45,8 @@ compile_commands.json
 # AutomatosX
 .automatosx/
 automatosx/
+
+# AI Agent configuration files (private)
+agents.md
+gemini.md
+claude.md
