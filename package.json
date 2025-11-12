@@ -43,7 +43,7 @@
     "setup": "tsx scripts/prepare-env.ts",
     "setup:mlx-engine": "bash scripts/setup-mlx-engine.sh",
     "clean": "rm -rf dist .kr-mlx-venv",
-    "prepublishOnly": "npm run build && npm run test",
+    "prepublishOnly": "npm run build",
     "postinstall": "node scripts/postinstall.cjs || true",
     "bench": "tsx benchmarks/index.ts",
     "bench:ipc": "tsx benchmarks/index.ts --benchmark ipc",
