@@ -1019,6 +1019,27 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
   }
 
   /**
+   * Phase 2: Get artifact cache health and statistics.
+   *
+   * Returns information about the persistent disk cache (artifact cache),
+   * including hit rate, cache size, and entry count.
+   *
+   * @returns Artifact cache health status
+   *
+   * @example
+   * ```typescript
+   * const health = await engine.getArtifactCacheHealth();
+   * console.log('Cache entries:', health.entryCount);
+   * console.log('Cache size:', health.sizeBytes / 1e9, 'GB');
+   * console.log('Hit rate:', health.hitRate);
+   * ```
+   */
+  public async getArtifactCacheHealth(): Promise<import('../types/cache.js').CacheHealth> {
+    const runtime = await this.ensureRuntime();
+    return runtime.modelManager.getArtifactCacheHealth();
+  }
+
+  /**
    * Get information about the Python runtime.
    *
    * Returns version information, supported capabilities, and current memory
@@ -1429,7 +1450,8 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
       if (!this.modelManager) {
         this.modelManager = new ModelManager({
           transport,
-          cacheDir: this.options.cacheDir,
+          cacheDir: this.options.cacheDir, // Legacy support
+          cacheConfig: this.options.cache, // Phase 2: Full cache configuration
           logger: this.logger,
         });
         // Phase 2: Initialize artifact cache

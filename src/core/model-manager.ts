@@ -30,7 +30,8 @@ import { ModelArtifactCache } from './model-artifact-cache.js';
 export interface ModelManagerOptions {
   transport: JsonRpcTransport;
   logger?: Logger;
-  cacheDir?: string;
+  cacheDir?: string; // Deprecated: use cacheConfig instead
+  cacheConfig?: Partial<import('../types/cache.js').CacheConfig>; // Phase 2: Full cache configuration
 }
 
 interface LoadContext {
@@ -92,7 +93,15 @@ export class ModelManager {
     });
 
     // Initialize artifact cache
-    const cacheConfig = getCacheConfig();
+    // Merge runtime options with config file defaults
+    const defaultCacheConfig = getCacheConfig();
+    const cacheConfig = {
+      ...defaultCacheConfig,
+      // Override with cacheConfig if provided
+      ...(options.cacheConfig || {}),
+      // Support legacy cacheDir option
+      ...(options.cacheDir ? { cacheDir: options.cacheDir } : {}),
+    };
     this.artifactCache = new ModelArtifactCache(cacheConfig, this.logger);
   }
 
@@ -500,14 +509,18 @@ export class ModelManager {
     this.metadataCache.set(descriptor.id, { ...handle.metadata });
 
     // Phase 2: Store artifacts in cache for future loads (only if cache miss)
-    // Note: Only store if we have a local_path (from HuggingFace cache or explicit path)
-    // and this was a cache miss (don't re-cache already cached artifacts)
-    if (!cacheResult.hit && params.local_path) {
+    // Python now returns cached_path showing where the model was loaded from
+    // Store these artifacts in our mlx-serving cache for future loads
+    if (!cacheResult.hit && response.cached_path) {
       // Don't block on cache storage - do it asynchronously
+      this.logger?.debug(
+        { modelId: descriptor.id, sourcePath: response.cached_path },
+        'Storing model artifacts in mlx-serving cache'
+      );
       void this.artifactCache.store(
         descriptor,
         options,
-        params.local_path,
+        response.cached_path,
         {
           modelId: descriptor.id,
           parameterCount: response.parameter_count || 0,
@@ -725,5 +738,14 @@ export class ModelManager {
       cacheEnabled: this.cacheEnabled,
       models,
     };
+  }
+
+  /**
+   * Get artifact cache health and statistics.
+   * Phase 2: Persistent disk cache stats
+   * @returns Artifact cache health status
+   */
+  public async getArtifactCacheHealth(): Promise<import('../types/cache.js').CacheHealth> {
+    return this.artifactCache.getHealth();
   }
 }

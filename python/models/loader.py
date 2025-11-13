@@ -14,6 +14,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
+# HuggingFace Hub imports for getting cached model paths
+try:
+    from huggingface_hub import snapshot_download
+    HAS_HF_HUB = True
+except ImportError:
+    HAS_HF_HUB = False
+    snapshot_download = None
+
 # MLX imports - guarded because Apple MLX aborts on unsupported hosts (Bug #1 P0)
 def _is_supported_mlx_platform() -> bool:
     """Check whether this host can safely import MLX."""
@@ -318,6 +326,35 @@ def load_model(model_id: str, options: Dict[str, Any]) -> ModelHandle:
         if model is None or tokenizer is None:
             raise RuntimeError("Loader returned empty model/tokenizer")
 
+        # Phase 2: Get the actual path where the model was loaded from
+        # This is needed for the artifact cache to copy files
+        cached_model_path = None
+        if HAS_HF_HUB and snapshot_download is not None:
+            try:
+                # If we loaded from HuggingFace ID, get the cached path
+                if not options.get("local_path"):
+                    # Use local_files_only=True to avoid re-downloading
+                    # This returns the path to the cached model directory
+                    cached_model_path = snapshot_download(
+                        model_id,
+                        revision=options.get("revision", "main"),
+                        local_files_only=True,
+                        # Avoid downloading any missing files
+                        allow_patterns=None,
+                    )
+                else:
+                    # If loaded from local path, use that directly
+                    cached_model_path = resolved_id
+            except Exception as e:
+                # If we can't get the cached path, continue without it
+                # The artifact cache won't work, but model loading succeeded
+                import sys
+                print(
+                    f"Warning: Could not determine cached model path for {model_id}: {e}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
         # Compute metadata
         try:
             if HAS_COUNT_PARAMS and count_params is not None:
@@ -348,6 +385,7 @@ def load_model(model_id: str, options: Dict[str, Any]) -> ModelHandle:
             "revision": options.get("revision"),
             "loaded_at": time.time(),
             "config_model_type": getattr(config, "model_type", "unknown"),
+            "cached_path": cached_model_path,  # Phase 2: Include cached path for artifact cache
         }
 
         # Add processor info if present

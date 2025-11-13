@@ -177,6 +177,7 @@ export const LoadModelResponseSchema = z.object({
   is_vision_model: z.boolean().optional(),
   tokenizer_type: z.string().optional(),
   memory_usage: z.number().optional(),
+  cached_path: z.string().optional(), // Phase 2: Path where model was loaded from (for artifact cache)
 });
 
 export type LoadModelResponse = z.infer<typeof LoadModelResponseSchema>;

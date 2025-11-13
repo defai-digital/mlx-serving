@@ -68,8 +68,10 @@ export interface EngineOptions {
   pythonPath?: string;
   /** Optional override for python runtime script */
   runtimePath?: string;
-  /** Model/tokenizer cache location */
+  /** Model/tokenizer cache location (deprecated: use cache.cacheDir instead) */
   cacheDir?: string;
+  /** Phase 2: Artifact cache configuration */
+  cache?: Partial<import('./cache.js').CacheConfig>;
   /** Telemetry configuration */
   telemetry?: TelemetryOptions;
 }
