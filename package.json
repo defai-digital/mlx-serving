@@ -46,9 +46,9 @@
     "clean": "rm -rf dist .kr-mlx-venv",
     "prepublishOnly": "npm run lint && npm run build",
     "postinstall": "node scripts/postinstall.cjs || true",
-    "bench:llm": "tsx benchmarks/compare-engines-fair.ts",
-    "bench:vision": "tsx benchmarks/compare-vision-fair.ts",
-    "test:ab": "tsx examples/ab-test-example.ts",
+    "bench:llm": "npx tsx benchmarks/compare-engines-fair.ts",
+    "bench:vision": "npx tsx benchmarks/compare-vision-fair.ts",
+    "test:ab": "npx tsx examples/ab-test-example.ts",
     "docs:generate": "typedoc"
   },
   "keywords": [
