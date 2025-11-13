@@ -1,0 +1,95 @@
+{
+  "timestamp": "2025-11-12T23:01:40.801Z",
+  "benchmark_type": "fair_comparison",
+  "note": "Both engines load model once and reuse for all questions",
+  "model": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+  "modelSize": "8B",
+  "questions": 10,
+  "cycles": 3,
+  "maxTokens": 100,
+  "temperature": 0.7,
+  "mlxEngine": {
+    "cycles": [
+      {
+        "engine": "mlx-engine",
+        "cycle": 1,
+        "questions": 10,
+        "totalTime": 15.825,
+        "avgLatency": 1.5825,
+        "tokensPerSecond": 63.191153238546605,
+        "successRate": 100
+      },
+      {
+        "engine": "mlx-engine",
+        "cycle": 2,
+        "questions": 10,
+        "totalTime": 15.106,
+        "avgLatency": 1.5106,
+        "tokensPerSecond": 66.19886137958427,
+        "successRate": 100
+      },
+      {
+        "engine": "mlx-engine",
+        "cycle": 3,
+        "questions": 10,
+        "totalTime": 15.032,
+        "avgLatency": 1.5032,
+        "tokensPerSecond": 66.52474720596062,
+        "successRate": 100
+      }
+    ],
+    "average": {
+      "engine": "mlx-engine",
+      "cycle": 0,
+      "questions": 10,
+      "totalTime": 15.320999999999998,
+      "avgLatency": 1.5320999999999998,
+      "tokensPerSecond": 65.3049206080305,
+      "successRate": 100
+    }
+  },
+  "mlxServing": {
+    "cycles": [
+      {
+        "engine": "mlx-serving",
+        "cycle": 1,
+        "questions": 10,
+        "totalTime": 15.187,
+        "avgLatency": 1.5187,
+        "tokensPerSecond": 65.8457891617831,
+        "successRate": 100
+      },
+      {
+        "engine": "mlx-serving",
+        "cycle": 2,
+        "questions": 10,
+        "totalTime": 15.14,
+        "avgLatency": 1.514,
+        "tokensPerSecond": 66.05019815059445,
+        "successRate": 100
+      },
+      {
+        "engine": "mlx-serving",
+        "cycle": 3,
+        "questions": 10,
+        "totalTime": 15.226,
+        "avgLatency": 1.5226000000000002,
+        "tokensPerSecond": 65.67713122290817,
+        "successRate": 100
+      }
+    ],
+    "average": {
+      "engine": "mlx-serving",
+      "cycle": 0,
+      "questions": 10,
+      "totalTime": 15.184333333333333,
+      "avgLatency": 1.5184333333333335,
+      "tokensPerSecond": 65.85770617842857,
+      "successRate": 100
+    }
+  },
+  "comparison": {
+    "improvement": 0.8464684823919599,
+    "winner": "mlx-serving"
+  }
+}

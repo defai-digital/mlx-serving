@@ -16,6 +16,8 @@ coverage/
 __pycache__/
 .kr-mlx-venv/
 .kr-mlx-cache/
+.mlx-serving-venv/
+.mlx-serving-cache/
 .pytest_cache/
 
 # Downloaded models (large files)
