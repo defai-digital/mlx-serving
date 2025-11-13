@@ -10,11 +10,10 @@ import { writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import readline from 'readline';
 
-// Test strategic selection across brands (Meta, Qwen, HuggingFace) - sorted by size (big → small)
+// Test supported vision models only (sorted by size: big → small)
+// Note: Llama-3.2 Vision models (mllama architecture) not supported by mlx-vlm
 const MODELS = [
-  'mlx-community/Llama-3.2-90B-Vision-Instruct-4bit',   // 90B - Meta
-  'mlx-community/Llama-3.2-11B-Vision-Instruct-4bit',   // 11B - Meta
-  'mlx-community/Qwen2.5-VL-7B-Instruct-4bit',          // 7B - Qwen
+  'mlx-community/Qwen2.5-VL-7B-Instruct-4bit',          // 7B - Qwen (latest)
   'mlx-community/SmolVLM-Instruct-4bit',                // 2B - HuggingFace
 ];
 const QUESTIONS = 10;  // Number of image+text prompts
