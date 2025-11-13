@@ -75,6 +75,13 @@ class Config:
         binary_streaming = config_dict.get("binary_streaming", {})
         self.use_messagepack = binary_streaming.get("use_messagepack", False)
 
+        # Phase 2: Object Pooling (v1.0.8)
+        object_pooling = config_dict.get("object_pooling", {})
+        self.object_pooling_enabled = object_pooling.get("enabled", True)
+        self.chunk_pool_size = object_pooling.get("chunk_pool_size", 100)
+        self.stats_pool_size = object_pooling.get("stats_pool_size", 20)
+        self.event_pool_size = object_pooling.get("event_pool_size", 20)
+
         # Development
         dev = config_dict.get("development", {})
         self.verbose = dev.get("verbose", False)

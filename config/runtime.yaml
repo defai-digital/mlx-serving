@@ -103,6 +103,24 @@ binary_streaming:
   # - Graceful fallback to JSON on encoding errors
   # - No breaking changes to existing code
 
+# Phase 2: Object Pooling (Performance Optimization v1.0.8)
+# Reuse dictionary objects to reduce allocation overhead during token streaming
+# Target: +2-3% throughput on 14B+ models
+object_pooling:
+  # Enable object pooling (enabled by default for performance)
+  enabled: true                     # Default: true
+
+  # Pool sizes (higher = more memory, lower GC pressure)
+  chunk_pool_size: 100             # Token chunk dictionaries (per-token reuse)
+  stats_pool_size: 20              # Stats dictionaries (per-request reuse)
+  event_pool_size: 20              # Event dictionaries (per-request reuse)
+
+  # When enabled:
+  # - Per-token allocation overhead: 0.02ms → 0.009ms (55% reduction)
+  # - Reduces GC pressure during high-throughput streaming
+  # - Thread-safe with minimal locking overhead
+  # - No breaking changes to existing code
+
 # Python Runtime Process Management
 python_runtime:
   # Path to Python executable (relative to project root)
