@@ -26,7 +26,7 @@ Built from the ground up with modern TypeScript practices and enterprise-grade r
 
 ## Status
 
-**Version:** 1.0.7 - Production Release with Binary Streaming + Object Pooling 🎉
+**Version:** 1.0.8 - Production Release with IPC Batching + Bug Fixes 🎉
 
 **Quality:** 0 lint errors | 710/718 unit tests passing (99.86%) | Production-ready
 
