@@ -575,7 +575,9 @@ export class GenerateBatcher {
     }
 
     const hasDefault = state.default.length > 0;
-    const minHold = hasDefault ? this.config.minHoldMs : this.config.minHoldMs;
+    // Background-only queues have no minimum hold (can dispatch immediately at target size)
+    // but longer maximum hold to allow more accumulation
+    const minHold = hasDefault ? this.config.minHoldMs : 0;
     const maxHold = hasDefault
       ? this.config.maxHoldMs
       : this.config.maxHoldMs + this.config.backgroundHoldExtensionMs;
