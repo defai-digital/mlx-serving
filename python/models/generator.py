@@ -222,6 +222,9 @@ async def stream_generate(
     emit_chunk: Callable,
     emit_stats: Callable,
     emit_event: Callable,
+    chunk_pool=None,
+    stats_pool=None,
+    event_pool=None,
 ) -> None:
     """
     Stream generate tokens with MLX
@@ -235,6 +238,9 @@ async def stream_generate(
         emit_chunk: Async callback for token chunks
         emit_stats: Async callback for final statistics
         emit_event: Async callback for events (completed/error)
+        chunk_pool: Optional ObjectPool for chunk dictionaries (Phase 2)
+        stats_pool: Optional ObjectPool for stats dictionaries (Phase 2)
+        event_pool: Optional ObjectPool for event dictionaries (Phase 2)
 
     Raises:
         GenerationError: If generation fails
@@ -418,20 +424,31 @@ async def stream_generate(
                 if first_token_at is None:
                     first_token_at = perf_counter()
 
-                # Emit chunk notification
-                chunk_data = {
-                    "stream_id": stream_id,
-                    "token": token_text,
-                    "token_id": token_id,
-                    "is_final": False,
-                    "cumulative_text": cumulative_text,  # P1-2: Include cumulative text
-                }
-
-                # Only add logprob if not None (avoid JSON null vs TypeScript undefined)
-                if logprob is not None:
-                    chunk_data["logprob"] = logprob
-
-                await emit_chunk(chunk_data)
+                # Emit chunk notification (Phase 2: Use object pool if available)
+                if chunk_pool:
+                    chunk_data = chunk_pool.acquire()
+                    chunk_data["stream_id"] = stream_id
+                    chunk_data["token"] = token_text
+                    chunk_data["token_id"] = token_id
+                    chunk_data["is_final"] = False
+                    chunk_data["cumulative_text"] = cumulative_text  # P1-2: Include cumulative text
+                    # Only add logprob if not None (avoid JSON null vs TypeScript undefined)
+                    if logprob is not None:
+                        chunk_data["logprob"] = logprob
+                    await emit_chunk(chunk_data)
+                    chunk_pool.release(chunk_data)
+                else:
+                    chunk_data = {
+                        "stream_id": stream_id,
+                        "token": token_text,
+                        "token_id": token_id,
+                        "is_final": False,
+                        "cumulative_text": cumulative_text,  # P1-2: Include cumulative text
+                    }
+                    # Only add logprob if not None (avoid JSON null vs TypeScript undefined)
+                    if logprob is not None:
+                        chunk_data["logprob"] = logprob
+                    await emit_chunk(chunk_data)
 
             # Calculate final metrics
             total_elapsed = perf_counter() - started_at
@@ -441,16 +458,26 @@ async def stream_generate(
             steady_state_time = max(total_elapsed - ttft, 1e-6)
             throughput = token_count / steady_state_time if token_count > 0 else 0.0
 
-            # Emit statistics notification
-            await emit_stats(
-                {
-                    "stream_id": stream_id,
-                    "tokens_generated": token_count,
-                    "tokens_per_second": throughput,
-                    "time_to_first_token": ttft,
-                    "total_time": total_elapsed,
-                }
-            )
+            # Emit statistics notification (Phase 2: Use object pool if available)
+            if stats_pool:
+                stats_data = stats_pool.acquire()
+                stats_data["stream_id"] = stream_id
+                stats_data["tokens_generated"] = token_count
+                stats_data["tokens_per_second"] = throughput
+                stats_data["time_to_first_token"] = ttft
+                stats_data["total_time"] = total_elapsed
+                await emit_stats(stats_data)
+                stats_pool.release(stats_data)
+            else:
+                await emit_stats(
+                    {
+                        "stream_id": stream_id,
+                        "tokens_generated": token_count,
+                        "tokens_per_second": throughput,
+                        "time_to_first_token": ttft,
+                        "total_time": total_elapsed,
+                    }
+                )
 
             # Determine finish reason
             finish_reason = "completed"
@@ -463,15 +490,24 @@ async def stream_generate(
             elif token_count == 0:
                 finish_reason = "no_output"
 
-            # Emit completion event
-            await emit_event(
-                {
-                    "stream_id": stream_id,
-                    "event": "completed",
-                    "is_final": True,
-                    "finish_reason": finish_reason,
-                }
-            )
+            # Emit completion event (Phase 2: Use object pool if available)
+            if event_pool:
+                event_data = event_pool.acquire()
+                event_data["stream_id"] = stream_id
+                event_data["event"] = "completed"
+                event_data["is_final"] = True
+                event_data["finish_reason"] = finish_reason
+                await emit_event(event_data)
+                event_pool.release(event_data)
+            else:
+                await emit_event(
+                    {
+                        "stream_id": stream_id,
+                        "event": "completed",
+                        "is_final": True,
+                        "finish_reason": finish_reason,
+                    }
+                )
 
         except GuidanceError:
             raise

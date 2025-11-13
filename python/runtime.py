@@ -737,15 +737,30 @@ class RuntimeServer:
         # Wrapper to handle task lifecycle
         async def run_generation() -> None:
             try:
-                await generator.stream_generate(handle, params, emit_chunk, emit_stats, emit_event)
+                # Phase 2: Pass object pools to generator
+                await generator.stream_generate(
+                    handle, params, emit_chunk, emit_stats, emit_event,
+                    chunk_pool=self.chunk_pool,
+                    stats_pool=self.stats_pool,
+                    event_pool=self.event_pool
+                )
             except Exception as exc:
-                # Log error and emit error event
-                await emit_event({
-                    "stream_id": stream_id,
-                    "event": "error",
-                    "error": str(exc),
-                    "is_final": True,
-                })
+                # Log error and emit error event (Phase 2: Use pool)
+                if self.event_pool and self.event_pool.enabled:
+                    event_data = self.event_pool.acquire()
+                    event_data["stream_id"] = stream_id
+                    event_data["event"] = "error"
+                    event_data["error"] = str(exc)
+                    event_data["is_final"] = True
+                    await emit_event(event_data)
+                    self.event_pool.release(event_data)
+                else:
+                    await emit_event({
+                        "stream_id": stream_id,
+                        "event": "error",
+                        "error": str(exc),
+                        "is_final": True,
+                    })
             finally:
                 # Always cleanup
                 self.stream_tasks.pop(stream_id, None)
@@ -812,6 +827,7 @@ class RuntimeServer:
 
         async def run_generation() -> None:
             try:
+                # Phase 2: Pass object pools to vision generator
                 await self.vision_loader.stream_generate(
                     handle,
                     params,
@@ -820,16 +836,29 @@ class RuntimeServer:
                     emit_stats,
                     emit_event,
                     stream_id=stream_id,
+                    chunk_pool=self.chunk_pool,
+                    stats_pool=self.stats_pool,
+                    event_pool=self.event_pool,
                 )
             except Exception as exc:
-                await emit_event(
-                    {
-                        "stream_id": stream_id,
-                        "event": "error",
-                        "error": str(exc),
-                        "is_final": True,
-                    }
-                )
+                # Log error and emit error event (Phase 2: Use pool)
+                if self.event_pool and self.event_pool.enabled:
+                    event_data = self.event_pool.acquire()
+                    event_data["stream_id"] = stream_id
+                    event_data["event"] = "error"
+                    event_data["error"] = str(exc)
+                    event_data["is_final"] = True
+                    await emit_event(event_data)
+                    self.event_pool.release(event_data)
+                else:
+                    await emit_event(
+                        {
+                            "stream_id": stream_id,
+                            "event": "error",
+                            "error": str(exc),
+                            "is_final": True,
+                        }
+                    )
             finally:
                 self.stream_tasks.pop(stream_id, None)
 

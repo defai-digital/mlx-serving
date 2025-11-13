@@ -244,6 +244,9 @@ class VisionModelLoader:
         emit_event: Callable[[Dict[str, Any]], Awaitable[None]],
         *,
         stream_id: str,
+        chunk_pool=None,
+        stats_pool=None,
+        event_pool=None,
     ) -> None:
         if vlm_generate is None:
             raise GenerationError(handle.model_id, "mlx-vlm generate() unavailable")
@@ -338,30 +341,64 @@ class VisionModelLoader:
                     first_token_at = time.perf_counter()
 
                 # mlx-vlm doesn't provide token_id, use 0 as placeholder for schema compliance
-                payload = {
-                    "stream_id": stream_id,
-                    "token": chunk.get("text", ""),
-                    "token_id": chunk.get("token_id", 0),  # Default to 0 for mlx-vlm compatibility
-                    "is_final": False
-                }
-                # Only include logprob if available
-                if chunk.get("logprob") is not None:
-                    payload["logprob"] = chunk["logprob"]
-                await emit_chunk(payload)
+                # Phase 2: Use object pool if available
+                if chunk_pool:
+                    payload = chunk_pool.acquire()
+                    payload["stream_id"] = stream_id
+                    payload["token"] = chunk.get("text", "")
+                    payload["token_id"] = chunk.get("token_id", 0)  # Default to 0 for mlx-vlm compatibility
+                    payload["is_final"] = False
+                    # Only include logprob if available
+                    if chunk.get("logprob") is not None:
+                        payload["logprob"] = chunk["logprob"]
+                    await emit_chunk(payload)
+                    chunk_pool.release(payload)
+                else:
+                    payload = {
+                        "stream_id": stream_id,
+                        "token": chunk.get("text", ""),
+                        "token_id": chunk.get("token_id", 0),  # Default to 0 for mlx-vlm compatibility
+                        "is_final": False
+                    }
+                    # Only include logprob if available
+                    if chunk.get("logprob") is not None:
+                        payload["logprob"] = chunk["logprob"]
+                    await emit_chunk(payload)
 
             elapsed = time.perf_counter() - started
             ttft = (first_token_at - started) if first_token_at else elapsed
             steady = max(elapsed - ttft, 1e-6)
             throughput = token_count / steady if token_count else 0.0
 
-            await emit_stats({"stream_id": stream_id, "tokens_generated": token_count, "tokens_per_second": throughput, "time_to_first_token": ttft, "total_time": elapsed})
+            # Phase 2: Use object pool if available
+            if stats_pool:
+                stats_data = stats_pool.acquire()
+                stats_data["stream_id"] = stream_id
+                stats_data["tokens_generated"] = token_count
+                stats_data["tokens_per_second"] = throughput
+                stats_data["time_to_first_token"] = ttft
+                stats_data["total_time"] = elapsed
+                await emit_stats(stats_data)
+                stats_pool.release(stats_data)
+            else:
+                await emit_stats({"stream_id": stream_id, "tokens_generated": token_count, "tokens_per_second": throughput, "time_to_first_token": ttft, "total_time": elapsed})
 
             finish_reason = (
                 last_chunk.get("stop_reason")
                 if isinstance(last_chunk, dict) and "stop_reason" in last_chunk
                 else ("no_output" if token_count == 0 else "completed")
             )
-            await emit_event({"stream_id": stream_id, "event": "completed", "is_final": True, "finish_reason": finish_reason})
+            # Phase 2: Use object pool if available
+            if event_pool:
+                event_data = event_pool.acquire()
+                event_data["stream_id"] = stream_id
+                event_data["event"] = "completed"
+                event_data["is_final"] = True
+                event_data["finish_reason"] = finish_reason
+                await emit_event(event_data)
+                event_pool.release(event_data)
+            else:
+                await emit_event({"stream_id": stream_id, "event": "completed", "is_final": True, "finish_reason": finish_reason})
 
         except GenerationError:
             raise
