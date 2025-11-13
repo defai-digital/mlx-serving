@@ -71,6 +71,10 @@ class Config:
         perf = config_dict.get("performance", {})
         self.enable_aggressive_gc = perf.get("aggressive_gc", False)
 
+        # Phase 1: Binary Streaming (v1.0.8)
+        binary_streaming = config_dict.get("binary_streaming", {})
+        self.use_messagepack = binary_streaming.get("use_messagepack", False)
+
         # Development
         dev = config_dict.get("development", {})
         self.verbose = dev.get("verbose", False)

@@ -37,6 +37,11 @@ import {
   type MultiplexerRequestOptions,
   type MultiplexerStats,
 } from './ops-multiplexer.js';
+import {
+  BinaryTokenDecoder,
+  BinaryMessageType,
+  type BinaryMessage,
+} from '../core/binary-token-decoder.js';
 
 export interface RequestOptions extends MultiplexerRequestOptions {}
 
@@ -66,6 +71,7 @@ export interface JsonRpcTransportOptions {
   codec?: Codec;
   logger?: Logger;
   defaultTimeout?: number; // milliseconds (default: 30000)
+  useBinaryStreaming?: boolean; // Phase 1: Enable MessagePack binary mode
 }
 
 /**
@@ -87,6 +93,7 @@ export class JsonRpcTransport extends EventEmitter<JsonRpcTransportEvents> {
   private readonly idempotentMethods: Set<string>;
   private readonly unsafeMethods: Set<string>;
   private multiplexer: OpsMultiplexer;
+  private useBinaryStreaming: boolean; // Phase 1: Binary mode flag
 
   private pending = new Map<string | number, PendingRequest>();
   private notificationHandlers = new Map<string, Set<NotificationHandler>>();
@@ -120,6 +127,7 @@ export class JsonRpcTransport extends EventEmitter<JsonRpcTransportEvents> {
     this.codec = options.codec ?? FAST_JSON_CODEC;
     this.logger = options.logger;
     this.defaultTimeout = options.defaultTimeout ?? config.json_rpc.default_timeout_ms;
+    this.useBinaryStreaming = options.useBinaryStreaming ?? false; // Phase 1: Default to JSON mode
     this.maxPendingRequests = config.json_rpc.max_pending_requests;
     this.maxLineBufferSize = config.json_rpc.max_line_buffer_size;
     this.retryDefaults = {
@@ -492,32 +500,74 @@ export class JsonRpcTransport extends EventEmitter<JsonRpcTransportEvents> {
   }
 
   /**
-   * Setup stream event handlers
+   * Setup stream event handlers (Phase 1: Dual-mode JSON/Binary support)
    */
   private setupStreams(): void {
-    // Handle stdout (JSON-RPC responses/notifications)
-    this.stdout.setEncoding('utf-8');
+    if (this.useBinaryStreaming) {
+      // Binary mode - use BinaryTokenDecoder for MessagePack decoding
+      this.logger?.info('Initializing binary streaming mode (MessagePack)');
 
-    this.stdoutDataHandler = (chunk: string) => {
-      this.handleStdoutData(chunk);
-    };
-    this.stdout.on('data', this.stdoutDataHandler);
+      const decoder = new BinaryTokenDecoder();
+      this.stdout.pipe(decoder);
 
-    this.stdoutEndHandler = () => {
-      this.logger?.warn('Stdout ended');
-      this.close().catch(() => {
-        // Ignore errors during close
+      // Handle decoded binary messages
+      decoder.on('data', (msg: BinaryMessage) => {
+        try {
+          const jsonRpcMessage = this.binaryToJsonRpc(msg);
+          this.handleMessage(jsonRpcMessage);
+        } catch (err) {
+          this.logger?.error({ err, msg }, 'Failed to convert binary message to JSON-RPC');
+          this.emit('error', err as Error);
+        }
       });
-    };
-    this.stdout.on('end', this.stdoutEndHandler);
 
-    this.stdoutErrorHandler = (err: Error) => {
-      this.logger?.error({ err }, 'Stdout error');
-      this.emit('error', err);
-    };
-    this.stdout.on('error', this.stdoutErrorHandler);
+      decoder.on('error', (err: Error) => {
+        this.logger?.error({ err }, 'Binary decoder error');
+        this.emit('error', err);
+      });
 
-    // Handle stderr (logs/warnings)
+      decoder.on('warning', (warning: Error) => {
+        this.logger?.warn({ warning }, 'Binary decoder warning');
+      });
+
+      this.stdoutEndHandler = () => {
+        this.logger?.warn('Stdout ended (binary mode)');
+        this.close().catch(() => {
+          // Ignore errors during close
+        });
+      };
+      this.stdout.on('end', this.stdoutEndHandler);
+
+      this.stdoutErrorHandler = (err: Error) => {
+        this.logger?.error({ err }, 'Stdout error (binary mode)');
+        this.emit('error', err);
+      };
+      this.stdout.on('error', this.stdoutErrorHandler);
+    } else {
+      // JSON mode - existing line-delimited JSON implementation
+      this.stdout.setEncoding('utf-8');
+
+      this.stdoutDataHandler = (chunk: string) => {
+        this.handleStdoutData(chunk);
+      };
+      this.stdout.on('data', this.stdoutDataHandler);
+
+      this.stdoutEndHandler = () => {
+        this.logger?.warn('Stdout ended');
+        this.close().catch(() => {
+          // Ignore errors during close
+        });
+      };
+      this.stdout.on('end', this.stdoutEndHandler);
+
+      this.stdoutErrorHandler = (err: Error) => {
+        this.logger?.error({ err }, 'Stdout error');
+        this.emit('error', err);
+      };
+      this.stdout.on('error', this.stdoutErrorHandler);
+    }
+
+    // Handle stderr (logs/warnings) - same for both modes
     if (this.stderr) {
       this.stderr.setEncoding('utf-8');
       this.stderrDataHandler = (chunk: string) => {
@@ -526,12 +576,39 @@ export class JsonRpcTransport extends EventEmitter<JsonRpcTransportEvents> {
       this.stderr.on('data', this.stderrDataHandler);
     }
 
-    // Handle stdin errors
+    // Handle stdin errors - same for both modes
     this.stdinErrorHandler = (err: Error) => {
       this.logger?.error({ err }, 'Stdin error');
       this.emit('error', err);
     };
     this.stdin.on('error', this.stdinErrorHandler);
+  }
+
+  /**
+   * Convert binary message to JSON-RPC format (Phase 1: Binary streaming)
+   *
+   * Maps binary message types to JSON-RPC notification methods:
+   * - TYPE 1 (TOKEN) → stream.chunk
+   * - TYPE 2 (STATS) → stream.stats
+   * - TYPE 3 (EVENT) → stream.event
+   * - TYPE 4 (DONE) → stream.done
+   */
+  private binaryToJsonRpc(msg: BinaryMessage): JsonRpcMessage {
+    const typeToMethod: Record<BinaryMessageType, string> = {
+      [BinaryMessageType.TOKEN]: 'stream.chunk',
+      [BinaryMessageType.STATS]: 'stream.stats',
+      [BinaryMessageType.EVENT]: 'stream.event',
+      [BinaryMessageType.DONE]: 'stream.done',
+    };
+
+    const method = typeToMethod[msg.t] || 'stream.event';
+
+    // Binary messages are always notifications (no response expected)
+    return {
+      jsonrpc: '2.0',
+      method,
+      params: msg.p,
+    } as JsonRpcNotification;
   }
 
   /**

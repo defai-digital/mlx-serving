@@ -84,12 +84,12 @@ export class BinaryTokenDecoder extends Transform {
    * Transform implementation - processes incoming binary chunks
    *
    * @param chunk - Incoming data chunk from Python stdout
-   * @param encoding - Encoding (ignored, we work with buffers)
+   * @param _encoding - Encoding (ignored, we work with buffers)
    * @param callback - Completion callback
    */
-  _transform(
+  override _transform(
     chunk: Buffer,
-    encoding: string,
+    _encoding: string,
     callback: TransformCallback
   ): void {
     try {
@@ -148,7 +148,7 @@ export class BinaryTokenDecoder extends Transform {
    *
    * @param callback - Completion callback
    */
-  _flush(callback: TransformCallback): void {
+  override _flush(callback: TransformCallback): void {
     // If buffer has leftover data, it's incomplete
     if (this.buffer.length > 0) {
       this.emit(
