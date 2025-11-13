@@ -44,7 +44,6 @@ interface LoadContext {
 export class ModelManager {
   private readonly transport: JsonRpcTransport;
   private readonly logger?: Logger;
-  private readonly cacheDir?: string;
   private readonly defaultContextLength: number;
   private readonly maxLoadedModels: number;
   private readonly requestQueue: RequestQueue;
@@ -71,7 +70,6 @@ export class ModelManager {
   constructor(options: ModelManagerOptions) {
     this.transport = options.transport;
     this.logger = options.logger;
-    this.cacheDir = options.cacheDir;
 
     const config = getConfig();
     this.defaultContextLength = config.model.default_context_length;
@@ -597,15 +595,16 @@ export class ModelManager {
       params.quantization = options.quantization;
     }
 
-    // Priority: options.localPath > descriptor.path > cacheDir
+    // Priority: options.localPath > descriptor.path
+    // If neither is set, MLX will auto-download to HuggingFace cache (~/.cache/huggingface/hub/)
     const optionsAsRecord = options as LoadModelOptions & Record<string, unknown>;
     if (optionsAsRecord.localPath) {
       params.local_path = optionsAsRecord.localPath as string;
     } else if (descriptor.path) {
       params.local_path = descriptor.path;
-    } else if (this.cacheDir) {
-      params.local_path = `${this.cacheDir}/${descriptor.id}`;
     }
+    // Note: Removed cacheDir fallback that created invalid paths
+    // MLX libraries handle auto-download to HuggingFace cache when local_path is undefined
 
     return params;
   }
