@@ -22,9 +22,9 @@ batch_queue:
 # Generate Request Batching (v1.3.0 - IPC Reduction Feature)
 # Batches multiple generate() requests into a single batch_generate() RPC call
 # Target: ≥90% IPC reduction under concurrent load
-# BUGFIX: Disabled to fix intermittent race condition causing stream cancellations
+# OPTIMIZATION: Re-enabled after Bug #74 and fc880af fixes (hanging promises, memory leaks)
 generate_batcher:
-  enabled: false                       # DISABLED: Race condition in batching logic
+  enabled: true                        # ENABLED: All race conditions fixed (v1.0.8)
   min_batch_size: 2                    # Minimum requests before dispatch
   max_batch_size: 16                   # Maximum requests per batch
   min_hold_ms: 0.75                    # Minimum hold window (ms)

@@ -57,8 +57,7 @@
     "inference",
     "apple-silicon",
     "typescript",
-    "machine-learning",
-    "knowrag"
+    "machine-learning"
   ],
   "author": "DEFAI",
   "license": "Apache-2.0",
@@ -71,6 +70,7 @@
     "fast-json-stringify": "^6.1.1",
     "js-yaml": "^4.1.0",
     "lru-cache": "^11.2.2",
+    "msgpack-lite": "^0.1.26",
     "nats": "^2.29.3",
     "pino": "^8.16.1",
     "redis": "^4.7.0",
