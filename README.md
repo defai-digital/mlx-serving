@@ -65,12 +65,12 @@ Built from the ground up with modern TypeScript practices and enterprise-grade r
 
 mlx-serving demonstrates **exceptional** performance and **superior forward compatibility** on vision-language models:
 
-#### Qwen2-VL (2024) - Both Engines Compatible
+#### Qwen2.5-VL (2024) - Both Engines Compatible
 
-| Model         | Size (GB) | Parameters | mlx-engine  | mlx-serving | Improvement    | Latency (mlx-serving) |
-|---------------|-----------|------------|-------------|-------------|----------------|-----------------------|
-| Qwen2-VL-7B   | ~4GB      | 7B         | 25.54 tok/s | 65.89 tok/s | **+158% 🚀🚀🚀** | 0.63s avg             |
-| Qwen2-VL-72B  | ~40GB     | 72B        | 3.62 tok/s  | 6.71 tok/s  | **+85% 🚀🚀**   | 1.12s avg             |
+| Model           | Size (GB) | Parameters | mlx-engine  | mlx-serving | Improvement       | Latency (mlx-serving) |
+|-----------------|-----------|------------|-------------|-------------|-------------------|-----------------------|
+| Qwen2.5-VL-7B   | ~4GB      | 7B         | 27.10 tok/s | 67.66 tok/s | **+150% 🚀🚀🚀**   | 1.48s avg             |
+| Qwen2-VL-72B    | ~40GB     | 72B        | 3.62 tok/s  | 6.71 tok/s  | **+85% 🚀🚀**     | 1.12s avg             |
 
 #### Qwen3-VL (2025) - mlx-serving Exclusive
 
@@ -82,11 +82,11 @@ mlx-serving demonstrates **exceptional** performance and **superior forward comp
 **Performance Summary:**
 - 🎯 **Qwen3-VL-4B**: 107.30 tok/s, 95ms TTFT, 100% success (60/60 requests)
 - 🎯 **Qwen3-VL-8B**: 68.71 tok/s, 122ms TTFT, 100% success (60/60 requests)
-- 🚀 **Qwen2-VL-7B**: 65.89 tok/s (+158% vs mlx-engine), 630ms latency
+- 🚀 **Qwen2.5-VL-7B**: 67.66 tok/s (+150% vs mlx-engine), 1.48s latency
 - 🚀 **Qwen2-VL-72B**: 6.71 tok/s (+85% vs mlx-engine), 1.12s latency
 
 **Key Findings:**
-- 🚀 **Qwen2-VL**: 1.9-2.6x faster with mlx-serving (+85-158%)
+- 🚀 **Qwen2/2.5-VL**: 1.9-2.5x faster with mlx-serving (+85-150%)
 - 🎯 **Qwen3-VL**: mlx-serving EXCLUSIVE support (mlx-engine incompatible)
 - ⚡ **Excellent TTFT**: 95-122ms for Qwen3-VL models
 - ✅ **Production-ready**: 100% reliability validated across 120 total requests
