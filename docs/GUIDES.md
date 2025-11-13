@@ -231,7 +231,7 @@ pip install mlx-engine
 
 # TypeScript mlx-serving (after)
 npm install @defai.digital/mlx-serving
-npm run setup  # Sets up Python runtime
+# Python environment is automatically set up via postinstall
 ```
 
 ### Basic Usage Comparison
@@ -255,17 +255,17 @@ import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
 
-await engine.load_model({
+await engine.loadModel({
   model: "meta-llama/Llama-3.1-8B-Instruct"
 });
 
-for await (const chunk of engine.create_generator({ prompt: "Hello" })) {
+for await (const chunk of engine.createGenerator({ prompt: "Hello" })) {
   if (chunk.type === 'token') {
     process.stdout.write(chunk.token);
   }
 }
 
-await engine.dispose();
+await engine.shutdown();
 ```
 
 #### TypeScript (mlx-serving) - Native Style
@@ -285,7 +285,7 @@ for await (const chunk of engine.createGenerator({ prompt: "Hello" })) {
   }
 }
 
-await engine.dispose();
+await engine.shutdown();
 ```
 
 ### Parameter Mapping
@@ -342,16 +342,17 @@ for token in engine.generate({"prompt": "Hello", "temperature": 0.7}):
 import { createEngine } from '@defai.digital/mlx-serving';
 
 const engine = await createEngine();
-await engine.load_model({ model: "llama-8b", max_tokens: 100 });
+await engine.loadModel({ model: "llama-8b" });
 
-for await (const chunk of engine.create_generator({
+for await (const chunk of engine.createGenerator({
   prompt: "Hello",
-  temperature: 0.7
+  temperature: 0.7,
+  maxTokens: 100
 })) {
   if (chunk.type === 'token') process.stdout.write(chunk.token);
 }
 
-await engine.dispose();
+await engine.shutdown();
 ```
 
 #### Example 2: Draft Model (Speculative Decoding)
@@ -367,10 +368,10 @@ for token in engine.generate({"prompt": "Explain AI"}):
 
 **After (mlx-serving)**:
 ```typescript
-await engine.load_model({ model: "llama-70b" });
-await engine.load_draft_model({ model: "llama-8b" });
+await engine.loadModel({ model: "llama-70b" });
+await engine.loadDraftModel({ model: "llama-8b" });
 
-for await (const chunk of engine.create_generator({ prompt: "Explain AI" })) {
+for await (const chunk of engine.createGenerator({ prompt: "Explain AI" })) {
   if (chunk.type === 'token') process.stdout.write(chunk.token);
 }
 ```
@@ -395,14 +396,14 @@ for await (const chunk of engine.create_generator({ prompt: "Explain AI" })) {
 import { withEngine } from '@defai.digital/mlx-serving';
 
 const result = await withEngine(async (engine) => {
-  await engine.load_model({ model: "llama-8b" });
-  
+  await engine.loadModel({ model: "llama-8b" });
+
   let text = '';
-  for await (const chunk of engine.create_generator({ prompt: "Hi" })) {
+  for await (const chunk of engine.createGenerator({ prompt: "Hi" })) {
     if (chunk.type === 'token') text += chunk.token;
   }
-  
-  return text;  // Engine auto-disposed after this
+
+  return text;  // Engine auto-shutdown after this
 });
 ```
 
@@ -434,9 +435,9 @@ Outlines is included in mlx-serving:
 
 ```bash
 npm install @defai.digital/mlx-serving
-npm prepare:python
+# Python environment with Outlines is automatically configured via postinstall
 
-# Verify Outlines
+# Verify Outlines installation
 .kr-mlx-venv/bin/python -c "import outlines; print(outlines.__version__)"
 ```
 
@@ -693,9 +694,9 @@ Vision support is included:
 
 ```bash
 npm install @defai.digital/mlx-serving
-npm run setup
+# Python environment with mlx-vlm is automatically configured via postinstall
 
-# Verify mlx-vlm
+# Verify mlx-vlm installation
 .kr-mlx-venv/bin/python -c "import mlx_vlm; print(mlx_vlm.__version__)"
 ```
 
@@ -722,7 +723,7 @@ for await (const chunk of engine.createVisionGenerator({
   }
 }
 
-await engine.dispose();
+await engine.shutdown();
 ```
 
 ### Multiple Images
@@ -812,7 +813,7 @@ const analysis = await engine.createVisionGenerator({
 ```bash
 # Install
 npm install @defai.digital/mlx-serving
-npm run setup
+# Python environment is automatically set up via postinstall
 
 # Test installation
 echo '{"jsonrpc":"2.0","id":1,"method":"runtime/info"}' | \
@@ -822,10 +823,10 @@ echo '{"jsonrpc":"2.0","id":1,"method":"runtime/info"}' | \
 npm test
 
 # Type check
-npm typecheck
+npm run typecheck
 
 # Build
-npm build
+npm run build
 ```
 
 ### Core API
@@ -841,7 +842,7 @@ for await (const chunk of engine.createGenerator({ prompt: "Hi" })) {
   if (chunk.type === 'token') console.log(chunk.token);
 }
 
-await engine.dispose();
+await engine.shutdown();
 
 // Context manager style
 const result = await withEngine(async (engine) => {

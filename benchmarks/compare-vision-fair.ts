@@ -10,10 +10,12 @@ import { writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import readline from 'readline';
 
-// Test both Qwen2-VL-7B and Qwen2-VL-72B as requested
+// Test strategic selection across brands (Meta, Qwen, HuggingFace) - sorted by size (big → small)
 const MODELS = [
-  'mlx-community/Qwen2-VL-7B-Instruct-4bit',
-  'mlx-community/Qwen2-VL-72B-Instruct-4bit',
+  'mlx-community/Llama-3.2-90B-Vision-Instruct-4bit',   // 90B - Meta
+  'mlx-community/Llama-3.2-11B-Vision-Instruct-4bit',   // 11B - Meta
+  'mlx-community/Qwen2.5-VL-7B-Instruct-4bit',          // 7B - Qwen
+  'mlx-community/SmolVLM-Instruct-4bit',                // 2B - HuggingFace
 ];
 const QUESTIONS = 10;  // Number of image+text prompts
 const CYCLES = 3;
