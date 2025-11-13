@@ -103,6 +103,14 @@ binary_streaming:
   # - Graceful fallback to JSON on encoding errors
   # - No breaking changes to existing code
 
+# Phase 3: IPC Token Batching (v1.4.0)
+# Buffers tokens on the Python side to amortize JSON-RPC overhead
+# Target: +15-25% throughput on 7B-8B models by reducing IPC calls 10-20x
+ipc_batching:
+  enabled: true                     # Enable buffered token flushing
+  max_tokens_per_batch: 16          # Flush after N tokens (sweet spot: 10-20)
+  flush_interval_ms: 6              # Force flush if no new token within this window
+
 # Phase 2: Object Pooling (Performance Optimization v1.0.8)
 # Reuse dictionary objects to reduce allocation overhead during token streaming
 # Target: +2-3% throughput on 14B+ models

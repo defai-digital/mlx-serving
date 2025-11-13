@@ -120,6 +120,20 @@ export class BinaryTokenDecoder extends Transform {
           this.totalBytesDecoded += 4 + messageLength;
           this.totalMessagesDecoded++;
 
+          if (
+            decoded.t === BinaryMessageType.TOKEN &&
+            decoded.p &&
+            typeof decoded.p === "object"
+          ) {
+            const payload = decoded.p as Record<string, unknown>;
+            const tokens = (payload as { tokens?: unknown[] }).tokens;
+            if (Array.isArray(tokens) && tokens.length > 0) {
+              if (typeof (payload as { batch_size?: unknown }).batch_size !== "number") {
+                (payload as { batch_size: number }).batch_size = tokens.length;
+              }
+            }
+          }
+
           // Push decoded message to output stream
           this.push(decoded);
         } catch (error) {

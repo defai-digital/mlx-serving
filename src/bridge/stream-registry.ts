@@ -50,6 +50,14 @@ export interface StreamChunk {
   cumulativeText?: string; // P1-2: Full text generated so far (mlx-engine compat)
 }
 
+interface NormalizedTokenPayload {
+  token: string;
+  tokenId: number;
+  logprob?: number;
+  isFinal: boolean;
+  cumulativeText?: string;
+}
+
 /**
  * Stream statistics (emitted once at end)
  */
@@ -510,87 +518,103 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
       return;
     }
 
-    const now = Date.now();
-    handle.chunkCount++;
+    const tokenPayloads = this.normalizeChunkTokens(params);
 
-    // Phase 4: Track TTFT (Time To First Token)
-    if (handle.chunkCount === 1 && !handle.firstTokenAt) {
-      handle.firstTokenAt = now;
-      const ttft = now - handle.startedAt;
-
-      if (this.metricsEnabled) {
-        this.ttftSamples.push(ttft);
-        // Keep last 100 samples for rolling average
-        if (this.ttftSamples.length > 100) {
-          this.ttftSamples.shift();
-        }
-      }
+    if (tokenPayloads.length === 0) {
+      this.logger?.warn({ streamId }, 'Received chunk notification without tokens');
+      return;
     }
 
-    // Phase 4: Track last chunk timestamp for throughput calculation
-    handle.lastChunkAt = now;
+    const now = Date.now();
 
-    // Phase 4: Backpressure control - check unacked chunks
-    if (this.backpressureEnabled) {
-      handle.unackedChunks++;
+    for (const payload of tokenPayloads) {
+      handle.chunkCount++;
 
-      // Emit backpressure warning if threshold exceeded
-      if (handle.unackedChunks >= this.maxUnackedChunks) {
-        try {
-          this.emit('backpressure', streamId, handle.unackedChunks);
-        } catch (err) {
-          this.logger?.error({ err, streamId }, 'Error emitting backpressure event');
+      // Phase 4: Track TTFT (Time To First Token)
+      if (handle.chunkCount === 1 && !handle.firstTokenAt) {
+        handle.firstTokenAt = now;
+        const ttft = now - handle.startedAt;
+
+        if (this.metricsEnabled) {
+          this.ttftSamples.push(ttft);
+          // Keep last 100 samples for rolling average
+          if (this.ttftSamples.length > 100) {
+            this.ttftSamples.shift();
+          }
         }
+      }
 
-        // Mark stream as blocked if not already
-        if (!handle.blockedSince) {
-          handle.blockedSince = now;
-        }
+      // Phase 4: Track last chunk timestamp for throughput calculation
+      handle.lastChunkAt = now;
 
-        // Check if consumer is slow
-        const blockedMs = now - handle.blockedSince;
-        if (blockedMs > this.slowConsumerThresholdMs) {
+      // Phase 4: Backpressure control - check unacked chunks
+      if (this.backpressureEnabled) {
+        handle.unackedChunks++;
+
+        // Emit backpressure warning if threshold exceeded
+        if (handle.unackedChunks >= this.maxUnackedChunks) {
           try {
-            this.emit('slowConsumer', streamId, blockedMs);
+            this.emit('backpressure', streamId, handle.unackedChunks);
           } catch (err) {
-            this.logger?.error({ err, streamId }, 'Error emitting slowConsumer event');
+            this.logger?.error({ err, streamId }, 'Error emitting backpressure event');
           }
 
-          this.logger?.warn(
-            { streamId, blockedMs, unackedChunks: handle.unackedChunks },
-            'Slow consumer detected'
-          );
-        }
+          // Mark stream as blocked if not already
+          if (!handle.blockedSince) {
+            handle.blockedSince = now;
+          }
 
-        // In production, we might want to pause the stream here
-        // For now, we just emit events and continue
+          // Check if consumer is slow
+          const blockedMs = now - handle.blockedSince;
+          if (blockedMs > this.slowConsumerThresholdMs) {
+            try {
+              this.emit('slowConsumer', streamId, blockedMs);
+            } catch (err) {
+              this.logger?.error({ err, streamId }, 'Error emitting slowConsumer event');
+            }
+
+            this.logger?.warn(
+              { streamId, blockedMs, unackedChunks: handle.unackedChunks },
+              'Slow consumer detected'
+            );
+          }
+
+          // In production, we might want to pause the stream here
+          // For now, we just emit events and continue
+        }
       }
+
+      this.emitChunkPayload(streamId, payload);
     }
 
-    // Phase 4: Use chunk pooling if enabled
+    this.logger?.debug(
+      { streamId, chunkCount: handle.chunkCount, batchSize: tokenPayloads.length },
+      'Stream chunk received'
+    );
+  }
+
+  private emitChunkPayload(streamId: string, payload: NormalizedTokenPayload): void {
     let chunk: StreamChunk;
     if (this.chunkPoolingEnabled && this.chunkPool) {
       chunk = this.chunkPool.acquire(
         streamId,
-        params.token,
-        params.token_id,
-        params.is_final,
-        params.logprob,
-        params.cumulative_text
+        payload.token,
+        payload.tokenId,
+        payload.isFinal,
+        payload.logprob,
+        payload.cumulativeText
       );
     } else {
-      // Fallback to direct allocation
       chunk = {
         streamId,
-        token: params.token,
-        tokenId: params.token_id,
-        logprob: params.logprob,
-        isFinal: params.is_final,
-        ...(params.cumulative_text !== undefined && { cumulativeText: params.cumulative_text }),
+        token: payload.token,
+        tokenId: payload.tokenId,
+        logprob: payload.logprob,
+        isFinal: payload.isFinal,
+        ...(payload.cumulativeText !== undefined && { cumulativeText: payload.cumulativeText }),
       };
     }
 
-    // Emit with error boundary to prevent user code exceptions from breaking stream
     try {
       this.emit('chunk', chunk);
     } catch (err) {
@@ -598,15 +622,43 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
         { err, streamId, chunk },
         'User listener threw error on chunk event'
       );
-      // Continue processing - don't let user code break the stream
+    } finally {
+      if (this.chunkPoolingEnabled && this.chunkPool) {
+        this.chunkPool.release(chunk);
+      }
+    }
+  }
+
+  private normalizeChunkTokens(params: StreamChunkParams): NormalizedTokenPayload[] {
+    if ('tokens' in params && Array.isArray(params.tokens)) {
+      return params.tokens.map((token) => ({
+        token: token.token,
+        tokenId: token.token_id,
+        logprob: token.logprob,
+        isFinal: token.is_final ?? false,
+        cumulativeText: token.cumulative_text,
+      }));
     }
 
-    // Phase 4: Release chunk back to pool after emission
-    if (this.chunkPoolingEnabled && this.chunkPool) {
-      this.chunkPool.release(chunk);
-    }
+    // TypeScript doesn't automatically narrow union types in else branches
+    // Since we checked for batched tokens above, this must be a single token
+    const singleToken = params as {
+      token: string;
+      token_id: number;
+      logprob?: number;
+      is_final: boolean;
+      cumulative_text?: string;
+    };
 
-    this.logger?.debug({ streamId, chunkCount: handle.chunkCount }, 'Stream chunk received');
+    return [
+      {
+        token: singleToken.token,
+        tokenId: singleToken.token_id,
+        logprob: singleToken.logprob,
+        isFinal: singleToken.is_final,
+        cumulativeText: singleToken.cumulative_text,
+      },
+    ];
   }
 
   /**

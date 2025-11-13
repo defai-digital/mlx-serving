@@ -619,6 +619,44 @@ describe('BinaryTokenDecoder', () => {
       });
     });
 
+    it('should infer batch_size for batched token payloads', async () => {
+      const message = {
+        t: BinaryMessageType.TOKEN,
+        p: {
+          stream_id: 'stream-1',
+          tokens: [
+            { token: 'Hello', token_id: 10 },
+            { token: ' world', token_id: 11 },
+          ],
+        },
+      };
+
+      const packed = msgpack.encode(message);
+      const lengthPrefix = Buffer.alloc(4);
+      lengthPrefix.writeUInt32BE(packed.length, 0);
+      const framed = Buffer.concat([lengthPrefix, packed]);
+
+      const decoded: any[] = [];
+      decoder.on('data', (msg) => decoded.push(msg));
+
+      await new Promise<void>((resolve, reject) => {
+        decoder.on('error', reject);
+        decoder.on('end', () => {
+          try {
+            expect(decoded).toHaveLength(1);
+            expect(decoded[0].p.batch_size).toBe(2);
+            expect(decoded[0].p.tokens).toHaveLength(2);
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        });
+
+        decoder.write(framed);
+        decoder.end();
+      });
+    });
+
     it('should maintain performance with high message throughput', async () => {
       const messageCount = 1000;
       const messages: any[] = [];

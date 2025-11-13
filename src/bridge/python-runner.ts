@@ -19,7 +19,6 @@ import { StreamRegistry } from './stream-registry.js';
 import { JsonRpcTransport } from './jsonrpc-transport.js';
 import { getConfig } from '../config/loader.js';
 import {
-  StreamChunkNotificationSchema,
   StreamStatsNotificationSchema,
   StreamEventNotificationSchema,
   RuntimeInfoResponseSchema,
@@ -262,38 +261,18 @@ export class PythonRunner extends EventEmitter<PythonRunnerEvents> {
 
         // Setup notification routing
         this.transport.onNotification('stream.chunk', (params) => {
-          // OPTIMIZATION #1: Use fast validation in production (highest frequency path)
+          // OPTIMIZATION #1: Always use fast validation for stream.chunk
           // This is called for EVERY token generated, so validation overhead is critical
-          if (shouldUseFastValidation()) {
-            // Fast path: Simple type guards (~1-2ms saved per token)
-            try {
-              const validated = fastValidateStreamChunk(params);
-              this.streamRegistry.handleChunk(validated);
-            } catch (error) {
-              this.options.logger?.error(
-                { params, error },
-                'Invalid stream.chunk notification (fast check)'
-              );
-            }
-            return;
-          }
-
-          // Development: Full Zod validation for safety
-          const parseResult = StreamChunkNotificationSchema.safeParse({
-            jsonrpc: '2.0',
-            method: 'stream.chunk',
-            params,
-          });
-
-          if (!parseResult.success) {
+          // Fast validator supports both single tokens AND batched tokens
+          try {
+            const validated = fastValidateStreamChunk(params);
+            this.streamRegistry.handleChunk(validated);
+          } catch (error) {
             this.options.logger?.error(
-              { params, error: parseResult.error.format() },
-              'Invalid stream.chunk notification'
+              { params, error },
+              'Invalid stream.chunk notification (fast check)'
             );
-            return;
           }
-
-          this.streamRegistry.handleChunk(parseResult.data.params);
         });
 
         this.transport.onNotification('stream.stats', (params) => {

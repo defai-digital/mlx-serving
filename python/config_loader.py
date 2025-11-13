@@ -75,6 +75,12 @@ class Config:
         binary_streaming = config_dict.get("binary_streaming", {})
         self.use_messagepack = binary_streaming.get("use_messagepack", False)
 
+        # Phase 3: IPC token batching
+        ipc_batching = config_dict.get("ipc_batching", {})
+        self.ipc_batching_enabled = ipc_batching.get("enabled", True)
+        self.ipc_batch_max_tokens = max(1, int(ipc_batching.get("max_tokens_per_batch", 16)))
+        self.ipc_batch_flush_ms = max(1, int(ipc_batching.get("flush_interval_ms", 6)))
+
         # Phase 2: Object Pooling (v1.0.8)
         object_pooling = config_dict.get("object_pooling", {})
         self.object_pooling_enabled = object_pooling.get("enabled", True)
@@ -165,6 +171,12 @@ class Config:
         # LAYER 4 FIX: Validate MLX concurrency limit
         if self.mlx_concurrency_limit < 1 or self.mlx_concurrency_limit > 10:
             raise ValueError(f"mlx_concurrency_limit must be in range [1, 10], got {self.mlx_concurrency_limit}")
+
+        if self.ipc_batch_max_tokens < 1:
+            raise ValueError(f"ipc_batching.max_tokens_per_batch must be >= 1, got {self.ipc_batch_max_tokens}")
+
+        if self.ipc_batch_flush_ms < 1:
+            raise ValueError(f"ipc_batching.flush_interval_ms must be >= 1, got {self.ipc_batch_flush_ms}")
 
     def get_queue_put_backoff_seconds(self) -> float:
         """Convert backoff MS to seconds for time.sleep()"""

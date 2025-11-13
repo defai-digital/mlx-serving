@@ -11,7 +11,7 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 from io import BytesIO
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 import importlib
 
@@ -253,7 +253,8 @@ class VisionModelLoader:
 
         gen_param_names = set(inspect.signature(vlm_generate).parameters)
 
-        queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=get_config().stream_queue_size)
+        config = get_config()
+        queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=config.stream_queue_size)
         loop = asyncio.get_running_loop()
         started = time.perf_counter()
         first_token_at: Optional[float] = None
@@ -262,6 +263,52 @@ class VisionModelLoader:
         error_holder: Dict[str, Optional[Exception]] = {"exc": None}
 
         kwargs = build_generation_kwargs(params)
+
+        batching_enabled = bool(getattr(config, "ipc_batching_enabled", True))
+        max_batch_tokens = max(1, int(getattr(config, "ipc_batch_max_tokens", 1)))
+        flush_interval_sec = max(
+            0.001,
+            float(getattr(config, "ipc_batch_flush_ms", 6)) / 1000.0,
+        )
+        pending_chunks: List[Dict[str, Any]] = []
+
+        async def flush_pending_chunks() -> None:
+            nonlocal pending_chunks
+
+            if not pending_chunks:
+                return
+
+            if len(pending_chunks) == 1:
+                chunk_payload = pending_chunks[0]
+                pending_chunks = []
+                await emit_chunk(chunk_payload)
+                if chunk_pool:
+                    chunk_pool.release(chunk_payload)
+                return
+
+            batch = pending_chunks
+            pending_chunks = []
+            batch_payload = {
+                "stream_id": stream_id,
+                "tokens": batch,
+                "batch_size": len(batch),
+                "is_batch": True,
+            }
+            await emit_chunk(batch_payload)
+            if chunk_pool:
+                for chunk_payload in batch:
+                    chunk_pool.release(chunk_payload)
+
+        async def emit_token_chunk(chunk_payload: Dict[str, Any]) -> None:
+            if not batching_enabled:
+                await emit_chunk(chunk_payload)
+                if chunk_pool:
+                    chunk_pool.release(chunk_payload)
+                return
+
+            pending_chunks.append(chunk_payload)
+            if len(pending_chunks) >= max_batch_tokens:
+                await flush_pending_chunks()
 
         def make_kwargs() -> Dict[str, Any]:
             prompt = params.get("prompt", "")
@@ -322,8 +369,16 @@ class VisionModelLoader:
 
         try:
             while True:
-                item = await queue.get()
+                try:
+                    if batching_enabled and pending_chunks:
+                        item = await asyncio.wait_for(queue.get(), timeout=flush_interval_sec)
+                    else:
+                        item = await queue.get()
+                except asyncio.TimeoutError:
+                    await flush_pending_chunks()
+                    continue
                 if item is StopAsyncIteration:
+                    await flush_pending_chunks()
                     if error_holder["exc"] is not None:
                         raise GenerationError(handle.model_id, str(error_holder["exc"]))
                     break
@@ -351,8 +406,7 @@ class VisionModelLoader:
                     # Only include logprob if available
                     if chunk.get("logprob") is not None:
                         payload["logprob"] = chunk["logprob"]
-                    await emit_chunk(payload)
-                    chunk_pool.release(payload)
+                    await emit_token_chunk(payload)
                 else:
                     payload = {
                         "stream_id": stream_id,
@@ -363,7 +417,9 @@ class VisionModelLoader:
                     # Only include logprob if available
                     if chunk.get("logprob") is not None:
                         payload["logprob"] = chunk["logprob"]
-                    await emit_chunk(payload)
+                    await emit_token_chunk(payload)
+
+            await flush_pending_chunks()
 
             elapsed = time.perf_counter() - started
             ttft = (first_token_at - started) if first_token_at else elapsed

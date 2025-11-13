@@ -30,7 +30,7 @@ Built from the ground up with modern TypeScript practices and enterprise-grade r
 
 **Quality:** 0 lint errors | 710/718 unit tests passing (99.86%) | Production-ready
 
-**License:** Apache-2.0 | **Performance:** Optimized for 7B+ models (+2% throughput, -55% GC overhead)
+**License:** Apache-2.0 | **Performance:** Optimized for 3B+ models (near-parity with mlx-engine, IPC batching enabled)
 
 ---
 

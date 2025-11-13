@@ -45,6 +45,44 @@ export function fastValidateStreamChunk(params: unknown): StreamChunkParams {
   if (typeof p.stream_id !== 'string' || !p.stream_id) {
     throw new Error('Invalid stream chunk: missing stream_id');
   }
+  if (Array.isArray((p as { tokens?: unknown }).tokens)) {
+    const tokens = (p as { tokens: unknown[] }).tokens;
+
+    if (tokens.length === 0) {
+      throw new Error('Invalid stream chunk: tokens array cannot be empty');
+    }
+
+    for (const token of tokens) {
+      if (!token || typeof token !== 'object') {
+        throw new Error('Invalid stream chunk: token entry must be object');
+      }
+
+      const entry = token as Record<string, unknown>;
+
+      if (typeof entry.token !== 'string') {
+        throw new Error('Invalid stream chunk: token entry missing token');
+      }
+
+      if (
+        typeof entry.token_id !== 'number' ||
+        !Number.isInteger(entry.token_id) ||
+        entry.token_id < 0
+      ) {
+        throw new Error('Invalid stream chunk: token entry token_id invalid');
+      }
+
+      if (entry.logprob !== undefined && typeof entry.logprob !== 'number') {
+        throw new Error('Invalid stream chunk: token entry logprob must be number');
+      }
+
+      if (entry.is_final !== undefined && typeof entry.is_final !== 'boolean') {
+        throw new Error('Invalid stream chunk: token entry is_final must be boolean');
+      }
+    }
+
+    return params as StreamChunkParams;
+  }
+
   if (typeof p.token !== 'string') {
     throw new Error('Invalid stream chunk: missing token');
   }

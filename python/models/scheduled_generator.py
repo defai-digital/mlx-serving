@@ -35,6 +35,9 @@ async def stream_generate(
     emit_chunk: Callable,
     emit_stats: Callable,
     emit_event: Callable,
+    chunk_pool=None,
+    stats_pool=None,
+    event_pool=None,
     priority: str = "default",
 ) -> None:
     """
@@ -66,13 +69,19 @@ async def stream_generate(
     # Check if scheduler is enabled
     if not GPU_SCHEDULER_AVAILABLE:
         # Scheduler not available - use standard path
-        return await _standard_stream_generate(handle, params, emit_chunk, emit_stats, emit_event)
+        return await _standard_stream_generate(
+            handle, params, emit_chunk, emit_stats, emit_event,
+            chunk_pool, stats_pool, event_pool
+        )
 
     scheduler = get_scheduler()
 
     if not scheduler.enabled:
         # Scheduler disabled - use standard path (zero overhead)
-        return await _standard_stream_generate(handle, params, emit_chunk, emit_stats, emit_event)
+        return await _standard_stream_generate(
+            handle, params, emit_chunk, emit_stats, emit_event,
+            chunk_pool, stats_pool, event_pool
+        )
 
     # Scheduler enabled - route through it
     priority_enum = _parse_priority(priority)
@@ -81,7 +90,10 @@ async def stream_generate(
     # Wrap generation in scheduler
     async def gpu_operation():
         """GPU operation to be scheduled"""
-        return await _standard_stream_generate(handle, params, emit_chunk, emit_stats, emit_event)
+        return await _standard_stream_generate(
+            handle, params, emit_chunk, emit_stats, emit_event,
+            chunk_pool, stats_pool, event_pool
+        )
 
     # Schedule the operation
     try:
@@ -95,7 +107,10 @@ async def stream_generate(
         print(f"[ScheduledGenerator] Scheduler error for stream {stream_id}: {exc}, "
               f"falling back to direct execution",
               file=sys.stderr, flush=True)
-        return await _standard_stream_generate(handle, params, emit_chunk, emit_stats, emit_event)
+        return await _standard_stream_generate(
+            handle, params, emit_chunk, emit_stats, emit_event,
+            chunk_pool, stats_pool, event_pool
+        )
 
 
 def _parse_priority(priority: str) -> 'JobPriority':

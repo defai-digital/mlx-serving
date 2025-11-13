@@ -222,24 +222,45 @@ export type GenerateResponse = z.infer<typeof GenerateResponseSchema>;
 
 // Streaming notifications - Python runtime emits these via JSON-RPC notifications
 
+const TokenChunkSchema = z.object({
+  token: z.string(),
+  token_id: z.number().int().nonnegative(),
+  logprob: z.number().optional(),
+  is_final: z.boolean().optional(),
+  cumulative_text: z.string().optional(),
+  stream_id: z.string().optional(),
+});
+
+const SingleStreamChunkSchema = z.object({
+  stream_id: z.string(),
+  token: z.string(),
+  token_id: z.number().int().nonnegative(), // Backend: tighten with .int().nonnegative()
+  logprob: z.number().optional(), // Log probability of the token (optional)
+  is_final: z.boolean(), // true only on terminal chunk
+  cumulative_text: z.string().optional(), // P1-2: Full text generated so far (mlx-engine compat)
+});
+
+const BatchedStreamChunkSchema = z.object({
+  stream_id: z.string(),
+  tokens: z.array(TokenChunkSchema).min(1),
+  batch_size: z.number().int().positive().optional(),
+  is_batch: z.boolean().optional(),
+});
+
 /**
  * stream.chunk - Emitted for each generated token
- * Backend recommendation: is_final marks the terminal chunk
+ * Supports either single-token payloads or batched token arrays.
  */
 export const StreamChunkNotificationSchema = z.object({
   jsonrpc: z.literal('2.0'),
   method: z.literal('stream.chunk'),
-  params: z.object({
-    stream_id: z.string(),
-    token: z.string(),
-    token_id: z.number().int().nonnegative(), // Backend: tighten with .int().nonnegative()
-    logprob: z.number().optional(), // Log probability of the token (optional)
-    is_final: z.boolean(), // true only on terminal chunk
-    cumulative_text: z.string().optional(), // P1-2: Full text generated so far (mlx-engine compat)
-  }),
+  params: z.union([SingleStreamChunkSchema, BatchedStreamChunkSchema]),
 });
 
 export type StreamChunkNotification = z.infer<typeof StreamChunkNotificationSchema>;
+export type StreamChunkParams = StreamChunkNotification['params'];
+export type BatchedStreamChunkParams = z.infer<typeof BatchedStreamChunkSchema>;
+export type TokenChunkParams = z.infer<typeof TokenChunkSchema>;
 
 /**
  * stream.stats - Emitted once after all tokens generated

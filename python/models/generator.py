@@ -14,7 +14,7 @@ import time
 import threading
 import os
 from time import perf_counter
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 # Import configuration loader
 import sys
@@ -306,6 +306,55 @@ async def stream_generate(
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=config.stream_queue_size)
 
+        batching_enabled = bool(getattr(config, "ipc_batching_enabled", True))
+        max_batch_tokens = max(1, int(getattr(config, "ipc_batch_max_tokens", 1)))
+        flush_interval_sec = max(
+            0.001,
+            float(getattr(config, "ipc_batch_flush_ms", 6)) / 1000.0,
+        )
+
+        pending_chunks: List[Dict[str, Any]] = []
+
+        async def flush_pending_chunks() -> None:
+            """Flush buffered token chunks respecting batch config."""
+            nonlocal pending_chunks
+
+            if not pending_chunks:
+                return
+
+            if len(pending_chunks) == 1:
+                chunk_payload = pending_chunks[0]
+                pending_chunks = []
+                await emit_chunk(chunk_payload)
+                if chunk_pool:
+                    chunk_pool.release(chunk_payload)
+                return
+
+            batch = pending_chunks
+            pending_chunks = []
+            batch_payload = {
+                "stream_id": stream_id,
+                "tokens": batch,
+                "batch_size": len(batch),
+                "is_batch": True,
+            }
+            await emit_chunk(batch_payload)
+            if chunk_pool:
+                for chunk_payload in batch:
+                    chunk_pool.release(chunk_payload)
+
+        async def emit_token_chunk(chunk_payload: Dict[str, Any]) -> None:
+            """Either buffer chunk for batch flush or emit immediately."""
+            if not batching_enabled:
+                await emit_chunk(chunk_payload)
+                if chunk_pool:
+                    chunk_pool.release(chunk_payload)
+                return
+
+            pending_chunks.append(chunk_payload)
+            if len(pending_chunks) >= max_batch_tokens:
+                await flush_pending_chunks()
+
         # Timing and metrics
         started_at = perf_counter()
         first_token_at: Optional[float] = None
@@ -390,12 +439,21 @@ async def stream_generate(
         try:
             # Consume queue and emit notifications
             while True:
-                item = await queue.get()
+                try:
+                    if batching_enabled and pending_chunks:
+                        item = await asyncio.wait_for(queue.get(), timeout=flush_interval_sec)
+                    else:
+                        item = await queue.get()
+                except asyncio.TimeoutError:
+                    await flush_pending_chunks()
+                    continue
 
                 # Check for completion or error
                 if item is StopAsyncIteration:
+                    await flush_pending_chunks()
                     break
                 if item is None:
+                    await flush_pending_chunks()
                     if isinstance(caught_error, GuidanceError):
                         raise caught_error
                     raise GenerationError(handle.model_id, str(caught_error))
@@ -435,8 +493,7 @@ async def stream_generate(
                     # Only add logprob if not None (avoid JSON null vs TypeScript undefined)
                     if logprob is not None:
                         chunk_data["logprob"] = logprob
-                    await emit_chunk(chunk_data)
-                    chunk_pool.release(chunk_data)
+                    await emit_token_chunk(chunk_data)
                 else:
                     chunk_data = {
                         "stream_id": stream_id,
@@ -448,7 +505,10 @@ async def stream_generate(
                     # Only add logprob if not None (avoid JSON null vs TypeScript undefined)
                     if logprob is not None:
                         chunk_data["logprob"] = logprob
-                    await emit_chunk(chunk_data)
+                    await emit_token_chunk(chunk_data)
+
+            # Flush any straggler tokens before emitting stats
+            await flush_pending_chunks()
 
             # Calculate final metrics
             total_elapsed = perf_counter() - started_at

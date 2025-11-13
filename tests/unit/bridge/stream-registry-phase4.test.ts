@@ -87,6 +87,42 @@ describe('StreamRegistry - Phase 4: Stream Optimization', () => {
     });
   });
 
+  describe('Token batching interoperability', () => {
+    it('should emit individual chunk events for batched payloads', async () => {
+      const streamPromise = registry.register('batched-stream');
+      const emitted: StreamChunk[] = [];
+      registry.on('chunk', (chunk) => {
+        if (chunk.streamId === 'batched-stream') {
+          emitted.push(chunk);
+        }
+      });
+
+      const chunkParams: StreamChunkParams = {
+        stream_id: 'batched-stream',
+        tokens: [
+          { token: 'A', token_id: 1, is_final: false },
+          { token: 'B', token_id: 2, is_final: false },
+          { token: 'C', token_id: 3, is_final: false },
+        ],
+        batch_size: 3,
+        is_batch: true,
+      } as StreamChunkParams;
+
+      registry.handleChunk(chunkParams);
+
+      expect(emitted).toHaveLength(3);
+      expect(emitted.map((c) => c.token)).toEqual(['A', 'B', 'C']);
+
+      registry.handleEvent({
+        stream_id: 'batched-stream',
+        event: 'completed',
+        is_final: true,
+      });
+
+      await streamPromise;
+    });
+  });
+
   describe('Backpressure Control', () => {
     it('should track unacked chunks', async () => {
       const streamPromise = registry.register('backpressure-stream');
