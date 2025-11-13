@@ -684,9 +684,12 @@ console.log(user.name);  // Type-safe access
 mlx-serving supports **multi-modal inference** with vision-language models (VLMs) that process both images and text.
 
 **Supported Models**:
+- **Qwen2-VL** (7B, 72B) - Qwen Vision V2
+- **Qwen3-VL** (4B, 8B) - Latest Qwen Vision (exclusive to mlx-serving)
+- **Qwen2.5-VL** (3B, 7B) - Updated Qwen Vision
 - LLaVA (7B, 13B, 34B)
-- Qwen-VL (7B, 14B)
 - Phi-3-Vision (mini, small, medium)
+- SmolVLM (2B) - Small vision model
 
 ### Installation
 
@@ -758,10 +761,14 @@ for await (const chunk of engine.createVisionGenerator({
 
 | Use Case | Model | Memory | Speed | Quality |
 |----------|-------|--------|-------|---------|
+| **Latest & Best** | Qwen3-VL-8B | 8 GB | **Very Fast** | **Excellent** |
+| **Small & Efficient** | Qwen3-VL-4B | 4 GB | **Very Fast** | Excellent |
+| **Balanced** | Qwen2.5-VL-7B | 7 GB | Fast | Excellent |
+| **High Capacity** | Qwen2-VL-72B | 50 GB | Slow | Excellent |
 | **General Purpose** | LLaVA 1.5 7B | 6 GB | Fast | Good |
-| **High Quality** | LLaVA 1.6 13B | 10 GB | Medium | Excellent |
-| **Chinese + English** | Qwen-VL 7B | 6 GB | Fast | Good |
+| **Chinese + English** | Qwen2-VL-7B | 7 GB | Fast | Excellent |
 | **Code + Diagrams** | Phi-3-Vision | 5 GB | Very Fast | Good |
+| **Ultra Small** | SmolVLM-2B | 2 GB | Very Fast | Good |
 
 ### Best Practices
 
@@ -769,6 +776,194 @@ for await (const chunk of engine.createVisionGenerator({
 2. **Batch Processing**: Process multiple images sequentially, not in parallel
 3. **Context Length**: Vision inputs consume significant context (image ≈ 256 tokens)
 4. **Prompt Engineering**: Be specific about what you want to extract from images
+
+### Qwen3-VL Examples (Latest Models)
+
+**Qwen3-VL** models are the latest vision models with excellent performance and speed.
+
+#### Basic Setup with Qwen3-VL-8B
+
+```typescript
+import { createEngine } from '@defai.digital/mlx-serving';
+
+const engine = await createEngine();
+
+// Load Qwen3-VL-8B (latest, fastest)
+await engine.loadModel({
+  model: 'mlx-community/Qwen3-VL-8B-Instruct-4bit'
+});
+
+// Analyze an image
+for await (const chunk of engine.createGenerator({
+  model: 'mlx-community/Qwen3-VL-8B-Instruct-4bit',
+  prompt: 'Describe what you see in this image in detail.',
+  images: ['path/to/image.jpg'],
+  maxTokens: 300
+})) {
+  if (chunk.type === 'token') {
+    process.stdout.write(chunk.token);
+  }
+}
+
+await engine.shutdown();
+```
+
+#### Multi-Image Analysis with Qwen3-VL-4B
+
+```typescript
+import { createEngine } from '@defai.digital/mlx-serving';
+import { readFileSync } from 'fs';
+
+const engine = await createEngine();
+await engine.loadModel({
+  model: 'mlx-community/Qwen3-VL-4B-Instruct-4bit'
+});
+
+// Load images as base64
+const image1 = readFileSync('product1.jpg').toString('base64');
+const image2 = readFileSync('product2.jpg').toString('base64');
+
+// Compare products
+const response = await engine.generate({
+  model: 'mlx-community/Qwen3-VL-4B-Instruct-4bit',
+  prompt: 'Compare these two products. Which one offers better value?',
+  images: [
+    `data:image/jpeg;base64,${image1}`,
+    `data:image/jpeg;base64,${image2}`
+  ],
+  maxTokens: 500
+});
+
+console.log(response);
+await engine.shutdown();
+```
+
+#### Document OCR with Qwen3-VL
+
+```typescript
+import { createEngine } from '@defai.digital/mlx-serving';
+
+const engine = await createEngine();
+await engine.loadModel({
+  model: 'mlx-community/Qwen3-VL-8B-Instruct-4bit'
+});
+
+// Extract text from document
+for await (const chunk of engine.createGenerator({
+  model: 'mlx-community/Qwen3-VL-8B-Instruct-4bit',
+  prompt: 'Extract all text from this document. Format it as markdown.',
+  images: ['invoice.jpg'],
+  maxTokens: 1000,
+  temperature: 0.1  // Lower temperature for more accurate extraction
+})) {
+  if (chunk.type === 'token') {
+    process.stdout.write(chunk.token);
+  }
+}
+
+await engine.shutdown();
+```
+
+#### Chart/Graph Analysis
+
+```typescript
+import { createEngine } from '@defai.digital/mlx-serving';
+
+const engine = await createEngine();
+await engine.loadModel({
+  model: 'mlx-community/Qwen3-VL-8B-Instruct-4bit'
+});
+
+// Analyze a chart
+const analysis = await engine.generate({
+  model: 'mlx-community/Qwen3-VL-8B-Instruct-4bit',
+  prompt: `Analyze this chart:
+1. What are the key trends?
+2. What are the highest and lowest values?
+3. What insights can you derive?`,
+  images: ['sales-chart.png'],
+  maxTokens: 600
+});
+
+console.log(analysis);
+await engine.shutdown();
+```
+
+#### Scene Understanding
+
+```typescript
+import { createEngine } from '@defai.digital/mlx-serving';
+
+const engine = await createEngine();
+await engine.loadModel({
+  model: 'mlx-community/Qwen3-VL-4B-Instruct-4bit'
+});
+
+// Detailed scene analysis
+const scene = await engine.generate({
+  model: 'mlx-community/Qwen3-VL-4B-Instruct-4bit',
+  prompt: `Analyze this scene:
+- What objects are present?
+- What activities are happening?
+- What is the setting/environment?
+- What is the mood/atmosphere?`,
+  images: ['street-scene.jpg'],
+  maxTokens: 800
+});
+
+console.log(scene);
+await engine.shutdown();
+```
+
+#### Code Screenshot Analysis
+
+```typescript
+import { createEngine } from '@defai.digital/mlx-serving';
+
+const engine = await createEngine();
+await engine.loadModel({
+  model: 'mlx-community/Qwen3-VL-8B-Instruct-4bit'
+});
+
+// Analyze code from screenshot
+const codeAnalysis = await engine.generate({
+  model: 'mlx-community/Qwen3-VL-8B-Instruct-4bit',
+  prompt: `Analyze this code:
+1. What programming language is it?
+2. What does the code do?
+3. Are there any bugs or issues?
+4. Suggest improvements.`,
+  images: ['code-screenshot.png'],
+  maxTokens: 1000
+});
+
+console.log(codeAnalysis);
+await engine.shutdown();
+```
+
+### Qwen2.5-VL Examples
+
+**Qwen2.5-VL** offers excellent balance between performance and quality.
+
+```typescript
+import { createEngine } from '@defai.digital/mlx-serving';
+
+const engine = await createEngine();
+await engine.loadModel({
+  model: 'mlx-community/Qwen2.5-VL-7B-Instruct-4bit'
+});
+
+// Product catalog generation
+const catalog = await engine.generate({
+  model: 'mlx-community/Qwen2.5-VL-7B-Instruct-4bit',
+  prompt: 'Create a product description for this item including features, benefits, and suggested price range.',
+  images: ['product-photo.jpg'],
+  maxTokens: 400
+});
+
+console.log(catalog);
+await engine.shutdown();
+```
 
 ### Example Use Cases
 
