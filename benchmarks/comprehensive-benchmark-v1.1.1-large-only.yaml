@@ -1,0 +1,59 @@
+# Comprehensive Text Model Benchmark - v1.1.1 Large Models Only
+# Remaining models from 30B → 141B (7 models)
+
+benchmark:
+  max_tokens: 100
+  temperature: 0.7
+  timeout_ms: 300000  # 5 minutes per request
+
+models:
+  # Large Models (30B - 47B)
+  - name: mlx-community/Qwen2.5-Coder-32B-Instruct-4bit
+    size: 30B
+    questions: 5
+    cycles: 1
+    enabled: true
+
+  - name: mlx-community/Qwen2.5-32B-Instruct-4bit
+    size: 32B
+    questions: 5
+    cycles: 1
+    enabled: true
+
+  - name: mlx-community/Mixtral-8x7B-Instruct-v0.1-4bit
+    size: 47B
+    questions: 5
+    cycles: 1
+    enabled: true
+
+  # Very Large Models (70B - 141B)
+  - name: mlx-community/Meta-Llama-3.1-70B-Instruct-4bit
+    size: 70B
+    questions: 5
+    cycles: 1
+    enabled: true
+
+  - name: mlx-community/Qwen2.5-72B-Instruct-4bit
+    size: 72B
+    questions: 5
+    cycles: 1
+    enabled: true
+
+  - name: mlx-community/glm-4-9b-chat-1m-4bit
+    size: 106B (12B MoE)
+    questions: 5
+    cycles: 1
+    enabled: true
+
+  - name: mlx-community/Mixtral-8x22B-Instruct-v0.1-4bit
+    size: 141B
+    questions: 5
+    cycles: 1
+    enabled: true
+
+questions:
+  - "What is the capital of France?"
+  - "Explain quantum computing in simple terms."
+  - "Write a haiku about technology."
+  - "What are the benefits of exercise?"
+  - "How does photosynthesis work?"

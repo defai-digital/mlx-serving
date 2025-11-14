@@ -54,7 +54,12 @@ def main():
     sys.stderr.write(f"Loading model with mlx-engine: {model_path}\n")
     sys.stderr.flush()
 
-    model_kit = load_model(model_path, trust_remote_code=False)
+    try:
+        model_kit = load_model(model_path, trust_remote_code=False)
+    except Exception as e:
+        sys.stderr.write(f"ERROR: Failed to load model: {type(e).__name__}: {str(e)}\n")
+        sys.stderr.flush()
+        sys.exit(1)
 
     sys.stderr.write("mlx-engine model loaded, ready for prompts\n")
     sys.stderr.flush()
