@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/mlx-serving",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Modern TypeScript MLX serving engine for Apple Silicon with Zod validation and ReScript state management",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -124,11 +124,18 @@
     "arm64"
   ],
   "engines": {
-    "node": ">=22.0.0",
-    "python": ">=3.11.0",
+    "node": ">=24.0.0",
+    "python": ">=3.12.0",
+    "rust": ">=1.75.0",
     "mlx": ">=3.3.0"
   },
   "peerDependenciesMeta": {
-    "comment": "Requires Apple Silicon M3 or later (M3 Pro / M3 Max / M3 Ultra recommended)"
+    "comment": "Requires Apple Silicon M3 or later (M3 Pro / M3 Max / M3 Ultra recommended), macOS 26 (Tahoe)"
+  },
+  "systemRequirements": {
+    "os": "macOS 26 (Tahoe)",
+    "python": ">=3.12.0",
+    "rust": ">=1.75.0",
+    "hardware": "Apple Silicon M3+ required"
   }
 }

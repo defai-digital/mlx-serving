@@ -1,0 +1,56 @@
+{
+  "timestamp": "2025-11-14T03:05:33.440Z",
+  "model": "mlx-community/Qwen3-30B-A3B-4bit",
+  "phase2_enabled": true,
+  "messagepack_enabled": false,
+  "adaptive_batching": true,
+  "token_buffering": true,
+  "cycles": 5,
+  "results": [
+    {
+      "cycle": 1,
+      "questions": 10,
+      "totalTime": 12.507,
+      "avgLatency": 1.2507,
+      "tokensPerSecond": 0,
+      "successRate": 100
+    },
+    {
+      "cycle": 2,
+      "questions": 10,
+      "totalTime": 12.497,
+      "avgLatency": 1.2497,
+      "tokensPerSecond": 0,
+      "successRate": 100
+    },
+    {
+      "cycle": 3,
+      "questions": 10,
+      "totalTime": 12.414,
+      "avgLatency": 1.2414,
+      "tokensPerSecond": 0,
+      "successRate": 100
+    },
+    {
+      "cycle": 4,
+      "questions": 10,
+      "totalTime": 12.569,
+      "avgLatency": 1.2569000000000001,
+      "tokensPerSecond": 0,
+      "successRate": 100
+    },
+    {
+      "cycle": 5,
+      "questions": 10,
+      "totalTime": 12.63,
+      "avgLatency": 1.2630000000000001,
+      "tokensPerSecond": 0,
+      "successRate": 100
+    }
+  ],
+  "average": 0,
+  "min": 0,
+  "max": 0,
+  "baseline": 75.73,
+  "improvement": -100
+}

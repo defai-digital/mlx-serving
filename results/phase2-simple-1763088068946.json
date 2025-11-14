@@ -1,0 +1,25 @@
+{
+  "timestamp": "2025-11-14T02:41:08.946Z",
+  "model": "mlx-community/Qwen3-30B-A3B-4bit",
+  "phase2_enabled": true,
+  "cycles": 3,
+  "results": [
+    {
+      "cycle": 1,
+      "tokensPerSecond": 81.81282839062189
+    },
+    {
+      "cycle": 2,
+      "tokensPerSecond": 82.03734865900563
+    },
+    {
+      "cycle": 3,
+      "tokensPerSecond": 82.6093329332763
+    }
+  ],
+  "average": 82.15316999430128,
+  "min": 81.81282839062189,
+  "max": 82.6093329332763,
+  "baseline": 75.73,
+  "improvement": 8.48167172098412
+}

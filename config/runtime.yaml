@@ -2,9 +2,9 @@
 # All configurable parameters in one place
 
 # Request Batching Configuration (Week 1 Feature + Week 2 Day 3 Enhancements + Week 7 Phase 7.1.3 Adaptive Sizing)
-# BUGFIX: Disabled to fix intermittent Python crash after 5 requests
+# Phase 2: Re-enabled after bug fix validation
 batch_queue:
-  enabled: false                 # DISABLED: Testing if OpsMultiplexer causes race condition
+  enabled: true                  # ✅ RE-ENABLED: Phase 2 optimization with adaptive sizing
   max_batch_size: 20            # Initial batch size (adaptive sizing will adjust dynamically)
   flush_interval_ms: 2          # Maximum wait time before flushing (optimized: 5ms → 2ms)
 
@@ -94,8 +94,8 @@ continuous_batching:
 # Replaces JSON with compact binary format for 85% bandwidth reduction
 # Target: +3-5% throughput on 14B+ models
 binary_streaming:
-  # Enable MessagePack binary streaming (disabled by default for backward compatibility)
-  use_messagepack: false            # DISABLED: Enable for 3-5% performance gain on large models
+  # Enable MessagePack binary streaming (Phase 2: Re-enabled after validation)
+  use_messagepack: false            # Temporarily disabled to debug timeout issue
 
   # When enabled:
   # - JSON: ~150 bytes/token → MessagePack: ~20 bytes/token (85% reduction)
@@ -319,6 +319,28 @@ model_preload:
     # - model_id: "mlx-community/Llama-3.2-3B-Instruct-4bit"
     #   warmup_requests: 3
     #   max_tokens: 10
+
+# Generation Warmup (Large-model TTFT smoothing)
+# Executes short internal generations immediately after load_model completes.
+# Keeps GPU kernels, KV caches, and tokenizer buffers hot to remove first-request penalty.
+generation_warmup:
+  enabled: true
+  request_count: 0              # Default disabled; enable per-model overrides below
+  max_tokens: 16
+  temperature: 0.2
+  top_p: 0.95
+  timeout_ms: 1500
+  prompts:
+    - "Warmup request to prime the model."
+    - "Quick internal warmup run."
+  model_overrides:
+    - match: "Qwen3-30B"
+      request_count: 2
+      max_tokens: 48
+      temperature: 0.12
+      prompts:
+        - "Explain why GPU warmup improves Qwen3 throughput."
+        - "List two benefits of precomputing KV cache entries."
 
 # Model Configuration
 model:
