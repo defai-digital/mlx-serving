@@ -15,6 +15,7 @@ import type {
   ModelIdentifier,
   ModelCacheStats,
 } from '../types/index.js';
+import type { CacheConfig, CacheHealth } from '../types/cache.js';
 import type { JsonRpcTransport } from '../bridge/jsonrpc-transport.js';
 import type {
   LoadModelParams,
@@ -31,7 +32,7 @@ export interface ModelManagerOptions {
   transport: JsonRpcTransport;
   logger?: Logger;
   cacheDir?: string; // Deprecated: use cacheConfig instead
-  cacheConfig?: Partial<import('../types/cache.js').CacheConfig>; // Phase 2: Full cache configuration
+  cacheConfig?: Partial<CacheConfig>; // Phase 2: Full cache configuration
 }
 
 interface LoadContext {
@@ -745,7 +746,7 @@ export class ModelManager {
    * Phase 2: Persistent disk cache stats
    * @returns Artifact cache health status
    */
-  public async getArtifactCacheHealth(): Promise<import('../types/cache.js').CacheHealth> {
+  public async getArtifactCacheHealth(): Promise<CacheHealth> {
     return this.artifactCache.getHealth();
   }
 }

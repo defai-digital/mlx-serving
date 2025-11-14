@@ -22,6 +22,7 @@ import type {
   CompatibilityReport,
   ModelCacheStats,
 } from '../types/index.js';
+import type { CacheHealth } from '../types/cache.js';
 import {
   normalizeGeneratorParams,
   normalizeLoadModelOptions,
@@ -1034,7 +1035,7 @@ export class Engine extends EventEmitter<EngineEvents> implements EngineContract
    * console.log('Hit rate:', health.hitRate);
    * ```
    */
-  public async getArtifactCacheHealth(): Promise<import('../types/cache.js').CacheHealth> {
+  public async getArtifactCacheHealth(): Promise<CacheHealth> {
     const runtime = await this.ensureRuntime();
     return runtime.modelManager.getArtifactCacheHealth();
   }

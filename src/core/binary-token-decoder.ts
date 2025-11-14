@@ -19,7 +19,8 @@
  *   - Throughput improvement: 3-5% on 14B+ models
  */
 
-import { Transform, TransformCallback } from "stream";
+import { Transform } from "stream";
+import type { TransformCallback } from "stream";
 import * as msgpack from "msgpack-lite";
 
 /**

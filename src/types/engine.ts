@@ -19,7 +19,7 @@ import type {
   VisionGeneratorChunk,
 } from './vision.js';
 import type { BatchQueue } from '../core/batch-queue.js';
-import type { ModelCacheStats } from './cache.js';
+import type { ModelCacheStats, CacheConfig } from './cache.js';
 
 export type { GenerationStats, EngineError };
 
@@ -71,7 +71,7 @@ export interface EngineOptions {
   /** Model/tokenizer cache location (deprecated: use cache.cacheDir instead) */
   cacheDir?: string;
   /** Phase 2: Artifact cache configuration */
-  cache?: Partial<import('./cache.js').CacheConfig>;
+  cache?: Partial<CacheConfig>;
   /** Telemetry configuration */
   telemetry?: TelemetryOptions;
 }
