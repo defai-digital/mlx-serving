@@ -5,7 +5,6 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-24%2B-brightgreen?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![Python](https://img.shields.io/badge/Python-3.12%2B-brightgreen?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
-[![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![macOS](https://img.shields.io/badge/macOS-26%20Tahoe-blue?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos)
 [![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M3%2B-blue?style=flat-square&logoColor=white)](https://www.apple.com/mac)
 
@@ -118,19 +117,21 @@ ValueError: Image features and image tokens do not match: tokens: 0, features 47
 
 **TRANSPARENT RESULTS:** Showing both wins and losses across ALL model sizes to help you make informed decisions.
 
-#### Very Large Models (70B - 141B): mlx-serving WINS ✅✅
+#### Very Large Models (70B - 141B): Mixed Results
 
-| Model           | Size (GB) | Parameters | mlx-engine   | mlx-serving  | Difference    | Winner       |
-|-----------------|-----------|------------|--------------|--------------|---------------|--------------|
-| Mixtral-8x22B   | ~70-80GB  | 141B       | 13.42 tok/s  | 14.68 tok/s  | **+9.38% ✅✅** | mlx-serving |
-| Qwen2.5-72B     | ~40GB     | 72B        | 7.88 tok/s   | 8.21 tok/s   | **+4.07% ✅**  | mlx-serving |
-| Llama-3.1-70B   | ~40GB     | 70B        | 8.53 tok/s   | 8.69 tok/s   | **+1.92% ✅**  | mlx-serving |
+| Model              | Size (GB) | Parameters        | mlx-engine   | mlx-serving  | Difference    | Winner       |
+|--------------------|-----------|-------------------|--------------|--------------|---------------|--------------|
+| Mixtral-8x22B      | ~70-80GB  | 141B              | 13.42 tok/s  | 14.68 tok/s  | **+9.38% ✅✅** | mlx-serving |
+| GLM-4.5-Air-4bit   | ~56GB     | 106B (12B MoE)    | 34.30 tok/s  | 32.40 tok/s  | **-5.54% ❌**  | mlx-engine  |
+| Qwen2.5-72B        | ~40GB     | 72B               | 7.88 tok/s   | 8.21 tok/s   | **+4.07% ✅**  | mlx-serving |
+| Llama-3.1-70B      | ~40GB     | 70B               | 8.53 tok/s   | 8.69 tok/s   | **+1.92% ✅**  | mlx-serving |
 
-**Why mlx-serving dominates at 70B+:**
+**Performance patterns at 70B+:**
 - Metal Memory Pool critical under extreme memory pressure
 - Command Buffer Ring prevents GPU stalls
 - Blit Queue optimizations maximize throughput
-- **Trend**: Larger models = greater advantage (+2% → +9%)
+- **Mixed results**: Most dense models show improvement (+2% → +9%), but MoE models may perform differently
+- **Note**: GLM-4.5-Air is a sparse MoE model (106B total, 12B active) which may have different optimization characteristics than dense models
 
 #### Large Models (14B - 47B): mlx-engine WINS ❌
 
@@ -430,8 +431,8 @@ See [Troubleshooting Guide](./docs/TROUBLESHOOTING.md) for more help.
 - **Hardware**: Apple Silicon M3 or newer (M3 Pro/Max/Ultra recommended)
 - **Node.js**: 24.0.0+
 - **Python**: 3.12+
-- **Rust**: 1.75+
 - **Metal**: 3.3+ (included in macOS 26)
+- **C++ Build Tools** (optional, only needed for native optimizations)
 
 ### Getting Started
 
