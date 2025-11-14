@@ -18,6 +18,7 @@ __pycache__/
 .kr-mlx-cache/
 .mlx-serving-venv/
 .mlx-serving-cache/
+.mlx-engine-venv/
 .pytest_cache/
 
 # Downloaded models (large files)

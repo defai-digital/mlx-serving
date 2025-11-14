@@ -159,7 +159,7 @@ ValueError: Image features and image tokens do not match: tokens: 0, features 47
 | Mixtral-8x7B    | ~26GB     | 47B        | 43.24 tok/s  | 42.69 tok/s  | **-1.28% ❌**  | mlx-engine  |
 | Qwen2.5-32B     | ~18GB     | 32B        | 17.59 tok/s  | 16.68 tok/s  | **-5.16% ❌**  | mlx-engine  |
 | Qwen3-30B       | ~17GB     | 30B        | 85.43 tok/s  | 79.87 tok/s  | **-6.51% ❌ (+5.47% vs Phase 1)**  | mlx-engine |
-| Qwen2.5-14B     | ~8GB      | 14B        | 36.33 tok/s  | 34.83 tok/s  | **-4.14% ❌**  | mlx-engine  |
+| Qwen2.5-14B     | ~8GB      | 14B        | TBD          | TBD          | **-2.06% ❌** (v1.1.1) | mlx-engine  |
 
 **Why mlx-engine wins at 14B-47B:**
 - Further investigation needed for this size range
@@ -178,24 +178,24 @@ ValueError: Image features and image tokens do not match: tokens: 0, features 47
 
 | Model           | Size (GB) | Parameters | mlx-engine   | mlx-serving  | Difference    | Winner       |
 |-----------------|-----------|------------|--------------|--------------|---------------|--------------|
-| Llama-3.1-8B    | ~4.5GB    | 8B         | 60.75 tok/s  | 62.09 tok/s  | **+2.21% ✅**  | mlx-serving |
-| Qwen2.5-7B      | ~4GB      | 7B         | 56.07 tok/s  | 57.17 tok/s  | **+1.97% ✅**  | mlx-serving |
+| Llama-3.1-8B    | ~4.5GB    | 8B         | 72.13 tok/s  | 71.26 tok/s  | **-1.21% ❌**  | mlx-engine  |
+| Qwen2.5-7B      | ~4GB      | 7B         | 73.12 tok/s  | 73.65 tok/s  | **+0.72% ✅**  | mlx-serving |
 
-**Why mlx-serving wins at 7-8B (v1.0.7 with Binary Streaming + Object Pooling):**
-- Binary streaming reduces serialization overhead
-- Object pooling cuts GC pressure by 55% (0.02ms → 0.009ms per token)
+**Performance Notes (v1.1.1):**
+- Qwen2.5-7B shows slight mlx-serving advantage (+0.72%)
+- Llama-3.1-8B nearly at parity (-1.21%, within measurement variance)
 - Metal Memory Pool optimizations reduce allocation overhead
-- **Sweet spot** where optimizations > bridge overhead
+- Performance is converging at this model size range
 
-#### Small Models (0.5B - 3.8B): mlx-engine WINS ❌
+#### Small Models (0.5B - 3.8B): Mixed Results
 
 | Model           | Size (GB) | Parameters | mlx-engine   | mlx-serving  | Difference    | Winner       |
 |-----------------|-----------|------------|--------------|--------------|---------------|--------------|
-| Phi-3-mini      | ~2.3GB    | 3.8B       | 125.98 tok/s | 119.46 tok/s | **-5.17% ❌**  | mlx-engine  |
-| Llama-3.2-3B    | ~2GB      | 3B         | 142.65 tok/s | 139.82 tok/s | **-1.99% ❌**  | mlx-engine  |
-| Qwen2.5-1.5B    | ~1GB      | 1.5B       | 215.92 tok/s | 208.92 tok/s | **-3.24% ❌**  | mlx-engine  |
-| Llama-3.2-1B    | ~0.6GB    | 1B         | 300.70 tok/s | 289.18 tok/s | **-3.83% ❌**  | mlx-engine  |
-| Qwen2.5-0.5B    | ~0.3GB    | 0.5B       | 338.71 tok/s | 236.61 tok/s | **-30.15% ❌** | mlx-engine  |
+| Phi-3-mini      | ~2.3GB    | 3.8B       | 128.07 tok/s | 129.03 tok/s | **+0.75% ✅**  | mlx-serving |
+| Llama-3.2-3B    | ~2GB      | 3B         | 138.83 tok/s | 135.93 tok/s | **-2.09% ❌**  | mlx-engine  |
+| Qwen2.5-1.5B    | ~1GB      | 1.5B       | 207.99 tok/s | 202.84 tok/s | **-2.47% ❌**  | mlx-engine  |
+| Llama-3.2-1B    | ~0.6GB    | 1B         | 295.16 tok/s | 275.98 tok/s | **-6.50% ❌**  | mlx-engine  |
+| Qwen2.5-0.5B    | ~0.3GB    | 0.5B       | 246.55 tok/s | 238.44 tok/s | **-3.29% ❌**  | mlx-engine  |
 
 **Why mlx-engine wins on small models:**
 - TypeScript→Python bridge overhead dominates at small sizes
