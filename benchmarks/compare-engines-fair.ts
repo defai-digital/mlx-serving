@@ -90,7 +90,7 @@ interface PendingRequest {
 
 class MLXEngineServer {
   // Refactoring #2: Extract constants for better maintainability
-  private static readonly MODEL_LOAD_TIMEOUT_MS = 180_000;  // 180 seconds (3 minutes for large models 30B+)
+  private static readonly MODEL_LOAD_TIMEOUT_MS = 600_000;  // 600 seconds (10 minutes for very large models 70B+)
   private static readonly PYTHON_VENV_PATH = '.mlx-engine-venv/bin/python';
   private static readonly SERVER_SCRIPT = 'benchmarks/mlx-engine-server.py';
   private static readonly MODEL_LOAD_STDERR_MARKER = 'ready for prompts';
@@ -100,7 +100,7 @@ class MLXEngineServer {
     ALREADY_RUNNING: 'Server already running - call stop() first before starting again',
     SERVER_NOT_STARTED: 'Server not started',
     STREAM_VALIDATION_FAILED: 'Failed to create Python process streams',
-    MODEL_LOAD_TIMEOUT: 'Model loading timeout (180s)',
+    MODEL_LOAD_TIMEOUT: 'Model loading timeout (600s)',
     SERVER_STOPPED_DURING_LOAD: 'Server stopped during model loading',
     SERVER_STOPPED: 'Server stopped',
     REQUEST_TIMEOUT: 'Request timeout',
