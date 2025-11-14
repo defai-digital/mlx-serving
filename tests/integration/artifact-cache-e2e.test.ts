@@ -15,7 +15,7 @@ import { createEngine } from '../../src/index.js';
 import type { Engine } from '../../src/types/index.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { hasTestModel, getMlxSkipReason } from '../helpers/model-availability.js';
+import { hasTestModel as _hasTestModel, getMlxSkipReason } from '../helpers/model-availability.js';
 
 // Use smallest model for fast tests (or local test model if available)
 const TEST_MODEL = process.env.CI

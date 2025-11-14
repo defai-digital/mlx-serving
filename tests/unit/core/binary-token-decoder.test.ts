@@ -278,9 +278,9 @@ describe('BinaryTokenDecoder', () => {
       const framed = Buffer.concat([lengthPrefix, truncatedData]);
 
       const decoded: any[] = [];
-      let errorEmitted = false;
+      let _errorEmitted = false;
       decoder.on('data', (msg) => decoded.push(msg));
-      decoder.on('error', () => { errorEmitted = true; });
+      decoder.on('error', () => { _errorEmitted = true; });
 
       return new Promise<void>((resolve) => {
         decoder.on('end', () => {
