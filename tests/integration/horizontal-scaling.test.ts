@@ -13,9 +13,22 @@ import { DistributedCache, DEFAULT_DISTRIBUTED_CACHE_CONFIG } from '@/scaling/Di
 import { InstanceRegistry, DEFAULT_INSTANCE_REGISTRY_CONFIG } from '@/scaling/InstanceRegistry.js';
 import type {
   InstanceInfo,
+  LoadBalancerConfig,
 } from '@/types/scaling.js';
 import { HealthStatus, CircuitState } from '@/types/scaling.js';
 import type { GeneratorParams } from '@/types/generators.js';
+
+/**
+ * Helper to create round-robin load balancer config for predictable test behavior.
+ *
+ * Round-robin ensures even distribution of requests across instances, which is
+ * essential for testing load balancing behavior. The default 'least-loaded' strategy
+ * would always select the first instance when all have equal utilization (0/100).
+ */
+const createRoundRobinConfig = (): LoadBalancerConfig => ({
+  ...DEFAULT_LOAD_BALANCER_CONFIG,
+  strategy: 'round-robin',
+});
 
 describe('Horizontal Scaling Integration', () => {
   describe('LoadBalancer + InstanceRegistry', () => {
@@ -23,9 +36,7 @@ describe('Horizontal Scaling Integration', () => {
     let registry: InstanceRegistry;
 
     beforeEach(() => {
-      // Use round-robin for predictable load distribution in tests
-      const config = { ...DEFAULT_LOAD_BALANCER_CONFIG, strategy: 'round-robin' as const };
-      loadBalancer = new LoadBalancer(config);
+      loadBalancer = new LoadBalancer(createRoundRobinConfig());
       registry = new InstanceRegistry(DEFAULT_INSTANCE_REGISTRY_CONFIG);
     });
 
@@ -187,9 +198,7 @@ describe('Horizontal Scaling Integration', () => {
     let cache: DistributedCache<any>;
 
     beforeEach(() => {
-      // Use round-robin for predictable load distribution in tests
-      const config = { ...DEFAULT_LOAD_BALANCER_CONFIG, strategy: 'round-robin' as const };
-      loadBalancer = new LoadBalancer(config);
+      loadBalancer = new LoadBalancer(createRoundRobinConfig());
       registry = new InstanceRegistry(DEFAULT_INSTANCE_REGISTRY_CONFIG);
       cache = new DistributedCache({
         ...DEFAULT_DISTRIBUTED_CACHE_CONFIG,

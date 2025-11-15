@@ -565,8 +565,26 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     );
   }
 
+  /**
+   * Create a StreamChunk object from payload data.
+   *
+   * Note: This method always creates a new object to ensure listeners receive
+   * immutable chunks, which is critical when chunk pooling is enabled.
+   */
+  private createChunk(streamId: string, payload: NormalizedTokenPayload): StreamChunk {
+    return {
+      streamId,
+      token: payload.token,
+      tokenId: payload.tokenId,
+      isFinal: payload.isFinal,
+      logprob: payload.logprob,
+      cumulativeText: payload.cumulativeText,
+    };
+  }
+
   private emitChunkPayload(streamId: string, payload: NormalizedTokenPayload): void {
-    let chunk: StreamChunk;
+    // When pooling is enabled, acquire/release pool object but emit a defensive copy
+    // to prevent listeners from seeing mutations when pooled chunks are reused
     if (this.chunkPoolingEnabled && this.chunkPool) {
       const pooledChunk = this.chunkPool.acquire(
         streamId,
@@ -576,38 +594,17 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
         payload.logprob,
         payload.cumulativeText
       );
-
-      // Create a defensive copy for emission to prevent listeners from seeing
-      // mutations when the pooled chunk is reused for subsequent tokens
-      chunk = {
-        streamId: pooledChunk.streamId,
-        token: pooledChunk.token,
-        tokenId: pooledChunk.tokenId,
-        isFinal: pooledChunk.isFinal,
-        logprob: pooledChunk.logprob,
-        cumulativeText: pooledChunk.cumulativeText,
-      };
-
-      // Release pooled chunk immediately since we made a copy
+      // Release immediately - we'll create a fresh copy for emission
       this.chunkPool.release(pooledChunk);
-    } else {
-      chunk = {
-        streamId,
-        token: payload.token,
-        tokenId: payload.tokenId,
-        logprob: payload.logprob,
-        isFinal: payload.isFinal,
-        ...(payload.cumulativeText !== undefined && { cumulativeText: payload.cumulativeText }),
-      };
     }
+
+    // Always create a new chunk object for emission (ensuring immutability)
+    const chunk = this.createChunk(streamId, payload);
 
     try {
       this.emit('chunk', chunk);
     } catch (err) {
-      this.logger?.error(
-        { err, streamId, chunk },
-        'User listener threw error on chunk event'
-      );
+      this.logger?.error({ err, streamId, chunk }, 'User listener threw error on chunk event');
     }
   }
 

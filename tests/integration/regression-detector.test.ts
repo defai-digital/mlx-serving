@@ -75,6 +75,36 @@ describe('RegressionDetector', () => {
   });
 
   describe('Metric Recording', () => {
+    /**
+     * Helper to record all required metrics for getCurrentMetrics().
+     *
+     * getCurrentMetrics() requires throughput, ttft, AND error_rate to be present,
+     * otherwise it returns null. This helper ensures all three are recorded.
+     */
+    const recordAllMetrics = (
+      count: number,
+      baseValues: { throughput: number; ttft: number; errorRate: number }
+    ): void => {
+      const timestamp = Date.now();
+      for (let i = 0; i < count; i++) {
+        detector.recordMetric({
+          metric: 'throughput',
+          value: baseValues.throughput + i,
+          timestamp,
+        });
+        detector.recordMetric({
+          metric: 'ttft',
+          value: baseValues.ttft + i,
+          timestamp,
+        });
+        detector.recordMetric({
+          metric: 'error_rate',
+          value: baseValues.errorRate,
+          timestamp,
+        });
+      }
+    };
+
     it('should record metric samples', () => {
       detector.start();
 
@@ -94,27 +124,12 @@ describe('RegressionDetector', () => {
       detector.start();
 
       // Record all required metrics (getCurrentMetrics needs throughput, ttft, and error_rate)
-      for (let i = 0; i < 20; i++) {
-        detector.recordMetric({
-          metric: 'throughput',
-          value: 95 + i,
-          timestamp: Date.now(),
-        });
-        detector.recordMetric({
-          metric: 'ttft',
-          value: 500 + i,
-          timestamp: Date.now(),
-        });
-        detector.recordMetric({
-          metric: 'error_rate',
-          value: 0.001,
-          timestamp: Date.now(),
-        });
-      }
+      recordAllMetrics(20, { throughput: 95, ttft: 500, errorRate: 0.001 });
 
       // Wait for aggregation (configured as 50ms in beforeEach)
       // Add extra buffer for test stability (4x interval)
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      const AGGREGATION_WAIT_MS = 200;
+      await new Promise((resolve) => setTimeout(resolve, AGGREGATION_WAIT_MS));
 
       const metrics = detector.getCurrentMetrics();
       expect(metrics).not.toBeNull();
