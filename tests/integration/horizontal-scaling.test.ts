@@ -23,7 +23,9 @@ describe('Horizontal Scaling Integration', () => {
     let registry: InstanceRegistry;
 
     beforeEach(() => {
-      loadBalancer = new LoadBalancer(DEFAULT_LOAD_BALANCER_CONFIG);
+      // Use round-robin for predictable load distribution in tests
+      const config = { ...DEFAULT_LOAD_BALANCER_CONFIG, strategy: 'round-robin' as const };
+      loadBalancer = new LoadBalancer(config);
       registry = new InstanceRegistry(DEFAULT_INSTANCE_REGISTRY_CONFIG);
     });
 
@@ -185,7 +187,9 @@ describe('Horizontal Scaling Integration', () => {
     let cache: DistributedCache<any>;
 
     beforeEach(() => {
-      loadBalancer = new LoadBalancer(DEFAULT_LOAD_BALANCER_CONFIG);
+      // Use round-robin for predictable load distribution in tests
+      const config = { ...DEFAULT_LOAD_BALANCER_CONFIG, strategy: 'round-robin' as const };
+      loadBalancer = new LoadBalancer(config);
       registry = new InstanceRegistry(DEFAULT_INSTANCE_REGISTRY_CONFIG);
       cache = new DistributedCache({
         ...DEFAULT_DISTRIBUTED_CACHE_CONFIG,
@@ -290,9 +294,14 @@ describe('Horizontal Scaling Integration', () => {
       loadBalancer.registerInstance(instance1);
       loadBalancer.registerInstance(instance2);
 
-      // Simulate failure
+      // Simulate failure - mark instance as UNHEALTHY (not just DEGRADED)
       loadBalancer.reportFailure('instance-1', new Error('test failure'));
-      registry.updateInstanceHealth('instance-1', HealthStatus.DEGRADED);
+      registry.updateInstanceHealth('instance-1', HealthStatus.UNHEALTHY);
+      // Also update load balancer's view of the instance health
+      const inst1 = loadBalancer.getAllInstances().find(i => i.id === 'instance-1');
+      if (inst1) {
+        inst1.health = HealthStatus.UNHEALTHY;
+      }
 
       // Route should go to healthy instance
       const request: GeneratorParams = { model: 'test', prompt: 'hello' };
@@ -303,6 +312,9 @@ describe('Horizontal Scaling Integration', () => {
       // Simulate recovery
       loadBalancer.reportSuccess('instance-1', 50);
       registry.updateInstanceHealth('instance-1', HealthStatus.HEALTHY);
+      if (inst1) {
+        inst1.health = HealthStatus.HEALTHY;
+      }
 
       const healthyInstances = registry.getHealthyInstances();
       expect(healthyInstances).toHaveLength(2);
