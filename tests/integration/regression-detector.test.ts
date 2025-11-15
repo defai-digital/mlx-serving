@@ -92,6 +92,16 @@ describe('RegressionDetector', () => {
     }
   };
 
+  /**
+   * Helper to set a standard baseline with optional overrides.
+   * Combines createTestBaseline() + detector.setBaseline() for convenience.
+   *
+   * Note: Must be declared inside describe() to access detector instance.
+   */
+  const setTestBaseline = (overrides?: Partial<BaselineMetrics>): void => {
+    detector.setBaseline(createTestBaseline(overrides));
+  };
+
   beforeEach(() => {
     const config = createDefaultDetectorConfig();
     config.enabled = true;
@@ -195,7 +205,7 @@ describe('RegressionDetector', () => {
 
   describe('Throughput Regression Detection', () => {
     it('should detect throughput regression', async () => {
-      detector.setBaseline(createTestBaseline());
+      setTestBaseline();
 
       detector.start();
 
@@ -216,7 +226,7 @@ describe('RegressionDetector', () => {
     });
 
     it('should not trigger false positives', async () => {
-      detector.setBaseline(createTestBaseline());
+      setTestBaseline();
 
       detector.start();
 
@@ -237,7 +247,7 @@ describe('RegressionDetector', () => {
 
   describe('TTFT Regression Detection', () => {
     it('should detect TTFT regression', async () => {
-      detector.setBaseline(createTestBaseline());
+      setTestBaseline();
 
       detector.start();
 
@@ -258,7 +268,7 @@ describe('RegressionDetector', () => {
 
   describe('Error Rate Regression Detection', () => {
     it('should detect error rate regression', async () => {
-      detector.setBaseline(createTestBaseline());
+      setTestBaseline();
 
       detector.start();
 
@@ -279,7 +289,7 @@ describe('RegressionDetector', () => {
 
   describe('Alert Events', () => {
     it('should emit alert events', async () => {
-      detector.setBaseline(createTestBaseline());
+      setTestBaseline();
 
       const alertPromise = new Promise<RegressionAlert>((resolve) => {
         detector.once('alert', resolve);
@@ -351,7 +361,7 @@ describe('RegressionDetector', () => {
 
   describe('Alert History', () => {
     it('should maintain alert history', async () => {
-      detector.setBaseline(createTestBaseline());
+      setTestBaseline();
 
       detector.start();
 
@@ -366,7 +376,7 @@ describe('RegressionDetector', () => {
     });
 
     it('should clear alert history', async () => {
-      detector.setBaseline(createTestBaseline());
+      setTestBaseline();
 
       detector.start();
 
