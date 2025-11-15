@@ -176,36 +176,11 @@ export interface Config {
       failure_window_ms?: number;
     };
   };
-  // Phase 5 Week 3: Model-Size-Aware Concurrency Limiter
+  // v1.2.0: Removed model_concurrency_limiter (deprecated)
+  // Kept as optional for backward compatibility - values are ignored
   model_concurrency_limiter?: {
-    enabled: boolean;
-    tier_limits?: {
-      '30B+'?: {
-        max_concurrent: number;
-        queue_depth: number;
-        queue_timeout_ms: number;
-      };
-      '13-27B'?: {
-        max_concurrent: number;
-        queue_depth: number;
-        queue_timeout_ms: number;
-      };
-      '7-13B'?: {
-        max_concurrent: number;
-        queue_depth: number;
-        queue_timeout_ms: number;
-      };
-      '3-7B'?: {
-        max_concurrent: number;
-        queue_depth: number;
-        queue_timeout_ms: number;
-      };
-      '<3B'?: {
-        max_concurrent: number;
-        queue_depth: number;
-        queue_timeout_ms: number;
-      };
-    };
+    enabled?: boolean;
+    tier_limits?: Record<string, unknown>;
   };
   stream_registry: {
     default_timeout_ms: number;
@@ -344,10 +319,11 @@ export interface Config {
       options?: Record<string, unknown>;
     }>;
   };
-  // LAYER 4 FIX: MLX Concurrency Configuration
-  mlx: {
-    concurrency_limit: number;
-    force_metal_sync: boolean;
+  // v1.2.0: Removed mlx.concurrency_limit and mlx.force_metal_sync (deprecated)
+  // Kept as optional for backward compatibility - values are ignored
+  mlx?: {
+    concurrency_limit?: number;
+    force_metal_sync?: boolean;
   };
   // Phase 5 Week 1: Metal Memory & Command Buffer Optimizations
   metal_optimizations?: {
@@ -552,6 +528,27 @@ export function loadConfig(
 
     // Remove environments section from final config
     delete finalConfig.environments;
+
+    // v1.2.0: Warn about deprecated configuration options
+    if (finalConfig.mlx?.concurrency_limit !== undefined) {
+      console.warn(
+        '[mlx-serving] DEPRECATION WARNING: mlx.concurrency_limit is deprecated in v1.2.0+ and will be ignored. ' +
+        'MLX now uses native Metal scheduler. See docs/MIGRATION_V1.2.md for details.'
+      );
+    }
+    if (finalConfig.mlx?.force_metal_sync !== undefined) {
+      console.warn(
+        '[mlx-serving] DEPRECATION WARNING: mlx.force_metal_sync is deprecated in v1.2.0+ and will be ignored. ' +
+        'MLX handles synchronization internally.'
+      );
+    }
+    if (finalConfig.model_concurrency_limiter?.enabled === true) {
+      console.warn(
+        '[mlx-serving] DEPRECATION WARNING: model_concurrency_limiter is deprecated in v1.2.0+ and will be ignored. ' +
+        'Trust MLX\'s native Metal scheduler for better performance (+3-5% throughput). ' +
+        'See docs/MIGRATION_V1.2.md for details.'
+      );
+    }
 
     return finalConfig;
   } catch (error) {
