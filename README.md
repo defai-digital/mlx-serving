@@ -174,6 +174,17 @@ mlx-serving trades minimal performance for **production-grade stability**:
 
 **Recommendation**: Choose **mlx-serving** for production deployments where stability, error handling, and vision model support matter. Choose **mlx-engine** for prototyping or when you need maximum text model performance and don't need TypeScript integration.
 
+### Architecture Overview
+
+**[See detailed architecture diagram](./docs/architecture-diagram.md)** showing how text and vision models route through different processing paths while sharing core infrastructure.
+
+**Key Design Highlights**:
+- 📋 Unified persistent Python runtime handles both text and vision models
+- 🔀 Automatic model type detection and routing (mlx_lm vs mlx_vlm)
+- 🔒 Shared GPU semaphore protection prevents Metal crashes
+- ⚡ Dynamic token buffering (4-32 tokens) based on model size
+- 🎯 Vision models benefit more from persistent runtime (+373% avg performance)
+
 ---
 
 ## Performance Optimizations (Enabled by Default)

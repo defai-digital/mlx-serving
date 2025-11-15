@@ -49,7 +49,7 @@ const registerInstances = (
  * Helper to create local fallback cache config for testing.
  * Disables distributed cache but enables local fallback.
  */
-const createLocalCacheConfig = () => ({
+const createLocalCacheConfig = (): typeof DEFAULT_DISTRIBUTED_CACHE_CONFIG => ({
   ...DEFAULT_DISTRIBUTED_CACHE_CONFIG,
   enabled: false,
   enableLocalFallback: true,
