@@ -1,0 +1,32 @@
+# Test Error Handling - Mix of valid and invalid models
+
+benchmark:
+  max_tokens: 50
+  temperature: 0.7
+  timeout_ms: 120000
+
+models:
+  # Valid model - should succeed
+  - name: mlx-community/Qwen2.5-0.5B-Instruct-4bit
+    size: 0.5B
+    questions: 2
+    cycles: 1
+    enabled: true
+
+  # Invalid model - should fail gracefully
+  - name: mlx-community/INVALID-MODEL-NAME-12345
+    size: INVALID
+    questions: 2
+    cycles: 1
+    enabled: true
+
+  # Another valid model - should still run after previous failure
+  - name: mlx-community/Llama-3.2-1B-Instruct-4bit
+    size: 1B
+    questions: 2
+    cycles: 1
+    enabled: true
+
+questions:
+  - "What is 2+2?"
+  - "Name a color."

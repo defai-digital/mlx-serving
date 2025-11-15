@@ -1,0 +1,200 @@
+# Phase 4: Model-Specific Performance Profiles
+# Per-family tuning for optimal performance across different model architectures
+#
+# Observation: Llama, Qwen, Mixtral, Phi perform differently with same settings
+# Solution: Apply family-specific tuning multipliers to base configuration
+#
+# Target Impact: +5-15% improvement from family-specific optimizations
+
+# Default profile (applied when no specific family match found)
+default:
+  name: "Generic Model"
+  description: "Default settings for unknown model families"
+
+  # Metal memory tuning (multipliers applied to base metal_memory config)
+  metal_memory:
+    cache_multiplier: 1.0        # 1.0 = use base cache_limit_gb as-is
+    wired_multiplier: 1.0        # 1.0 = use base wired_limit_gb as-is
+    active_multiplier: 1.0       # 1.0 = use base active_memory_gb as-is
+
+  # Concurrency tuning (multipliers applied to adaptive_concurrency values)
+  concurrency:
+    multiplier: 1.0              # 1.0 = use calculated concurrency as-is
+
+  # Batching tuning (multipliers applied to batch_queue, generate_batcher config)
+  batching:
+    ipc_batch_size_multiplier: 1.0      # Applied to ipc_batching.max_tokens_per_batch
+    generate_batch_size_multiplier: 1.0  # Applied to generate_batcher.max_batch_size
+    request_batch_size_multiplier: 1.0   # Applied to batch_queue.max_batch_size
+
+
+# Llama Family (Meta's Llama 2, Llama 3, Llama 3.1, Llama 3.2)
+# Characteristics: Efficient attention, moderate cache usage, scales well with concurrency
+llama:
+  name: "Llama Family"
+  description: "Meta Llama models (Llama-2, Llama-3.x)"
+
+  # Model name patterns (case-insensitive, regex-compatible)
+  patterns:
+    - "llama"
+    - "llama-2"
+    - "llama-3"
+    - "meta-llama"
+
+  # Llama models benefit from slightly higher cache (efficient KV cache reuse)
+  metal_memory:
+    cache_multiplier: 1.15       # +15% cache for better KV cache hit rate
+    wired_multiplier: 1.0        # Standard wired memory
+    active_multiplier: 1.0       # Standard active memory
+
+  # Llama handles concurrency well
+  concurrency:
+    multiplier: 1.2              # +20% concurrency (scales well)
+
+  # Llama benefits from larger batches (efficient batch processing)
+  batching:
+    ipc_batch_size_multiplier: 1.25      # +25% IPC batch size
+    generate_batch_size_multiplier: 1.2  # +20% generate batch size
+    request_batch_size_multiplier: 1.15  # +15% request batch size
+
+
+# Qwen Family (Alibaba Qwen 2, Qwen 2.5, Qwen 2.5-Coder)
+# Characteristics: High memory usage, benefits from large cache, moderate concurrency
+qwen:
+  name: "Qwen Family"
+  description: "Alibaba Qwen models (Qwen2, Qwen2.5, Qwen2.5-Coder)"
+
+  patterns:
+    - "qwen"
+    - "qwen2"
+    - "qwen2.5"
+    - "qwen3"
+
+  # Qwen models need more cache (complex attention patterns)
+  metal_memory:
+    cache_multiplier: 1.3        # +30% cache (high memory model)
+    wired_multiplier: 1.1        # +10% wired (prevent paging)
+    active_multiplier: 1.0       # Standard active memory
+
+  # Qwen scales moderately with concurrency
+  concurrency:
+    multiplier: 1.0              # Use calculated concurrency as-is
+
+  # Qwen benefits from moderate batching
+  batching:
+    ipc_batch_size_multiplier: 1.1       # +10% IPC batch size
+    generate_batch_size_multiplier: 1.0  # Standard generate batch size
+    request_batch_size_multiplier: 1.0   # Standard request batch size
+
+
+# Mixtral Family (Mistral AI Mixtral 8x7B, 8x22B - Mixture of Experts)
+# Characteristics: MoE architecture, high memory usage, lower concurrency tolerance
+mixtral:
+  name: "Mixtral Family (MoE)"
+  description: "Mistral Mixtral models (8x7B, 8x22B) - Mixture of Experts"
+
+  patterns:
+    - "mixtral"
+    - "mistral.*mixtral"
+
+  # Mixtral needs significant cache (MoE router + expert activation patterns)
+  metal_memory:
+    cache_multiplier: 1.4        # +40% cache (MoE routing overhead)
+    wired_multiplier: 1.2        # +20% wired (keep expert weights accessible)
+    active_multiplier: 1.05      # +5% active (MoE memory overhead)
+
+  # Mixtral is sensitive to concurrency (MoE routing conflicts)
+  concurrency:
+    multiplier: 0.8              # -20% concurrency (more conservative)
+
+  # Mixtral benefits from smaller batches (MoE routing complexity)
+  batching:
+    ipc_batch_size_multiplier: 0.9       # -10% IPC batch size
+    generate_batch_size_multiplier: 0.8  # -20% generate batch size
+    request_batch_size_multiplier: 0.85  # -15% request batch size
+
+
+# Phi Family (Microsoft Phi-3, Phi-3.5)
+# Characteristics: Small, efficient, high concurrency tolerance, low cache usage
+phi:
+  name: "Phi Family"
+  description: "Microsoft Phi models (Phi-3, Phi-3.5)"
+
+  patterns:
+    - "phi"
+    - "phi-3"
+    - "phi-3.5"
+    - "microsoft.*phi"
+
+  # Phi models are efficient (small cache footprint)
+  metal_memory:
+    cache_multiplier: 0.9        # -10% cache (efficient model)
+    wired_multiplier: 0.9        # -10% wired (small memory footprint)
+    active_multiplier: 0.95      # -5% active (compact model)
+
+  # Phi handles high concurrency very well (small, efficient)
+  concurrency:
+    multiplier: 1.5              # +50% concurrency (scales excellently)
+
+  # Phi benefits from larger batches (efficient processing)
+  batching:
+    ipc_batch_size_multiplier: 1.3       # +30% IPC batch size
+    generate_batch_size_multiplier: 1.4  # +40% generate batch size
+    request_batch_size_multiplier: 1.25  # +25% request batch size
+
+
+# DeepSeek Family (DeepSeek Coder, DeepSeek LLM)
+# Characteristics: Code-optimized, moderate cache, standard concurrency
+deepseek:
+  name: "DeepSeek Family"
+  description: "DeepSeek models (DeepSeek-Coder, DeepSeek-LLM)"
+
+  patterns:
+    - "deepseek"
+    - "deepseek-coder"
+    - "deepseek-llm"
+
+  # DeepSeek models have moderate memory requirements
+  metal_memory:
+    cache_multiplier: 1.1        # +10% cache (code generation patterns)
+    wired_multiplier: 1.0        # Standard wired memory
+    active_multiplier: 1.0       # Standard active memory
+
+  # DeepSeek scales moderately with concurrency
+  concurrency:
+    multiplier: 1.1              # +10% concurrency
+
+  # DeepSeek benefits from moderate batching
+  batching:
+    ipc_batch_size_multiplier: 1.15      # +15% IPC batch size
+    generate_batch_size_multiplier: 1.1  # +10% generate batch size
+    request_batch_size_multiplier: 1.1   # +10% request batch size
+
+
+# Vision Models (LLaVA, Qwen-VL, Phi-3-Vision)
+# Characteristics: Image encoding overhead, high memory, low concurrency
+vision:
+  name: "Vision Models"
+  description: "Multimodal vision-language models"
+
+  patterns:
+    - "llava"
+    - "qwen.*vl"
+    - "qwen3-vl"
+    - "phi.*vision"
+
+  # Vision models need significant memory for image encoding
+  metal_memory:
+    cache_multiplier: 1.5        # +50% cache (image embeddings)
+    wired_multiplier: 1.3        # +30% wired (vision encoder weights)
+    active_multiplier: 1.2       # +20% active (image processing buffers)
+
+  # Vision models don't scale well with concurrency (image encoding bottleneck)
+  concurrency:
+    multiplier: 0.6              # -40% concurrency (conservative)
+
+  # Vision models benefit from smaller batches (image processing overhead)
+  batching:
+    ipc_batch_size_multiplier: 0.8       # -20% IPC batch size
+    generate_batch_size_multiplier: 0.7  # -30% generate batch size
+    request_batch_size_multiplier: 0.75  # -25% request batch size

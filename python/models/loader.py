@@ -76,6 +76,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from errors import ModelLoadError
 from config_loader import get_config
+from model_tuning import ModelTuningManager
 
 
 @dataclass
@@ -257,6 +258,10 @@ def load_model(model_id: str, options: Dict[str, Any]) -> ModelHandle:
                 if options.get("tokenizer_config") is not None:
                     text_load_kwargs["tokenizer_config"] = options["tokenizer_config"]
 
+                # Enable lazy loading for models that require it
+                if options.get("lazy", False):
+                    text_load_kwargs["lazy"] = True
+
                 # Filter out None values again after adding tokenizer_config
                 text_load_kwargs = {k: v for k, v in text_load_kwargs.items() if v is not None}
 
@@ -374,6 +379,27 @@ def load_model(model_id: str, options: Dict[str, Any]) -> ModelHandle:
 
         context_length = _resolve_context_length(options, config)
 
+        # Phase 3 + 4: Calculate model tuning (adaptive concurrency + model profiles)
+        model_tuning = None
+        try:
+            # Estimate model size from parameters (for 4-bit models: 1 param ≈ 0.5 bytes)
+            if parameters > 0:
+                model_size_gb = (parameters * 0.5) / (1024 ** 3)
+            else:
+                # Fallback: assume average parameter size for unknown models
+                model_size_gb = 2.0
+
+            # Get runtime config and calculate tuning
+            runtime_config = get_config()
+            tuning_manager = ModelTuningManager(runtime_config.__dict__)
+            model_tuning = tuning_manager.get_model_tuning(model_id, model_size_gb)
+
+        except Exception as e:
+            # If tuning fails, log but continue (model loading shouldn't fail)
+            import sys
+            print(f"Warning: Failed to calculate model tuning for {model_id}: {e}",
+                  file=sys.stderr, flush=True)
+
         # Build metadata dict
         metadata = {
             "model_id": model_id,
@@ -386,6 +412,7 @@ def load_model(model_id: str, options: Dict[str, Any]) -> ModelHandle:
             "loaded_at": time.time(),
             "config_model_type": getattr(config, "model_type", "unknown"),
             "cached_path": cached_model_path,  # Phase 2: Include cached path for artifact cache
+            "model_tuning": model_tuning,  # Phase 3 + 4: Tuning parameters
         }
 
         # Add processor info if present

@@ -136,35 +136,33 @@ ValueError: Image features and image tokens do not match: tokens: 0, features 47
 
 **TRANSPARENT RESULTS:** Showing both wins and losses across ALL model sizes to help you make informed decisions.
 
-#### Very Large Models (70B - 141B): Mixed Results
+#### Very Large Models (70B - 141B): mlx-engine WINS ❌
 
 | Model              | Size (GB) | Parameters        | mlx-engine   | mlx-serving  | Difference    | Winner       |
 |--------------------|-----------|-------------------|--------------|--------------|---------------|--------------|
-| Mixtral-8x22B      | ~70-80GB  | 141B              | 13.42 tok/s  | 14.68 tok/s  | **+9.38% ✅✅** | mlx-serving |
-| GLM-4.5-Air-4bit   | ~56GB     | 106B (12B MoE)    | 34.30 tok/s  | 32.40 tok/s  | **-5.54% ❌**  | mlx-engine  |
-| Qwen2.5-72B        | ~40GB     | 72B               | 7.88 tok/s   | 8.21 tok/s   | **+4.07% ✅**  | mlx-serving |
-| Llama-3.1-70B      | ~40GB     | 70B               | 8.53 tok/s   | 8.69 tok/s   | **+1.92% ✅**  | mlx-serving |
+| Mixtral-8x22B      | ~70-80GB  | 141B              | 12.41 tok/s  | 12.01 tok/s  | **-3.18% ❌**  | mlx-engine  |
+| Qwen2.5-72B        | ~40GB     | 72B               | 8.32 tok/s   | 8.11 tok/s   | **-2.56% ❌**  | mlx-engine  |
+| Llama-3.1-70B      | ~40GB     | 70B               | 8.52 tok/s   | 8.55 tok/s   | **+0.34% ✅**  | mlx-serving |
 
 **Performance patterns at 70B+:**
-- Metal Memory Pool critical under extreme memory pressure
-- Command Buffer Ring prevents GPU stalls
-- Blit Queue optimizations maximize throughput
-- **Mixed results**: Most dense models show improvement (+2% → +9%), but MoE models may perform differently
-- **Note**: GLM-4.5-Air is a sparse MoE model (106B total, 12B active) which may have different optimization characteristics than dense models
+- Llama-3.1-70B shows near parity (+0.34%, within variance)
+- Mixtral-8x22B and Qwen2.5-72B show slight mlx-engine advantage
+- Metal Memory Pool optimizations most effective on dense architectures
+- Further investigation needed for MoE models (Mixtral-8x22B)
 
 #### Large Models (14B - 47B): mlx-engine WINS ❌
 
-| Model           | Size (GB) | Parameters | mlx-engine   | mlx-serving  | Difference    | Winner       |
-|-----------------|-----------|------------|--------------|--------------|---------------|--------------|
-| Mixtral-8x7B    | ~26GB     | 47B        | 43.24 tok/s  | 42.69 tok/s  | **-1.28% ❌**  | mlx-engine  |
-| Qwen2.5-32B     | ~18GB     | 32B        | 17.59 tok/s  | 16.68 tok/s  | **-5.16% ❌**  | mlx-engine  |
-| Qwen3-30B       | ~17GB     | 30B        | 85.43 tok/s  | 79.87 tok/s  | **-6.51% ❌ (+5.47% vs Phase 1)**  | mlx-engine |
-| Qwen2.5-14B     | ~8GB      | 14B        | TBD          | TBD          | **-2.06% ❌** (v1.1.1) | mlx-engine  |
+| Model              | Size (GB) | Parameters | mlx-engine   | mlx-serving  | Difference    | Winner       |
+|--------------------|-----------|------------|--------------|--------------|---------------|--------------|
+| Mixtral-8x7B       | ~26GB     | 47B        | 39.02 tok/s  | 37.21 tok/s  | **-4.63% ❌**  | mlx-engine  |
+| Qwen2.5-32B        | ~18GB     | 32B        | 17.48 tok/s  | 16.78 tok/s  | **-4.02% ❌**  | mlx-engine  |
+| Qwen2.5-Coder-32B  | ~17GB     | 30B        | 17.64 tok/s  | 17.39 tok/s  | **-1.41% ❌**  | mlx-engine  |
+| Qwen2.5-14B        | ~8GB      | 14B        | 38.72 tok/s  | 38.49 tok/s  | **-0.61% ❌**  | mlx-engine  |
 
 **Why mlx-engine wins at 14B-47B:**
-- Further investigation needed for this size range
-- Possible overhead from TypeScript/Python bridge
-- May benefit from future optimizations
+- TypeScript/Python bridge overhead becomes noticeable at this size range
+- Performance gap narrows as model size increases (from -4.6% at 47B to -0.6% at 14B)
+- May benefit from future IPC optimizations
 
 **Phase 2 Optimizations (v1.0.9):**
 - ✅ **Adaptive IPC Batching**: Dynamic batch sizing (2-20 requests) based on load (+1-2%)
@@ -174,55 +172,57 @@ ValueError: Image features and image tokens do not match: tokens: 0, features 47
 - 🎯 **Gap Reduction**: mlx-engine gap reduced from -11.36% to -6.51% (42.7% of gap closed)
 - 🚀 **Future Target**: +8-11% total when MessagePack is fixed (~82-84 tok/s)
 
-#### Medium Models (7B - 8B): mlx-serving WINS ✅ **[INFLECTION POINT]**
+#### Medium Models (7B - 8B): Near Parity
 
 | Model           | Size (GB) | Parameters | mlx-engine   | mlx-serving  | Difference    | Winner       |
 |-----------------|-----------|------------|--------------|--------------|---------------|--------------|
-| Llama-3.1-8B    | ~4.5GB    | 8B         | 72.13 tok/s  | 71.26 tok/s  | **-1.21% ❌**  | mlx-engine  |
-| Qwen2.5-7B      | ~4GB      | 7B         | 73.12 tok/s  | 73.65 tok/s  | **+0.72% ✅**  | mlx-serving |
+| Llama-3.1-8B    | ~4.5GB    | 8B         | 72.03 tok/s  | 71.13 tok/s  | **-1.24% ❌**  | mlx-engine  |
+| Qwen2.5-7B      | ~4GB      | 7B         | 72.66 tok/s  | 73.32 tok/s  | **+0.92% ✅**  | mlx-serving |
 
-**Performance Notes (v1.1.1):**
-- Qwen2.5-7B shows slight mlx-serving advantage (+0.72%)
-- Llama-3.1-8B nearly at parity (-1.21%, within measurement variance)
-- Metal Memory Pool optimizations reduce allocation overhead
-- Performance is converging at this model size range
+**Performance Notes:**
+- Performance near parity at this model size (within ±1.2%)
+- Qwen2.5-7B shows slight mlx-serving advantage (+0.92%)
+- Llama-3.1-8B nearly equivalent (-1.24%, within measurement variance)
+- This represents the inflection point where bridge overhead becomes negligible
 
-#### Small Models (0.5B - 3.8B): Mixed Results
+#### Small Models (0.5B - 3.8B): mlx-engine WINS ❌
 
 | Model           | Size (GB) | Parameters | mlx-engine   | mlx-serving  | Difference    | Winner       |
 |-----------------|-----------|------------|--------------|--------------|---------------|--------------|
-| Phi-3-mini      | ~2.3GB    | 3.8B       | 128.07 tok/s | 129.03 tok/s | **+0.75% ✅**  | mlx-serving |
-| Llama-3.2-3B    | ~2GB      | 3B         | 138.83 tok/s | 135.93 tok/s | **-2.09% ❌**  | mlx-engine  |
-| Qwen2.5-1.5B    | ~1GB      | 1.5B       | 207.99 tok/s | 202.84 tok/s | **-2.47% ❌**  | mlx-engine  |
-| Llama-3.2-1B    | ~0.6GB    | 1B         | 295.16 tok/s | 275.98 tok/s | **-6.50% ❌**  | mlx-engine  |
-| Qwen2.5-0.5B    | ~0.3GB    | 0.5B       | 246.55 tok/s | 238.44 tok/s | **-3.29% ❌**  | mlx-engine  |
+| Phi-3-mini      | ~2.3GB    | 3.8B       | 128.27 tok/s | 128.50 tok/s | **+0.18% ✅**  | mlx-serving |
+| Llama-3.2-3B    | ~2GB      | 3B         | 140.49 tok/s | 135.45 tok/s | **-3.59% ❌**  | mlx-engine  |
+| Qwen2.5-1.5B    | ~1GB      | 1.5B       | 203.67 tok/s | 203.50 tok/s | **-0.08% ❌**  | mlx-engine  |
+| Llama-3.2-1B    | ~0.6GB    | 1B         | 290.70 tok/s | 282.01 tok/s | **-2.99% ❌**  | mlx-engine  |
+| Qwen2.5-0.5B    | ~0.3GB    | 0.5B       | 248.14 tok/s | 235.29 tok/s | **-5.18% ❌**  | mlx-engine  |
 
 **Why mlx-engine wins on small models:**
-- TypeScript→Python bridge overhead dominates at small sizes
-- Binary streaming + object pooling optimizations designed for 7B+ models
-- Lower latency baseline (0.29-0.78s) makes bridge overhead more noticeable
-- Note: Performance gap narrows from -30% (0.5B) to -2% (3B) as model size increases
+- TypeScript→Python bridge overhead dominates at small model sizes
+- Bridge overhead most noticeable on fastest models (0.5B: -5.2%, 1B: -3.0%)
+- Performance gap narrows as model size increases (3.8B: +0.2%, nearly at parity)
+- Qwen2.5-1.5B shows excellent parity (-0.08%, essentially identical performance)
 
 #### Summary: When to Use Each Engine
 
 **Use mlx-serving when:**
 - ✅ **Vision models** (1.9-2.6x faster on Qwen2-VL, exclusive Qwen3-VL support)
-- ✅ **7-8B text models** (sweet spot: +1-7% faster)
-- ✅ **70B+ models** (+2-9% faster, scales with size)
-- ✅ **Production TypeScript/Node.js apps**
-- ✅ **Need distributed serving features**
+- ✅ **Qwen2.5-7B** (inflection point: +0.92% faster)
+- ✅ **Production TypeScript/Node.js apps** (type safety, streaming, distributed features)
+- ✅ **Need distributed serving** (multi-Mac cluster support)
+- ⚠️ **Note**: Currently at parity or slightly behind mlx-engine on most text models
 
 **Use mlx-engine when:**
-- ✅ **Small models < 7B** (lower overhead, up to 30% faster on 0.5B)
-- ✅ **Medium-large 14-47B models** (currently 1-5% faster)
-- ✅ **Simple Python scripts**
+- ✅ **All text-only models** (currently faster across most sizes)
+- ✅ **Small models < 7B** (2-5% faster, bridge overhead minimal)
+- ✅ **Large models 14B-141B** (1-5% faster on average)
+- ✅ **Simple Python scripts** (lower complexity)
 - ✅ **Rapid prototyping**
 
 **Test Configuration:**
 - Hardware: M3 Max (128GB unified memory)
 - Method: Both engines load model once, reuse for all questions (fair comparison)
-- Metrics: Tokens per second (tok/s) averaged across 3 cycles
-- Models tested: 10 models from 0.5B to 141B (comprehensive coverage)
+- Metrics: Tokens per second (tok/s) averaged across multiple runs
+- Models tested: 13 models from 0.5B to 141B (comprehensive coverage)
+- Test date: November 14-15, 2025 (v1.1.1)
 
 ---
 

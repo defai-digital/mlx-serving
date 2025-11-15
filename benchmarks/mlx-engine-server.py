@@ -16,6 +16,7 @@ from huggingface_hub import snapshot_download as hf_snapshot_download
 sys.path.insert(0, '/tmp/mlx-engine')
 
 from mlx_engine.generate import load_model, create_generator, tokenize
+import mlx.core as mx
 
 def resolve_model_path(model_arg):
     """Resolve model path - handles both HF repo names and local paths."""
@@ -50,12 +51,31 @@ def main():
     # Resolve model path
     model_path = resolve_model_path(model_name)
 
+    # Clear MLX cache before loading model to prevent memory accumulation
+    try:
+        # Try new API first (MLX 0.29+)
+        if hasattr(mx, 'clear_cache'):
+            mx.clear_cache()
+        # Fallback to old API
+        elif hasattr(mx.metal, 'clear_cache'):
+            mx.metal.clear_cache()
+        else:
+            # Manual garbage collection as last resort
+            import gc
+            gc.collect()
+        sys.stderr.write("MLX cache cleared before model load\n")
+        sys.stderr.flush()
+    except Exception as e:
+        sys.stderr.write(f"Warning: Failed to clear MLX cache: {e}\n")
+        sys.stderr.flush()
+
     # Load model once using mlx-engine API
     sys.stderr.write(f"Loading model with mlx-engine: {model_path}\n")
     sys.stderr.flush()
 
     try:
-        model_kit = load_model(model_path, trust_remote_code=False)
+        load_kwargs = {"trust_remote_code": False}
+        model_kit = load_model(model_path, **load_kwargs)
     except Exception as e:
         sys.stderr.write(f"ERROR: Failed to load model: {type(e).__name__}: {str(e)}\n")
         sys.stderr.flush()
