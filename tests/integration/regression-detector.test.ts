@@ -37,6 +37,26 @@ const createTestBaseline = (overrides?: Partial<BaselineMetrics>): BaselineMetri
  */
 const DETECTION_WAIT_MS = 300;
 
+/**
+ * Standard wait time for metric aggregation.
+ * Configured as 50ms in beforeEach with 4x buffer for test stability.
+ */
+const AGGREGATION_WAIT_MS = 200;
+
+/**
+ * Helper to wait for detection to complete.
+ * Uses standard DETECTION_WAIT_MS delay.
+ */
+const waitForDetection = (): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
+
+/**
+ * Helper to wait for aggregation to complete.
+ * Uses standard AGGREGATION_WAIT_MS delay.
+ */
+const waitForAggregation = (): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, AGGREGATION_WAIT_MS));
+
 describe('RegressionDetector', () => {
   let detector: RegressionDetector;
 
@@ -163,10 +183,8 @@ describe('RegressionDetector', () => {
       // Record all required metrics (getCurrentMetrics needs throughput, ttft, and error_rate)
       recordAllMetrics(20, { throughput: 95, ttft: 500, errorRate: 0.001 });
 
-      // Wait for aggregation (configured as 50ms in beforeEach)
-      // Add extra buffer for test stability (4x interval)
-      const AGGREGATION_WAIT_MS = 200;
-      await new Promise((resolve) => setTimeout(resolve, AGGREGATION_WAIT_MS));
+      // Wait for aggregation
+      await waitForAggregation();
 
       const metrics = detector.getCurrentMetrics();
       expect(metrics).not.toBeNull();
@@ -184,8 +202,7 @@ describe('RegressionDetector', () => {
       // Record degraded throughput (10% drop from baseline of 100)
       recordRegressionScenario(10, 90, 500, 0.001);
 
-      // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
+      await waitForDetection();
 
       const result = await detector.checkForRegressions();
       expect(result).not.toBeNull();
@@ -209,8 +226,7 @@ describe('RegressionDetector', () => {
       // Error rate: 0.5% (threshold: 1%)
       recordRegressionScenario(10, 98, 510, 0.005);
 
-      // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
+      await waitForDetection();
 
       const result = await detector.checkForRegressions();
       expect(result).not.toBeNull();
@@ -228,8 +244,7 @@ describe('RegressionDetector', () => {
       // Record degraded TTFT (15% increase from baseline of 500ms)
       recordRegressionScenario(10, 100, 575, 0.001);
 
-      // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
+      await waitForDetection();
 
       const result = await detector.checkForRegressions();
       expect(result).not.toBeNull();
@@ -250,8 +265,7 @@ describe('RegressionDetector', () => {
       // Record high error rate (2% exceeds 1% threshold)
       recordRegressionScenario(10, 100, 500, 0.02);
 
-      // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
+      await waitForDetection();
 
       const result = await detector.checkForRegressions();
       expect(result).not.toBeNull();
@@ -276,8 +290,7 @@ describe('RegressionDetector', () => {
       // Record throughput regression (10% drop)
       recordRegressionScenario(10, 90, 500, 0.001);
 
-      // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
+      await waitForDetection();
       await detector.checkForRegressions();
 
       const alert = await alertPromise;
@@ -325,8 +338,7 @@ describe('RegressionDetector', () => {
         });
       }
 
-      // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
+      await waitForDetection();
       await detectorWithRollback.checkForRegressions();
 
       const reason = await rollbackPromise;
@@ -346,8 +358,7 @@ describe('RegressionDetector', () => {
       // Record throughput regression
       recordRegressionScenario(10, 90, 500, 0.001);
 
-      // Wait and check
-      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
+      await waitForDetection();
       await detector.checkForRegressions();
 
       const history = detector.getAlertHistory();
@@ -362,8 +373,7 @@ describe('RegressionDetector', () => {
       // Record throughput regression
       recordRegressionScenario(10, 90, 500, 0.001);
 
-      // Wait and check
-      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
+      await waitForDetection();
       await detector.checkForRegressions();
 
       detector.clearAlertHistory();

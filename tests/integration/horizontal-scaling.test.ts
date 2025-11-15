@@ -45,6 +45,21 @@ const registerInstances = (
   }
 };
 
+/**
+ * Helper to create local fallback cache config for testing.
+ * Disables distributed cache but enables local fallback.
+ */
+const createLocalCacheConfig = () => ({
+  ...DEFAULT_DISTRIBUTED_CACHE_CONFIG,
+  enabled: false,
+  enableLocalFallback: true,
+});
+
+/**
+ * Standard test request for routing tests.
+ */
+const TEST_REQUEST: GeneratorParams = { model: 'test', prompt: 'hello' };
+
 describe('Horizontal Scaling Integration', () => {
   describe('LoadBalancer + InstanceRegistry', () => {
     let loadBalancer: LoadBalancer;
@@ -83,9 +98,7 @@ describe('Horizontal Scaling Integration', () => {
 
       registerInstances(instances, registry, loadBalancer);
 
-      const request: GeneratorParams = { model: 'test', prompt: 'hello' };
-
-      const decision = await loadBalancer.route(request);
+      const decision = await loadBalancer.route(TEST_REQUEST);
 
       // Update registry with load
       registry.updateInstanceLoad(decision.instance.id, 50);
@@ -134,11 +147,7 @@ describe('Horizontal Scaling Integration', () => {
 
     beforeEach(() => {
       loadBalancer = new LoadBalancer(DEFAULT_LOAD_BALANCER_CONFIG);
-      cache = new DistributedCache({
-        ...DEFAULT_DISTRIBUTED_CACHE_CONFIG,
-        enabled: false,
-        enableLocalFallback: true,
-      });
+      cache = new DistributedCache(createLocalCacheConfig());
     });
 
     afterEach(async () => {
@@ -210,11 +219,7 @@ describe('Horizontal Scaling Integration', () => {
     beforeEach(() => {
       loadBalancer = new LoadBalancer(createRoundRobinConfig());
       registry = new InstanceRegistry(DEFAULT_INSTANCE_REGISTRY_CONFIG);
-      cache = new DistributedCache({
-        ...DEFAULT_DISTRIBUTED_CACHE_CONFIG,
-        enabled: false,
-        enableLocalFallback: true,
-      });
+      cache = new DistributedCache(createLocalCacheConfig());
     });
 
     afterEach(async () => {
@@ -234,8 +239,7 @@ describe('Horizontal Scaling Integration', () => {
       registerInstances(instances, registry, loadBalancer);
 
       // 2. Route request
-      const request: GeneratorParams = { model: 'test', prompt: 'hello' };
-      const decision = await loadBalancer.route(request);
+      const decision = await loadBalancer.route(TEST_REQUEST);
 
       // 3. Cache result
       await cache.set('result:hello', { instance: decision.instance.id, timestamp: Date.now() });
@@ -317,8 +321,7 @@ describe('Horizontal Scaling Integration', () => {
       }
 
       // Route should go to healthy instance
-      const request: GeneratorParams = { model: 'test', prompt: 'hello' };
-      const decision = await loadBalancer.route(request);
+      const decision = await loadBalancer.route(TEST_REQUEST);
 
       expect(decision.instance.id).toBe('instance-2');
 
@@ -343,10 +346,8 @@ describe('Horizontal Scaling Integration', () => {
       registerInstances(instances, registry, loadBalancer);
 
       // Route multiple requests
-      const request: GeneratorParams = { model: 'test', prompt: 'hello' };
-
       for (let i = 0; i < 30; i++) {
-        await loadBalancer.route(request);
+        await loadBalancer.route(TEST_REQUEST);
       }
 
       const metrics = loadBalancer.getMetrics();
@@ -393,12 +394,10 @@ describe('Horizontal Scaling Integration', () => {
 
       registerInstances(instances, registry, loadBalancer);
 
-      const request: GeneratorParams = { model: 'test', prompt: 'concurrent test' };
-
       // Route 100 concurrent requests
       const promises = [];
       for (let i = 0; i < 100; i++) {
-        promises.push(loadBalancer.route(request));
+        promises.push(loadBalancer.route(TEST_REQUEST));
       }
 
       const results = await Promise.all(promises);

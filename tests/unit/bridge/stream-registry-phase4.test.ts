@@ -15,6 +15,18 @@ import type { StreamChunkNotification } from '../../../src/bridge/serializers.js
 
 type StreamChunkParams = StreamChunkNotification['params'];
 
+/**
+ * Helper to complete a stream with a completion event.
+ * Reduces boilerplate in tests.
+ */
+const completeStream = (registry: StreamRegistry, streamId: string): void => {
+  registry.handleEvent({
+    stream_id: streamId,
+    event: 'completed',
+    is_final: true,
+  });
+};
+
 describe('StreamRegistry - Phase 4: Stream Optimization', () => {
   let registry: StreamRegistry;
 
@@ -64,12 +76,7 @@ describe('StreamRegistry - Phase 4: Stream Optimization', () => {
         expect(poolStats.reused).toBeGreaterThanOrEqual(0);
       }
 
-      // Complete stream
-      registry.handleEvent({
-        stream_id: 'test-stream-1',
-        event: 'completed',
-        is_final: true,
-      });
+      completeStream(registry, 'test-stream-1');
 
       await streamPromise;
     });
@@ -113,11 +120,7 @@ describe('StreamRegistry - Phase 4: Stream Optimization', () => {
       expect(emitted).toHaveLength(3);
       expect(emitted.map((c) => c.token)).toEqual(['A', 'B', 'C']);
 
-      registry.handleEvent({
-        stream_id: 'batched-stream',
-        event: 'completed',
-        is_final: true,
-      });
+      completeStream(registry, 'batched-stream');
 
       await streamPromise;
     });
@@ -140,12 +143,7 @@ describe('StreamRegistry - Phase 4: Stream Optimization', () => {
       // Verify stream is still active
       expect(registry.isActive('backpressure-stream')).toBe(true);
 
-      // Complete stream
-      registry.handleEvent({
-        stream_id: 'backpressure-stream',
-        event: 'completed',
-        is_final: true,
-      });
+      completeStream(registry, 'backpressure-stream');
 
       await streamPromise;
     });
@@ -173,12 +171,7 @@ describe('StreamRegistry - Phase 4: Stream Optimization', () => {
       // Backpressure should have been emitted (if backpressure is enabled)
       // Note: May not emit if backpressure is disabled in config
 
-      // Complete stream
-      registry.handleEvent({
-        stream_id: 'backpressure-high',
-        event: 'completed',
-        is_final: true,
-      });
+      completeStream(registry, 'backpressure-high');
 
       await streamPromise;
     });
@@ -202,12 +195,7 @@ describe('StreamRegistry - Phase 4: Stream Optimization', () => {
       // Stream should still be active
       expect(registry.isActive('ack-stream')).toBe(true);
 
-      // Complete stream
-      registry.handleEvent({
-        stream_id: 'ack-stream',
-        event: 'completed',
-        is_final: true,
-      });
+      completeStream(registry, 'ack-stream');
 
       await streamPromise;
     });
@@ -243,12 +231,7 @@ describe('StreamRegistry - Phase 4: Stream Optimization', () => {
         is_final: false,
       });
 
-      // Complete stream
-      registry.handleEvent({
-        stream_id: 'slow-consumer',
-        event: 'completed',
-        is_final: true,
-      });
+      completeStream(registry, 'slow-consumer');
 
       await streamPromise;
     });
