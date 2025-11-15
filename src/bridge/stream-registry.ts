@@ -27,7 +27,6 @@ import type { Config } from '../config/loader.js';
 import { AdaptiveGovernor } from '../streaming/governor/AdaptiveGovernor.js';
 import { CleanupScheduler } from '../streaming/governor/CleanupScheduler.js';
 import type { StreamCleanupEvent, StreamGovernorConfig } from '../streaming/governor/types.js';
-import { ModelConcurrencyLimiter } from '../core/model-concurrency-limiter.js';
 import type {
   StreamChunkNotification,
   StreamStatsNotification,
@@ -272,7 +271,6 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
   private readonly slowConsumerThresholdMs: number;
   private readonly cleanupScheduler?: CleanupScheduler;
   private readonly adaptiveGovernor?: AdaptiveGovernor;
-  private readonly concurrencyLimiter?: ModelConcurrencyLimiter;
 
   constructor(options: StreamRegistryOptions = {}) {
     super();
@@ -332,27 +330,9 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
       );
     }
 
-    // Phase 5 Week 3: Initialize model-size-aware concurrency limiter
-    // Prevents Metal GPU crashes from concurrent command buffer submissions
-    const concurrencyLimiterEnabled = config.model_concurrency_limiter?.enabled ?? true;
-    if (concurrencyLimiterEnabled) {
-      this.concurrencyLimiter = new ModelConcurrencyLimiter(this.logger);
-
-      // Forward concurrency limiter events to stream registry events
-      this.concurrencyLimiter.on('queued', (modelId, tier, queueDepth) => {
-        this.logger?.info(
-          { modelId, tier, queueDepth },
-          'Request queued by concurrency limiter'
-        );
-      });
-
-      this.concurrencyLimiter.on('rejected', (modelId, reason) => {
-        this.logger?.error(
-          { modelId, reason },
-          'Request rejected by concurrency limiter'
-        );
-      });
-    }
+    // v1.2.0: Removed model concurrency limiter - trust MLX's native Metal scheduler
+    // Load testing proved artificial limits were solving a non-existent problem
+    // and causing performance degradation (-3% to -5%) and request rejections (12%)
 
     // BUG-014 FIX: Extract timer initialization into separate method
     // so it can be called after cleanup during restarts
@@ -429,11 +409,8 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
       throw new Error(`Stream ${streamId} already registered`);
     }
 
-    // Phase 5 Week 3: Acquire concurrency slot before checking stream limits
-    // This prevents Metal GPU crashes from too many concurrent streams
-    if (this.concurrencyLimiter && modelId) {
-      await this.concurrencyLimiter.acquire(modelId, streamId);
-    }
+    // v1.2.0: Removed concurrency limiting - trust MLX's native Metal scheduler
+    // Stream limits still enforced via adaptive stream registry
 
     // Phase 4: Use adaptive limit instead of fixed maxActiveStreams
     const effectiveLimit = this.adaptiveLimitsEnabled
@@ -441,11 +418,6 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
       : this.maxActiveStreams;
 
     if (this.streams.size >= effectiveLimit) {
-      // Release concurrency slot if stream limit check fails
-      if (this.concurrencyLimiter && modelId) {
-        this.concurrencyLimiter.release(modelId, streamId);
-      }
-
       throw new Error(
         `Max active streams (${effectiveLimit}) exceeded. Consider increasing maxActiveStreams or waiting for streams to complete.`
       );
@@ -1045,10 +1017,7 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     // Resolve promise
     handle.resolve(stats);
 
-    // Phase 5 Week 3: Release concurrency slot
-    if (this.concurrencyLimiter && handle.modelId) {
-      this.concurrencyLimiter.release(handle.modelId, streamId);
-    }
+    // v1.2.0: Removed concurrency slot release - trust MLX scheduler
 
     // Remove from registry immediately
     this.streams.delete(streamId);
@@ -1098,10 +1067,7 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     // Reject promise
     handle.reject(new Error(error));
 
-    // Phase 5 Week 3: Release concurrency slot
-    if (this.concurrencyLimiter && handle.modelId) {
-      this.concurrencyLimiter.release(handle.modelId, streamId);
-    }
+    // v1.2.0: Removed concurrency slot release - trust MLX scheduler
 
     // Remove from registry
     this.streams.delete(streamId);
@@ -1180,10 +1146,7 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     // Reject promise
     handle.reject(new Error(errorMsg));
 
-    // Phase 5 Week 3: Release concurrency slot
-    if (this.concurrencyLimiter && handle.modelId) {
-      this.concurrencyLimiter.release(handle.modelId, streamId);
-    }
+    // v1.2.0: Removed concurrency slot release - trust MLX scheduler
 
     // Remove from registry
     this.streams.delete(streamId);
