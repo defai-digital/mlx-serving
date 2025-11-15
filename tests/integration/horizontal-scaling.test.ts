@@ -60,6 +60,19 @@ const createLocalCacheConfig = () => ({
  */
 const TEST_REQUEST: GeneratorParams = { model: 'test', prompt: 'hello' };
 
+/**
+ * Helper to create a standard array of N basic instances for testing.
+ * Creates instances with default/healthy parameters suitable for most tests.
+ *
+ * @param count - Number of instances to create (defaults to 2)
+ * @returns Array of InstanceInfo with sequential IDs
+ */
+const createBasicInstances = (count: number = 2): InstanceInfo[] => {
+  return Array.from({ length: count }, (_, i) =>
+    createMockInstance(`instance-${i + 1}`)
+  );
+};
+
 describe('Horizontal Scaling Integration', () => {
   describe('LoadBalancer + InstanceRegistry', () => {
     let loadBalancer: LoadBalancer;
@@ -76,10 +89,7 @@ describe('Horizontal Scaling Integration', () => {
     });
 
     it('should sync instances between registry and load balancer', () => {
-      const instances = [
-        createMockInstance('instance-1'),
-        createMockInstance('instance-2'),
-      ];
+      const instances = createBasicInstances();
 
       registerInstances(instances, registry, loadBalancer);
 
@@ -91,10 +101,7 @@ describe('Horizontal Scaling Integration', () => {
     });
 
     it('should route requests through load balancer and track in registry', async () => {
-      const instances = [
-        createMockInstance('instance-1'),
-        createMockInstance('instance-2'),
-      ];
+      const instances = createBasicInstances();
 
       registerInstances(instances, registry, loadBalancer);
 
@@ -231,10 +238,7 @@ describe('Horizontal Scaling Integration', () => {
 
     it('should coordinate instance discovery, routing, and caching', async () => {
       // 1. Register instances
-      const instances = [
-        createMockInstance('instance-1'),
-        createMockInstance('instance-2'),
-      ];
+      const instances = createBasicInstances();
 
       registerInstances(instances, registry, loadBalancer);
 
@@ -304,10 +308,7 @@ describe('Horizontal Scaling Integration', () => {
     });
 
     it('should handle instance failure and recovery', async () => {
-      const instances = [
-        createMockInstance('instance-1'),
-        createMockInstance('instance-2'),
-      ];
+      const instances = createBasicInstances();
 
       registerInstances(instances, registry, loadBalancer);
 
@@ -337,11 +338,7 @@ describe('Horizontal Scaling Integration', () => {
     });
 
     it('should distribute load evenly across instances', async () => {
-      const instances = [
-        createMockInstance('instance-1'),
-        createMockInstance('instance-2'),
-        createMockInstance('instance-3'),
-      ];
+      const instances = createBasicInstances(3);
 
       registerInstances(instances, registry, loadBalancer);
 
@@ -387,10 +384,7 @@ describe('Horizontal Scaling Integration', () => {
     });
 
     it('should handle high concurrency', async () => {
-      const instances = [
-        createMockInstance('instance-1'),
-        createMockInstance('instance-2'),
-      ];
+      const instances = createBasicInstances();
 
       registerInstances(instances, registry, loadBalancer);
 
