@@ -568,7 +568,7 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
   private emitChunkPayload(streamId: string, payload: NormalizedTokenPayload): void {
     let chunk: StreamChunk;
     if (this.chunkPoolingEnabled && this.chunkPool) {
-      chunk = this.chunkPool.acquire(
+      const pooledChunk = this.chunkPool.acquire(
         streamId,
         payload.token,
         payload.tokenId,
@@ -576,6 +576,20 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
         payload.logprob,
         payload.cumulativeText
       );
+
+      // Create a defensive copy for emission to prevent listeners from seeing
+      // mutations when the pooled chunk is reused for subsequent tokens
+      chunk = {
+        streamId: pooledChunk.streamId,
+        token: pooledChunk.token,
+        tokenId: pooledChunk.tokenId,
+        isFinal: pooledChunk.isFinal,
+        logprob: pooledChunk.logprob,
+        cumulativeText: pooledChunk.cumulativeText,
+      };
+
+      // Release pooled chunk immediately since we made a copy
+      this.chunkPool.release(pooledChunk);
     } else {
       chunk = {
         streamId,
@@ -594,10 +608,6 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
         { err, streamId, chunk },
         'User listener threw error on chunk event'
       );
-    } finally {
-      if (this.chunkPoolingEnabled && this.chunkPool) {
-        this.chunkPool.release(chunk);
-      }
     }
   }
 
