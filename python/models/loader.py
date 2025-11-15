@@ -77,6 +77,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from errors import ModelLoadError
 from config_loader import get_config
 from model_tuning import ModelTuningManager
+from benchmark_utils import BenchmarkAwareLogger
+
+# Benchmark-aware logger
+_logger = BenchmarkAwareLogger("loader")
 
 
 @dataclass
@@ -296,13 +300,7 @@ def load_model(model_id: str, options: Dict[str, Any]) -> ModelHandle:
                         is_vision = True
                     except Exception as vlm_load_error:
                         # VLM also failed - log VLM error for debugging, then raise text error
-                        # Log to stderr so it appears in PythonRunner logs
-                        import sys
-                        print(
-                            f"Warning: VLM fallback failed for {model_id}: {vlm_load_error}",
-                            file=sys.stderr,
-                            flush=True,
-                        )
+                        _logger.warning(f"VLM fallback failed for {model_id}: {vlm_load_error}")
                         raise text_load_error from vlm_load_error
                 else:
                     raise text_load_error
@@ -353,12 +351,7 @@ def load_model(model_id: str, options: Dict[str, Any]) -> ModelHandle:
             except Exception as e:
                 # If we can't get the cached path, continue without it
                 # The artifact cache won't work, but model loading succeeded
-                import sys
-                print(
-                    f"Warning: Could not determine cached model path for {model_id}: {e}",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                _logger.warning(f"Could not determine cached model path for {model_id}: {e}")
 
         # Compute metadata
         try:
@@ -396,9 +389,7 @@ def load_model(model_id: str, options: Dict[str, Any]) -> ModelHandle:
 
         except Exception as e:
             # If tuning fails, log but continue (model loading shouldn't fail)
-            import sys
-            print(f"Warning: Failed to calculate model tuning for {model_id}: {e}",
-                  file=sys.stderr, flush=True)
+            _logger.warning(f"Failed to calculate model tuning for {model_id}: {e}")
 
         # Build metadata dict
         metadata = {
