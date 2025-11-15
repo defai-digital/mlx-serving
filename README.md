@@ -60,7 +60,7 @@ Built from the ground up with modern TypeScript practices and enterprise-grade r
 
 - 🔒 **Production ready**: Comprehensive testing (710 unit tests), zero security vulnerabilities
 - 🚀 **Efficient concurrency**: Trusts MLX's native Metal scheduler for optimal performance
-- 📦 **Zero-setup**: `npm install` automatically configures Python environment
+- 📦 **Zero-setup**: `pnpm install` automatically configures Python environment
 - ⚡ **Scales with model size**: +9.4% on very large models (141B), +4% on medium-large (72B), parity on small (30B)
 - 🎯 **Optimized for M3+**: Leverages Metal 3.3+, AMX v2, and 400GB/s UMA bandwidth
 - 🎯 **Production infrastructure**: Canary deployment, A/B testing, automated regression detection
@@ -416,23 +416,23 @@ These features provide 40-113% performance improvements but require building nat
 ## Installation
 
 ```bash
-npm install @defai.digital/mlx-serving
+pnpm install @defai.digital/mlx-serving
 ```
 
-The package automatically sets up the Python environment during installation. Local contributors working from this repository should run `npm run setup` after `npm install` to provision `.mlx-serving-venv` at the repo root.
+The package automatically sets up the Python environment during installation. Local contributors working from this repository should run `pnpm run setup` after `pnpm install` to provision `.mlx-serving-venv` at the repo root.
 
 ### Troubleshooting Installation
 
 **Note**: v1.0.6+ includes all Python dependencies. If you're on an older version and get errors like `Python environment not found` or `ENOENT .mlx-serving-venv/bin/python`, please upgrade:
 
 ```bash
-npm install @defai.digital/mlx-serving@latest
+pnpm install @defai.digital/mlx-serving@latest
 ```
 
 **For local development** (contributors working from source):
 ```bash
 # From the mlx-serving repository root
-npm run setup
+pnpm run setup
 ```
 
 **Manual Python Environment Setup** (if needed):
@@ -497,28 +497,28 @@ mlx-serving/
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Build TypeScript
-npm run build
+pnpm run build
 
 # Build native module (optional)
 cd native && mkdir -p build && cd build && cmake .. && cmake --build .
 
 # Run tests
-npm test
+pnpm test
 
 # Run tests in watch mode
-npm run test:watch
+pnpm run test:watch
 
 # Type check
-npm run typecheck
+pnpm run typecheck
 
 # Lint
-npm run lint
+pnpm run lint
 
 # Format
-npm run format
+pnpm run format
 ```
 
 ### Build Native Module
