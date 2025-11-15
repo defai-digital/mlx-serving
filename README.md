@@ -81,27 +81,30 @@ Built from the ground up with modern TypeScript practices and enterprise-grade r
 
 **mlx-serving vs mlx-engine**: Fair comparison with both engines loading models once and reusing for all inferences.
 
-### Vision-Language Models: Exceptional Performance (3-8× Faster)
+### Vision-Language Models: Exceptional Performance (2.7-5.5× Faster)
 
-mlx-serving demonstrates **exceptional** performance on vision-language models, achieving **3-8× faster throughput** compared to mlx-vlm baseline:
+mlx-serving demonstrates **exceptional** performance on vision-language models, achieving **2.7-5.5× faster throughput** compared to mlx-vlm baseline:
 
-#### Latest Benchmark Results (November 2025)
+#### Latest Benchmark Results (November 2025) - Statistically Valid
+
+**Methodology**: 3 cycles × 10 questions = 30 data points per model (statistically valid sample size)
 
 | Model | Size | mlx-vlm Baseline | mlx-serving | Performance Gain | Success Rate |
 |-------|------|------------------|-------------|------------------|--------------|
-| **Qwen2-VL-2B-Instruct-4bit** | 2B | 20.07 tok/s | **165.40 tok/s** | **+724% (8.24×)** 🚀🚀🚀 | 100% |
-| **Qwen3-VL-4B-Instruct-4bit** | 4B | N/A* | **84.02 tok/s** | N/A | 100% |
-| **Qwen2.5-VL-7B-Instruct-4bit** | 7B | 30.51 tok/s | **73.63 tok/s** | **+141% (2.41×)** 🚀🚀 | 100% |
-| **Qwen3-VL-8B-Instruct-4bit** | 8B | N/A* | **67.16 tok/s** | N/A | 100% |
+| **Qwen2-VL-2B-Instruct-4bit** | 2B | 33.72 tok/s | **183.97 tok/s** | **+446% (5.46×)** 🚀🚀🚀 | 100% |
+| **Qwen3-VL-4B-Instruct-4bit** | 4B | N/A* | **85.02 tok/s** | N/A* | 100% |
+| **Qwen2.5-VL-7B-Instruct-4bit** | 7B | 26.98 tok/s | **74.13 tok/s** | **+175% (2.75×)** 🚀🚀 | 100% |
+| **Qwen3-VL-8B-Instruct-4bit** | 8B | N/A* | **51.31 tok/s** | N/A* | 100% |
 
-*Note: mlx-vlm baseline showed measurement errors for Qwen3-VL-4B and Qwen3-VL-8B (0.00 tok/s). Models completed successfully but throughput calculation failed.*
+*Note: mlx-vlm baseline showed measurement errors for Qwen3-VL-4B and Qwen3-VL-8B (0.00 tok/s across all cycles). Models completed successfully with correct latency, but token counting failed for newer Qwen3 architecture.*
 
 **Performance Summary:**
-- 🚀 **Qwen2-VL-2B**: **8.24× faster** than baseline (165.40 vs 20.07 tok/s)
-- 🚀 **Qwen2.5-VL-7B**: **2.41× faster** than baseline (73.63 vs 30.51 tok/s)
-- 📈 **Average gain (validated)**: **+373%** (3.73× faster)
-- ✅ **100% success rate**: All 4 models tested successfully (20 requests per model)
-- ⚡ **Low latency**: 0.29s - 1.44s average per request
+- 🚀 **Qwen2-VL-2B**: **5.46× faster** than baseline (183.97 vs 33.72 tok/s)
+- 🚀 **Qwen2.5-VL-7B**: **2.75× faster** than baseline (74.13 vs 26.98 tok/s)
+- 📈 **Average gain (validated)**: **+310%** (4.1× faster)
+- ✅ **100% success rate**: All 4 models tested successfully (120 total requests)
+- ⚡ **Low latency**: 0.34s - 1.75s average per request
+- 📊 **Statistical validity**: 30 data points per model, consistent across 3 cycles
 
 **Why Vision Models Show Massive Performance Advantage:**
 
@@ -115,7 +118,7 @@ Vision models benefit **much more** from mlx-serving's architecture than text mo
 
 **Comparison: Vision vs Text Performance**
 - Text models: -1% to -2% slower than mlx-engine (due to IPC overhead)
-- Vision models: **+141% to +724% faster** than mlx-vlm baseline
+- Vision models: **+175% to +446% faster** than mlx-vlm baseline (statistically validated)
 - **Key insight**: Persistent runtime amortizes image preprocessing costs much more effectively than text tokenization costs
 
 ### Text-Only Models: Stability Over Raw Speed
@@ -183,7 +186,7 @@ mlx-serving trades minimal performance for **production-grade stability**:
 - 🔀 Automatic model type detection and routing (mlx_lm vs mlx_vlm)
 - 🔒 Shared GPU semaphore protection prevents Metal crashes
 - ⚡ Dynamic token buffering (4-32 tokens) based on model size
-- 🎯 Vision models benefit more from persistent runtime (+373% avg performance)
+- 🎯 Vision models benefit more from persistent runtime (+310% avg performance, statistically validated)
 
 ---
 

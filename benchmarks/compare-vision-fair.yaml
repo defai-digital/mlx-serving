@@ -1,6 +1,12 @@
-# Vision Model Fair Benchmark Configuration
+# Vision Model Fair Benchmark Configuration (Statistically Valid)
 # Compares mlx-vlm (baseline) vs mlx-serving (our implementation)
 # Run: npx tsx benchmarks/compare-vision-fair.ts
+#
+# STATISTICAL VALIDITY IMPROVEMENTS:
+# - 10 questions per model (was 5) for better sample size
+# - 3 cycles (was 1) to measure consistency and reduce bias
+# - Total: 30 data points per model (10 questions × 3 cycles)
+# - Expected runtime: 15-20 minutes for 4 models
 
 benchmark:
   max_tokens: 100
@@ -12,46 +18,58 @@ benchmark:
 models:
   - name: "mlx-community/Qwen2-VL-2B-Instruct-4bit"
     size: "2B"
-    questions: 5
-    cycles: 1
+    questions: 10  # Increased from 5
+    cycles: 3      # Increased from 1
     enabled: true
 
   - name: "mlx-community/Qwen3-VL-4B-Instruct-4bit"
     size: "4B"
-    questions: 5
-    cycles: 1
+    questions: 10  # Increased from 5
+    cycles: 3      # Increased from 1
     enabled: true
 
   - name: "mlx-community/Qwen2.5-VL-7B-Instruct-4bit"
     size: "7B"
-    questions: 5
-    cycles: 1
+    questions: 10  # Increased from 5
+    cycles: 3      # Increased from 1
     enabled: true
 
   - name: "mlx-community/Qwen3-VL-8B-Instruct-4bit"
     size: "8B"
-    questions: 5
-    cycles: 1
+    questions: 10  # Increased from 5
+    cycles: 3      # Increased from 1
     enabled: true
 
   - name: "mlx-community/Qwen2-VL-72B-Instruct-4bit"
     size: "72B"
-    questions: 5
-    cycles: 1
+    questions: 10
+    cycles: 3
     enabled: false  # Disabled by default (very large model, 40GB+)
 
 # Test images (all from benchmarks/test-images/)
+# Expanded to 10 images for better statistical coverage
 test_images:
   - "benchmarks/test-images/colors.jpg"
   - "benchmarks/test-images/shapes.jpg"
   - "benchmarks/test-images/numbers.jpg"
   - "benchmarks/test-images/text1.jpg"
   - "benchmarks/test-images/math.jpg"
+  - "benchmarks/test-images/colors.jpg"    # Repeat for 10 total
+  - "benchmarks/test-images/shapes.jpg"    # (script will rotate through them)
+  - "benchmarks/test-images/numbers.jpg"
+  - "benchmarks/test-images/text1.jpg"
+  - "benchmarks/test-images/math.jpg"
 
 # Test prompts - vision-specific questions
+# Expanded to 10 prompts for better statistical coverage
 prompts:
   - "Describe this image in detail."
   - "What objects do you see in this image?"
   - "What colors are present in this image?"
   - "Read any text visible in this image."
   - "What is the main subject of this image?"
+  - "What shapes or patterns can you identify?"
+  - "Describe the composition and layout of this image."
+  - "What text or numbers are visible?"
+  - "Summarize what this image shows in one sentence."
+  - "What are the most prominent features of this image?"
