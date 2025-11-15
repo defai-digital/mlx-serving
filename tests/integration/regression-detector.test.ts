@@ -93,16 +93,27 @@ describe('RegressionDetector', () => {
     it('should aggregate metrics correctly', async () => {
       detector.start();
 
-      // Record throughput samples
+      // Record all required metrics (getCurrentMetrics needs throughput, ttft, and error_rate)
       for (let i = 0; i < 20; i++) {
         detector.recordMetric({
           metric: 'throughput',
           value: 95 + i,
           timestamp: Date.now(),
         });
+        detector.recordMetric({
+          metric: 'ttft',
+          value: 500 + i,
+          timestamp: Date.now(),
+        });
+        detector.recordMetric({
+          metric: 'error_rate',
+          value: 0.001,
+          timestamp: Date.now(),
+        });
       }
 
-      // Wait for aggregation
+      // Wait for aggregation (configured as 50ms in beforeEach)
+      // Add extra buffer for test stability (4x interval)
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       const metrics = detector.getCurrentMetrics();
