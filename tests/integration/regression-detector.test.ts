@@ -102,6 +102,29 @@ describe('RegressionDetector', () => {
     detector.setBaseline(createTestBaseline(overrides));
   };
 
+  /**
+   * Helper to record and evaluate a regression test scenario.
+   * Combines the common workflow: record → wait → check.
+   *
+   * @param count - Number of metric samples to record
+   * @param throughput - Throughput value for each sample
+   * @param ttft - TTFT value for each sample
+   * @param errorRate - Error rate value for each sample
+   * @returns The regression check result
+   *
+   * Note: Must be declared inside describe() to access detector instance.
+   */
+  const recordAndCheck = async (
+    count: number,
+    throughput: number,
+    ttft: number,
+    errorRate: number
+  ): Promise<Awaited<ReturnType<typeof detector.checkForRegressions>>> => {
+    recordRegressionScenario(count, throughput, ttft, errorRate);
+    await waitForDetection();
+    return await detector.checkForRegressions();
+  };
+
   beforeEach(() => {
     const config = createDefaultDetectorConfig();
     config.enabled = true;
@@ -210,11 +233,7 @@ describe('RegressionDetector', () => {
       detector.start();
 
       // Record degraded throughput (10% drop from baseline of 100)
-      recordRegressionScenario(10, 90, 500, 0.001);
-
-      await waitForDetection();
-
-      const result = await detector.checkForRegressions();
+      const result = await recordAndCheck(10, 90, 500, 0.001);
       expect(result).not.toBeNull();
       expect(result!.hasRegression).toBe(true);
       expect(result!.alerts.length).toBeGreaterThan(0);
@@ -234,11 +253,7 @@ describe('RegressionDetector', () => {
       // Throughput: 2% below baseline (threshold: 5%)
       // TTFT: 2% above baseline (threshold: 10%)
       // Error rate: 0.5% (threshold: 1%)
-      recordRegressionScenario(10, 98, 510, 0.005);
-
-      await waitForDetection();
-
-      const result = await detector.checkForRegressions();
+      const result = await recordAndCheck(10, 98, 510, 0.005);
       expect(result).not.toBeNull();
       expect(result!.hasRegression).toBe(false);
       expect(result!.alerts.length).toBe(0);
@@ -252,11 +267,7 @@ describe('RegressionDetector', () => {
       detector.start();
 
       // Record degraded TTFT (15% increase from baseline of 500ms)
-      recordRegressionScenario(10, 100, 575, 0.001);
-
-      await waitForDetection();
-
-      const result = await detector.checkForRegressions();
+      const result = await recordAndCheck(10, 100, 575, 0.001);
       expect(result).not.toBeNull();
       expect(result!.hasRegression).toBe(true);
 
@@ -273,11 +284,7 @@ describe('RegressionDetector', () => {
       detector.start();
 
       // Record high error rate (2% exceeds 1% threshold)
-      recordRegressionScenario(10, 100, 500, 0.02);
-
-      await waitForDetection();
-
-      const result = await detector.checkForRegressions();
+      const result = await recordAndCheck(10, 100, 500, 0.02);
       expect(result).not.toBeNull();
       expect(result!.hasRegression).toBe(true);
 
