@@ -30,6 +30,21 @@ const createRoundRobinConfig = (): LoadBalancerConfig => ({
   strategy: 'round-robin',
 });
 
+/**
+ * Helper to register instances in both registry and load balancer.
+ * Reduces boilerplate in tests that need to set up multiple instances.
+ */
+const registerInstances = (
+  instances: InstanceInfo[],
+  registry: InstanceRegistry,
+  loadBalancer: LoadBalancer
+): void => {
+  for (const instance of instances) {
+    registry.registerInstance(instance);
+    loadBalancer.registerInstance(instance);
+  }
+};
+
 describe('Horizontal Scaling Integration', () => {
   describe('LoadBalancer + InstanceRegistry', () => {
     let loadBalancer: LoadBalancer;
@@ -46,16 +61,12 @@ describe('Horizontal Scaling Integration', () => {
     });
 
     it('should sync instances between registry and load balancer', () => {
-      const instance1 = createMockInstance('instance-1');
-      const instance2 = createMockInstance('instance-2');
+      const instances = [
+        createMockInstance('instance-1'),
+        createMockInstance('instance-2'),
+      ];
 
-      // Register instances in registry
-      registry.registerInstance(instance1);
-      registry.registerInstance(instance2);
-
-      // Sync to load balancer
-      loadBalancer.registerInstance(instance1);
-      loadBalancer.registerInstance(instance2);
+      registerInstances(instances, registry, loadBalancer);
 
       const lbInstances = loadBalancer.getAllInstances();
       const regInstances = registry.getAllInstances();
@@ -65,13 +76,12 @@ describe('Horizontal Scaling Integration', () => {
     });
 
     it('should route requests through load balancer and track in registry', async () => {
-      const instance1 = createMockInstance('instance-1');
-      const instance2 = createMockInstance('instance-2');
+      const instances = [
+        createMockInstance('instance-1'),
+        createMockInstance('instance-2'),
+      ];
 
-      registry.registerInstance(instance1);
-      registry.registerInstance(instance2);
-      loadBalancer.registerInstance(instance1);
-      loadBalancer.registerInstance(instance2);
+      registerInstances(instances, registry, loadBalancer);
 
       const request: GeneratorParams = { model: 'test', prompt: 'hello' };
 
@@ -216,13 +226,12 @@ describe('Horizontal Scaling Integration', () => {
 
     it('should coordinate instance discovery, routing, and caching', async () => {
       // 1. Register instances
-      const instance1 = createMockInstance('instance-1');
-      const instance2 = createMockInstance('instance-2');
+      const instances = [
+        createMockInstance('instance-1'),
+        createMockInstance('instance-2'),
+      ];
 
-      registry.registerInstance(instance1);
-      registry.registerInstance(instance2);
-      loadBalancer.registerInstance(instance1);
-      loadBalancer.registerInstance(instance2);
+      registerInstances(instances, registry, loadBalancer);
 
       // 2. Route request
       const request: GeneratorParams = { model: 'test', prompt: 'hello' };
@@ -245,13 +254,12 @@ describe('Horizontal Scaling Integration', () => {
 
     it('should handle scaling up scenario', async () => {
       // Start with 2 instances
-      const instance1 = createMockInstance('instance-1', HealthStatus.HEALTHY, 80, 100);
-      const instance2 = createMockInstance('instance-2', HealthStatus.HEALTHY, 85, 100);
+      const instances = [
+        createMockInstance('instance-1', HealthStatus.HEALTHY, 80, 100),
+        createMockInstance('instance-2', HealthStatus.HEALTHY, 85, 100),
+      ];
 
-      registry.registerInstance(instance1);
-      registry.registerInstance(instance2);
-      loadBalancer.registerInstance(instance1);
-      loadBalancer.registerInstance(instance2);
+      registerInstances(instances, registry, loadBalancer);
 
       // Check utilization
       const beforeMetrics = registry.getMetrics();
@@ -271,16 +279,13 @@ describe('Horizontal Scaling Integration', () => {
 
     it('should handle scaling down scenario', async () => {
       // Start with 3 instances
-      const instance1 = createMockInstance('instance-1', HealthStatus.HEALTHY, 20, 100);
-      const instance2 = createMockInstance('instance-2', HealthStatus.HEALTHY, 10, 100);
-      const instance3 = createMockInstance('instance-3', HealthStatus.HEALTHY, 0, 100);
+      const instances = [
+        createMockInstance('instance-1', HealthStatus.HEALTHY, 20, 100),
+        createMockInstance('instance-2', HealthStatus.HEALTHY, 10, 100),
+        createMockInstance('instance-3', HealthStatus.HEALTHY, 0, 100),
+      ];
 
-      registry.registerInstance(instance1);
-      registry.registerInstance(instance2);
-      registry.registerInstance(instance3);
-      loadBalancer.registerInstance(instance1);
-      loadBalancer.registerInstance(instance2);
-      loadBalancer.registerInstance(instance3);
+      registerInstances(instances, registry, loadBalancer);
 
       // Low utilization
       const beforeMetrics = registry.getMetrics();
@@ -295,13 +300,12 @@ describe('Horizontal Scaling Integration', () => {
     });
 
     it('should handle instance failure and recovery', async () => {
-      const instance1 = createMockInstance('instance-1');
-      const instance2 = createMockInstance('instance-2');
+      const instances = [
+        createMockInstance('instance-1'),
+        createMockInstance('instance-2'),
+      ];
 
-      registry.registerInstance(instance1);
-      registry.registerInstance(instance2);
-      loadBalancer.registerInstance(instance1);
-      loadBalancer.registerInstance(instance2);
+      registerInstances(instances, registry, loadBalancer);
 
       // Simulate failure - mark instance as UNHEALTHY (not just DEGRADED)
       loadBalancer.reportFailure('instance-1', new Error('test failure'));
@@ -330,16 +334,13 @@ describe('Horizontal Scaling Integration', () => {
     });
 
     it('should distribute load evenly across instances', async () => {
-      const instance1 = createMockInstance('instance-1');
-      const instance2 = createMockInstance('instance-2');
-      const instance3 = createMockInstance('instance-3');
+      const instances = [
+        createMockInstance('instance-1'),
+        createMockInstance('instance-2'),
+        createMockInstance('instance-3'),
+      ];
 
-      registry.registerInstance(instance1);
-      registry.registerInstance(instance2);
-      registry.registerInstance(instance3);
-      loadBalancer.registerInstance(instance1);
-      loadBalancer.registerInstance(instance2);
-      loadBalancer.registerInstance(instance3);
+      registerInstances(instances, registry, loadBalancer);
 
       // Route multiple requests
       const request: GeneratorParams = { model: 'test', prompt: 'hello' };
@@ -361,13 +362,12 @@ describe('Horizontal Scaling Integration', () => {
     });
 
     it('should export comprehensive metrics', () => {
-      const instance1 = createMockInstance('instance-1', HealthStatus.HEALTHY, 50, 100);
-      const instance2 = createMockInstance('instance-2', HealthStatus.DEGRADED, 20, 100);
+      const instances = [
+        createMockInstance('instance-1', HealthStatus.HEALTHY, 50, 100),
+        createMockInstance('instance-2', HealthStatus.DEGRADED, 20, 100),
+      ];
 
-      registry.registerInstance(instance1);
-      registry.registerInstance(instance2);
-      loadBalancer.registerInstance(instance1);
-      loadBalancer.registerInstance(instance2);
+      registerInstances(instances, registry, loadBalancer);
 
       // Get all metrics
       const lbMetrics = loadBalancer.getMetrics();
@@ -386,13 +386,12 @@ describe('Horizontal Scaling Integration', () => {
     });
 
     it('should handle high concurrency', async () => {
-      const instance1 = createMockInstance('instance-1');
-      const instance2 = createMockInstance('instance-2');
+      const instances = [
+        createMockInstance('instance-1'),
+        createMockInstance('instance-2'),
+      ];
 
-      registry.registerInstance(instance1);
-      registry.registerInstance(instance2);
-      loadBalancer.registerInstance(instance1);
-      loadBalancer.registerInstance(instance2);
+      registerInstances(instances, registry, loadBalancer);
 
       const request: GeneratorParams = { model: 'test', prompt: 'concurrent test' };
 

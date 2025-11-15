@@ -582,9 +582,18 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
     };
   }
 
+  /**
+   * Emit a chunk payload to listeners.
+   *
+   * When pooling is enabled, we still create a fresh immutable chunk object
+   * for emission to ensure listeners never see mutations. The pool is maintained
+   * for future optimization where we could pass pooled chunks to internal handlers.
+   *
+   * Note: Current implementation acquires/releases from pool to maintain pool metrics
+   * (created vs reused counts) for monitoring purposes, even though we emit a copy.
+   */
   private emitChunkPayload(streamId: string, payload: NormalizedTokenPayload): void {
-    // When pooling is enabled, acquire/release pool object but emit a defensive copy
-    // to prevent listeners from seeing mutations when pooled chunks are reused
+    // Maintain pool metrics when pooling is enabled
     if (this.chunkPoolingEnabled && this.chunkPool) {
       const pooledChunk = this.chunkPool.acquire(
         streamId,
@@ -594,11 +603,10 @@ export class StreamRegistry extends EventEmitter<StreamRegistryEvents> {
         payload.logprob,
         payload.cumulativeText
       );
-      // Release immediately - we'll create a fresh copy for emission
       this.chunkPool.release(pooledChunk);
     }
 
-    // Always create a new chunk object for emission (ensuring immutability)
+    // Always emit a fresh immutable chunk to prevent mutation bugs
     const chunk = this.createChunk(streamId, payload);
 
     try {

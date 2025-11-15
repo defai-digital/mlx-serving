@@ -17,8 +17,60 @@ import {
   MetricsAggregator,
 } from '../../src/monitoring/metrics-aggregator.js';
 
+/**
+ * Helper to create a standard baseline for testing.
+ * Provides consistent baseline metrics across all test cases.
+ */
+const createTestBaseline = (overrides?: Partial<BaselineMetrics>): BaselineMetrics => ({
+  throughput: 100,
+  ttft: 500,
+  errorRate: 0.001,
+  latencyP95: 200,
+  latencyP99: 300,
+  timestamp: Date.now(),
+  ...overrides,
+});
+
+/**
+ * Standard wait time for regression detection to complete.
+ * Allows detector to process recorded metrics and check for regressions.
+ */
+const DETECTION_WAIT_MS = 300;
+
 describe('RegressionDetector', () => {
   let detector: RegressionDetector;
+
+  /**
+   * Helper to record a regression scenario with specified metric values.
+   * Records all three required metrics (throughput, ttft, error_rate) for
+   * regression detection to work correctly.
+   *
+   * Note: Must be declared inside describe() to access detector instance.
+   */
+  const recordRegressionScenario = (
+    count: number,
+    throughput: number,
+    ttft: number,
+    errorRate: number
+  ): void => {
+    for (let i = 0; i < count; i++) {
+      detector.recordMetric({
+        metric: 'throughput',
+        value: throughput,
+        timestamp: Date.now(),
+      });
+      detector.recordMetric({
+        metric: 'ttft',
+        value: ttft,
+        timestamp: Date.now(),
+      });
+      detector.recordMetric({
+        metric: 'error_rate',
+        value: errorRate,
+        timestamp: Date.now(),
+      });
+    }
+  };
 
   beforeEach(() => {
     const config = createDefaultDetectorConfig();
@@ -37,15 +89,7 @@ describe('RegressionDetector', () => {
 
   describe('Baseline Management', () => {
     it('should set and retrieve baseline metrics', () => {
-      const baseline: BaselineMetrics = {
-        throughput: 100,
-        ttft: 500,
-        errorRate: 0.001,
-        latencyP95: 200,
-        latencyP99: 300,
-        timestamp: Date.now(),
-        version: 'v1.0.0',
-      };
+      const baseline = createTestBaseline({ version: 'v1.0.0' });
 
       detector.setBaseline(baseline);
 
@@ -54,14 +98,7 @@ describe('RegressionDetector', () => {
     });
 
     it('should emit baselineUpdated event', async () => {
-      const baseline: BaselineMetrics = {
-        throughput: 100,
-        ttft: 500,
-        errorRate: 0.001,
-        latencyP95: 200,
-        latencyP99: 300,
-        timestamp: Date.now(),
-      };
+      const baseline = createTestBaseline();
 
       const eventPromise = new Promise<BaselineMetrics>((resolve) => {
         detector.once('baselineUpdated', resolve);
@@ -140,42 +177,15 @@ describe('RegressionDetector', () => {
 
   describe('Throughput Regression Detection', () => {
     it('should detect throughput regression', async () => {
-      // Set baseline
-      const baseline: BaselineMetrics = {
-        throughput: 100,
-        ttft: 500,
-        errorRate: 0.001,
-        latencyP95: 200,
-        latencyP99: 300,
-        timestamp: Date.now(),
-      };
-      detector.setBaseline(baseline);
+      detector.setBaseline(createTestBaseline());
 
       detector.start();
 
-      // Record degraded throughput (10% drop)
-      for (let i = 0; i < 10; i++) {
-        detector.recordMetric({
-          metric: 'throughput',
-          value: 90, // 10% below baseline
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'ttft',
-          value: 500,
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'error_rate',
-          value: 0.001,
-          timestamp: Date.now(),
-        });
-      }
+      // Record degraded throughput (10% drop from baseline of 100)
+      recordRegressionScenario(10, 90, 500, 0.001);
 
       // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
 
       const result = await detector.checkForRegressions();
       expect(result).not.toBeNull();
@@ -189,42 +199,18 @@ describe('RegressionDetector', () => {
     });
 
     it('should not trigger false positives', async () => {
-      // Set baseline
-      const baseline: BaselineMetrics = {
-        throughput: 100,
-        ttft: 500,
-        errorRate: 0.001,
-        latencyP95: 200,
-        latencyP99: 300,
-        timestamp: Date.now(),
-      };
-      detector.setBaseline(baseline);
+      detector.setBaseline(createTestBaseline());
 
       detector.start();
 
       // Record acceptable metrics (within threshold)
-      for (let i = 0; i < 10; i++) {
-        detector.recordMetric({
-          metric: 'throughput',
-          value: 98, // Only 2% below baseline (threshold: 5%)
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'ttft',
-          value: 510, // Only 2% above baseline (threshold: 10%)
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'error_rate',
-          value: 0.005, // 0.5% error rate (threshold: 1%)
-          timestamp: Date.now(),
-        });
-      }
+      // Throughput: 2% below baseline (threshold: 5%)
+      // TTFT: 2% above baseline (threshold: 10%)
+      // Error rate: 0.5% (threshold: 1%)
+      recordRegressionScenario(10, 98, 510, 0.005);
 
       // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
 
       const result = await detector.checkForRegressions();
       expect(result).not.toBeNull();
@@ -235,42 +221,15 @@ describe('RegressionDetector', () => {
 
   describe('TTFT Regression Detection', () => {
     it('should detect TTFT regression', async () => {
-      // Set baseline
-      const baseline: BaselineMetrics = {
-        throughput: 100,
-        ttft: 500,
-        errorRate: 0.001,
-        latencyP95: 200,
-        latencyP99: 300,
-        timestamp: Date.now(),
-      };
-      detector.setBaseline(baseline);
+      detector.setBaseline(createTestBaseline());
 
       detector.start();
 
-      // Record degraded TTFT (15% increase)
-      for (let i = 0; i < 10; i++) {
-        detector.recordMetric({
-          metric: 'throughput',
-          value: 100,
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'ttft',
-          value: 575, // 15% above baseline (threshold: 10%)
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'error_rate',
-          value: 0.001,
-          timestamp: Date.now(),
-        });
-      }
+      // Record degraded TTFT (15% increase from baseline of 500ms)
+      recordRegressionScenario(10, 100, 575, 0.001);
 
       // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
 
       const result = await detector.checkForRegressions();
       expect(result).not.toBeNull();
@@ -284,42 +243,15 @@ describe('RegressionDetector', () => {
 
   describe('Error Rate Regression Detection', () => {
     it('should detect error rate regression', async () => {
-      // Set baseline
-      const baseline: BaselineMetrics = {
-        throughput: 100,
-        ttft: 500,
-        errorRate: 0.001,
-        latencyP95: 200,
-        latencyP99: 300,
-        timestamp: Date.now(),
-      };
-      detector.setBaseline(baseline);
+      detector.setBaseline(createTestBaseline());
 
       detector.start();
 
-      // Record high error rate (2% > 1% threshold)
-      for (let i = 0; i < 10; i++) {
-        detector.recordMetric({
-          metric: 'throughput',
-          value: 100,
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'ttft',
-          value: 500,
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'error_rate',
-          value: 0.02, // 2% error rate (threshold: 1%)
-          timestamp: Date.now(),
-        });
-      }
+      // Record high error rate (2% exceeds 1% threshold)
+      recordRegressionScenario(10, 100, 500, 0.02);
 
       // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
 
       const result = await detector.checkForRegressions();
       expect(result).not.toBeNull();
@@ -333,16 +265,7 @@ describe('RegressionDetector', () => {
 
   describe('Alert Events', () => {
     it('should emit alert events', async () => {
-      // Set baseline
-      const baseline: BaselineMetrics = {
-        throughput: 100,
-        ttft: 500,
-        errorRate: 0.001,
-        latencyP95: 200,
-        latencyP99: 300,
-        timestamp: Date.now(),
-      };
-      detector.setBaseline(baseline);
+      detector.setBaseline(createTestBaseline());
 
       const alertPromise = new Promise<RegressionAlert>((resolve) => {
         detector.once('alert', resolve);
@@ -350,29 +273,11 @@ describe('RegressionDetector', () => {
 
       detector.start();
 
-      // Record regression
-      for (let i = 0; i < 10; i++) {
-        detector.recordMetric({
-          metric: 'throughput',
-          value: 90, // 10% drop
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'ttft',
-          value: 500,
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'error_rate',
-          value: 0.001,
-          timestamp: Date.now(),
-        });
-      }
+      // Record throughput regression (10% drop)
+      recordRegressionScenario(10, 90, 500, 0.001);
 
       // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
       await detector.checkForRegressions();
 
       const alert = await alertPromise;
@@ -392,16 +297,7 @@ describe('RegressionDetector', () => {
 
       const detectorWithRollback = new RegressionDetector(config);
 
-      // Set baseline
-      const baseline: BaselineMetrics = {
-        throughput: 100,
-        ttft: 500,
-        errorRate: 0.001,
-        latencyP95: 200,
-        latencyP99: 300,
-        timestamp: Date.now(),
-      };
-      detectorWithRollback.setBaseline(baseline);
+      detectorWithRollback.setBaseline(createTestBaseline());
 
       const rollbackPromise = new Promise<string>((resolve) => {
         detectorWithRollback.once('rollback', resolve);
@@ -409,20 +305,19 @@ describe('RegressionDetector', () => {
 
       detectorWithRollback.start();
 
-      // Record critical regression
+      // Record critical regression (10% throughput drop)
+      // Note: Using local function since we're in a different detector instance
       for (let i = 0; i < 10; i++) {
         detectorWithRollback.recordMetric({
           metric: 'throughput',
-          value: 90, // 10% drop
+          value: 90,
           timestamp: Date.now(),
         });
-
         detectorWithRollback.recordMetric({
           metric: 'ttft',
           value: 500,
           timestamp: Date.now(),
         });
-
         detectorWithRollback.recordMetric({
           metric: 'error_rate',
           value: 0.001,
@@ -431,7 +326,7 @@ describe('RegressionDetector', () => {
       }
 
       // Wait for detection
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
       await detectorWithRollback.checkForRegressions();
 
       const reason = await rollbackPromise;
@@ -444,42 +339,15 @@ describe('RegressionDetector', () => {
 
   describe('Alert History', () => {
     it('should maintain alert history', async () => {
-      // Set baseline
-      const baseline: BaselineMetrics = {
-        throughput: 100,
-        ttft: 500,
-        errorRate: 0.001,
-        latencyP95: 200,
-        latencyP99: 300,
-        timestamp: Date.now(),
-      };
-      detector.setBaseline(baseline);
+      detector.setBaseline(createTestBaseline());
 
       detector.start();
 
-      // Record regression
-      for (let i = 0; i < 10; i++) {
-        detector.recordMetric({
-          metric: 'throughput',
-          value: 90,
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'ttft',
-          value: 500,
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'error_rate',
-          value: 0.001,
-          timestamp: Date.now(),
-        });
-      }
+      // Record throughput regression
+      recordRegressionScenario(10, 90, 500, 0.001);
 
       // Wait and check
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
       await detector.checkForRegressions();
 
       const history = detector.getAlertHistory();
@@ -487,42 +355,15 @@ describe('RegressionDetector', () => {
     });
 
     it('should clear alert history', async () => {
-      // Set baseline
-      const baseline: BaselineMetrics = {
-        throughput: 100,
-        ttft: 500,
-        errorRate: 0.001,
-        latencyP95: 200,
-        latencyP99: 300,
-        timestamp: Date.now(),
-      };
-      detector.setBaseline(baseline);
+      detector.setBaseline(createTestBaseline());
 
       detector.start();
 
-      // Record regression
-      for (let i = 0; i < 10; i++) {
-        detector.recordMetric({
-          metric: 'throughput',
-          value: 90,
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'ttft',
-          value: 500,
-          timestamp: Date.now(),
-        });
-
-        detector.recordMetric({
-          metric: 'error_rate',
-          value: 0.001,
-          timestamp: Date.now(),
-        });
-      }
+      // Record throughput regression
+      recordRegressionScenario(10, 90, 500, 0.001);
 
       // Wait and check
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, DETECTION_WAIT_MS));
       await detector.checkForRegressions();
 
       detector.clearAlertHistory();
